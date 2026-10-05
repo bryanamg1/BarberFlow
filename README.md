@@ -92,6 +92,20 @@ Copy `.env.example` to `.env.local` and fill in the two approved variables:
 
 [Expo loads and inlines public variables natively](https://docs.expo.dev/guides/environment-variables/). Local `.env` files are ignored by Git; `.env.example` contains no credentials and is tracked. Never put private or service-role keys in `EXPO_PUBLIC_*` variables: these values are visible in the compiled app.
 
-Application code must import `env` from `@/lib/env` rather than reading these variables directly. `src/lib/env.ts` uses static `process.env.EXPO_PUBLIC_*` property access and Zod validation. Importing the module validates both values, trims surrounding whitespace and exports a typed, read-only object. Missing or invalid values cause a configuration error that lists only variable names, never values.
+Application code must import `env` from `@/lib/env` rather than reading these variables directly. `src/lib/env.ts` uses static `process.env.EXPO_PUBLIC_*` property access and Zod validation. Importing the module validates both values, trims surrounding whitespace and exports a typed, read-only object with `env.supabaseUrl` and `env.supabaseAnonKey`. Missing or invalid values cause a configuration error that lists only variable names, never values.
 
-BF-015 leaves this module ready for its first consumer in BF-016. The current placeholder screens can still run without local Supabase configuration. After editing `.env.local`, fully reload the app through Expo to pick up the updated values. This validation checks configuration syntax; it does not verify that a project or key exists or make network requests.
+The Supabase client consumes this validated configuration when imported. The current placeholder screens can still run without local Supabase configuration because they do not import the client yet. After editing `.env.local`, fully reload the app through Expo to pick up the updated values. This validation checks configuration syntax; it does not verify that a project or key exists or make network requests.
+
+## Shared Supabase client
+
+Import the single client instance from `@/lib/supabase/client`:
+
+```ts
+import { supabase } from '@/lib/supabase/client';
+```
+
+Future repositories must reuse this instance rather than call `createClient` themselves. The client uses the existing public anon key; the approved environment variable names remain unchanged.
+
+Session storage follows the [official Supabase Expo quickstart](https://supabase.com/docs/guides/getting-started/quickstarts/expo-react-native): `expo-sqlite/localStorage/install` supplies persistent local storage on iOS and Android, while Web uses the browser's own `localStorage`. The [Expo SDK 57 SQLite documentation](https://docs.expo.dev/versions/v57.0.0/sdk/sqlite/#the-localstorage-api) confirms the installer does nothing on Web. `storage.native.ts` loads it only for native platforms; `storage.ts` uses browser storage. This split also avoids Metro resolving SQLite's WASM assets in Web development, without custom Metro configuration. During Web static rendering, where `localStorage` is absent, the client safely uses Supabase's in-memory fallback. It is an application client, not a server-side authentication client for handling user requests.
+
+The URL polyfill loads before client creation. Session persistence and automatic token refresh are enabled; automatic session detection from URLs is disabled. BF-016 configures the client only. Login, session bootstrap, routing guards, auth lifecycle handling and recovery links belong to later auth tickets.

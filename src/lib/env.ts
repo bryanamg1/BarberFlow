@@ -26,5 +26,9 @@ if (!result.success) {
   );
 }
 
-export type Env = z.infer<typeof envSchema>;
-export const env: Env = result.data;
+export const env = Object.freeze({
+  supabaseUrl: result.data.EXPO_PUBLIC_SUPABASE_URL,
+  supabaseAnonKey: result.data.EXPO_PUBLIC_SUPABASE_ANON_KEY,
+});
+
+export type Env = typeof env;
