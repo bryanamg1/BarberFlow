@@ -69,10 +69,10 @@ BarberFlow configures import aliases in `compilerOptions.paths` in `tsconfig.jso
 
 The `paths` values use `./src/*` and `./assets/*`: TypeScript requires the leading `./` when `baseUrl` is absent.
 
-Use `@/` for imports across source directories. For example, this imports an existing hook:
+Use `@/` for imports across source directories. For example, this imports the theme tokens:
 
 ```tsx
-import { useTheme } from '@/hooks/use-theme';
+import { theme } from '@/theme';
 ```
 
 Short imports between sibling files may remain relative. Routes stay in `src/app/`; components, hooks and future domain code stay outside that directory. The same `@/*` mapping will cover future source folders when their tickets create them.
@@ -109,3 +109,17 @@ Future repositories must reuse this instance rather than call `createClient` the
 Session storage follows the [official Supabase Expo quickstart](https://supabase.com/docs/guides/getting-started/quickstarts/expo-react-native): `expo-sqlite/localStorage/install` supplies persistent local storage on iOS and Android, while Web uses the browser's own `localStorage`. The [Expo SDK 57 SQLite documentation](https://docs.expo.dev/versions/v57.0.0/sdk/sqlite/#the-localstorage-api) confirms the installer does nothing on Web. `storage.native.ts` loads it only for native platforms; `storage.ts` uses browser storage. This split also avoids Metro resolving SQLite's WASM assets in Web development, without custom Metro configuration. During Web static rendering, where `localStorage` is absent, the client safely uses Supabase's in-memory fallback. It is an application client, not a server-side authentication client for handling user requests.
 
 The URL polyfill loads before client creation. Session persistence and automatic token refresh are enabled; automatic session detection from URLs is disabled. BF-016 configures the client only. Login, session bootstrap, routing guards, auth lifecycle handling and recovery links belong to later auth tickets.
+
+## Theme tokens
+
+`src/theme/` is the single source for BarberFlow's dark theme. Import `theme` or individual token groups from `@/theme`. The eight modules contain the approved palette, semantic colors, nine text styles, spacing, radii, touch target sizes and platform-specific shadows. Tokens are read-only in TypeScript. They do not create components or change screen styling.
+
+Spacing keys are the actual logical pixel values, such as `theme.spacing[16]`. Radius tokens include `card`, `input`, `button` and `pill`. Minimum touch targets are 44 x 44, preferred targets are 48 x 48, and FABs are 56 x 56.
+
+Typography declares Inter with weights 400, 500, 600 and 700. Font assets and loading remain a separate BF-025 task; Inter must be registered before these text styles are used. Theme tokens do not disable system text scaling.
+
+The design document specifies restrained elevation without numerical shadow values. `raised` and `floating` provide small defaults: iOS uses native shadow props, Android uses elevation (2 and 4), and Web uses CSS `boxShadow`. See the [React Native 0.86 shadow documentation](https://reactnative.dev/docs/0.86/shadow-props). `none` clears the corresponding shadow for each platform; colored glow is not applied automatically.
+
+Semantic colors follow `docs/DESIGN_SYSTEM.md`. `NO_SHOW` uses the permitted muted color and normal stock uses success. Status UI must pair color with a label/icon. `textMuted` has approximately 3.90:1 contrast on `background`, below the [WCAG AA 4.5:1 minimum for normal text](https://www.w3.org/WAI/WCAG22/Understanding/contrast-minimum.html). Reserve it for inactive/decorative content or qualifying large text after checking its background; use `textSecondary` for readable secondary information. Primary action backgrounds should use the dark `background` color for text (12.15:1 contrast), rather than `textPrimary` (1.46:1). The approved palette remains unchanged.
+
+The unused scaffold theme constants, color-scheme hooks and CSS font variables were removed so that consumers cannot accidentally import a second light/dark palette. Routing, environment configuration and the shared Supabase client are unchanged.
