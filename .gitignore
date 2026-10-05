@@ -34,3 +34,21 @@ Desktop.ini
 *.swp
 *.swo
 *~
+
+# Expo-generated environment types and Metro health checks
+expo-env.d.ts
+.metro-health-check*
+
+# Generated native projects and local native build files
+/ios/
+/android/
+.kotlin/
+*.orig.*
+
+# Native signing credentials
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.pem
