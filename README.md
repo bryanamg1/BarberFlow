@@ -80,3 +80,18 @@ Short imports between sibling files may remain relative. Routes stay in `src/app
 [Expo resolves these aliases natively in Metro](https://docs.expo.dev/guides/typescript/#path-aliases-optional). Restart Expo CLI after changing `paths`. No Babel alias plugin or custom Metro configuration is needed.
 
 Keep `extends: "expo/tsconfig.base"` and `strict: true`. `baseUrl` is omitted because aliases resolve relative to `tsconfig.json` without it and [TypeScript 6 deprecates that option](https://www.typescriptlang.org/docs/handbook/release-notes/typescript-6-0.html#deprecated---baseurl).
+
+## Public environment configuration
+
+Copy `.env.example` to `.env.local` and fill in the two approved variables:
+
+| Variable                        | Requirement                                                               |
+| ------------------------------- | ------------------------------------------------------------------------- |
+| `EXPO_PUBLIC_SUPABASE_URL`      | A valid HTTP or HTTPS URL; localhost is supported for local development   |
+| `EXPO_PUBLIC_SUPABASE_ANON_KEY` | The project's public anon key, with at least one non-whitespace character |
+
+[Expo loads and inlines public variables natively](https://docs.expo.dev/guides/environment-variables/). Local `.env` files are ignored by Git; `.env.example` contains no credentials and is tracked. Never put private or service-role keys in `EXPO_PUBLIC_*` variables: these values are visible in the compiled app.
+
+Application code must import `env` from `@/lib/env` rather than reading these variables directly. `src/lib/env.ts` uses static `process.env.EXPO_PUBLIC_*` property access and Zod validation. Importing the module validates both values, trims surrounding whitespace and exports a typed, read-only object. Missing or invalid values cause a configuration error that lists only variable names, never values.
+
+BF-015 leaves this module ready for its first consumer in BF-016. The current placeholder screens can still run without local Supabase configuration. After editing `.env.local`, fully reload the app through Expo to pick up the updated values. This validation checks configuration syntax; it does not verify that a project or key exists or make network requests.
