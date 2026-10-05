@@ -54,3 +54,26 @@ Join our community of developers creating universal apps.
 
 - [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
 - [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+
+## Import aliases
+
+BarberFlow configures import aliases in `compilerOptions.paths` in `tsconfig.json`:
+
+| Alias | Location |
+| --- | --- |
+| `@/*` | `src/*` |
+| `@/assets/*` | `assets/*` at the project root, retained for existing image imports |
+
+The `paths` values use `./src/*` and `./assets/*`: TypeScript requires the leading `./` when `baseUrl` is absent.
+
+Use `@/` for imports across source directories. For example, this imports an existing hook:
+
+```tsx
+import { useTheme } from '@/hooks/use-theme';
+```
+
+Short imports between sibling files may remain relative. Routes stay in `src/app/`; components, hooks and future domain code stay outside that directory. The same `@/*` mapping will cover future source folders when their tickets create them.
+
+[Expo resolves these aliases natively in Metro](https://docs.expo.dev/guides/typescript/#path-aliases-optional). Restart Expo CLI after changing `paths`. No Babel alias plugin or custom Metro configuration is needed.
+
+Keep `extends: "expo/tsconfig.base"` and `strict: true`. `baseUrl` is omitted because aliases resolve relative to `tsconfig.json` without it and [TypeScript 6 deprecates that option](https://www.typescriptlang.org/docs/handbook/release-notes/typescript-6-0.html#deprecated---baseurl).
