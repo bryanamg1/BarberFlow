@@ -37,8 +37,10 @@ This command will move the starter code to the **app-example** directory and cre
 
 ### Other setup steps
 
+- Run `npm run format` to apply the project's Prettier formatting and `npm run format:check` to verify it without changing files.
+  `.prettierrc.json` defines the style. `.prettierignore` excludes generated output, the npm lockfile, approved reference documentation, imported assets and generated agent instructions.
 - Run `npm run lint` to check source code with `eslint.config.js`, based on `eslint-config-expo/flat`.
-  Generated `dist/`, `node_modules/` and `.expo/` files are ignored. See the [Expo ESLint guide](https://docs.expo.dev/guides/using-eslint/) for supported configuration.
+  Prettier's recommended ESLint integration checks formatting and disables conflicting style rules. Generated `dist/`, `node_modules/` and `.expo/` files are ignored. See the [Expo ESLint and Prettier guide](https://docs.expo.dev/guides/using-eslint/) for supported configuration.
 - If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
 - Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
 
@@ -60,9 +62,9 @@ Join our community of developers creating universal apps.
 
 BarberFlow configures import aliases in `compilerOptions.paths` in `tsconfig.json`:
 
-| Alias | Location |
-| --- | --- |
-| `@/*` | `src/*` |
+| Alias        | Location                                                            |
+| ------------ | ------------------------------------------------------------------- |
+| `@/*`        | `src/*`                                                             |
 | `@/assets/*` | `assets/*` at the project root, retained for existing image imports |
 
 The `paths` values use `./src/*` and `./assets/*`: TypeScript requires the leading `./` when `baseUrl` is absent.

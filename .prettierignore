@@ -1,0 +1,15 @@
+# Dependencies and generated output
+node_modules/
+.expo/
+dist/
+web-build/
+build/
+coverage/
+package-lock.json
+expo-env.d.ts
+
+# Approved reference documents, imported assets and generated agent instructions
+docs/
+BarberFlow_Documentation_v1.0/
+assets/
+AGENTS.md
