@@ -46,6 +46,8 @@ Font: Inter. Tokens: displayLg 32/38/700, display 28/34/700, headingLg 24/30/700
 
 ## Interaction
 
+Border widths: `borderWidths.thin = 1` logical pixel, shared by outlines, card/badge borders and dividers.
+
 Minimum touch target 44x44, preferred 48x48. FAB 56x56.
 
 Button variants: Primary, Secondary, Outline, Danger, Ghost. States: default, pressed, disabled, loading.

@@ -1,4 +1,5 @@
 export { colors, semanticColors } from './colors';
+export { borderWidths } from './borders';
 export { fontFamilies, fontWeights, typography } from './typography';
 export { spacing } from './spacing';
 export { radius } from './radius';

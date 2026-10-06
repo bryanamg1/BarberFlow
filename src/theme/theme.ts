@@ -1,4 +1,5 @@
 import { colors, semanticColors } from './colors';
+import { borderWidths } from './borders';
 import { radius } from './radius';
 import { shadows } from './shadows';
 import { sizing } from './sizing';
@@ -8,6 +9,7 @@ import { fontFamilies, fontWeights, typography } from './typography';
 export const theme = {
   colors,
   semanticColors,
+  borderWidths,
   fontFamilies,
   fontWeights,
   typography,

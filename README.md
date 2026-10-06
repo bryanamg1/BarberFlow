@@ -112,7 +112,7 @@ The URL polyfill loads before client creation. Session persistence and automatic
 
 ## Theme tokens
 
-`src/theme/` is the single source for BarberFlow's dark theme. Import `theme` or individual token groups from `@/theme`. The eight modules contain the approved palette, semantic colors, nine text styles, spacing, radii, touch target sizes and platform-specific shadows. Tokens are read-only in TypeScript. They do not create components or change screen styling.
+`src/theme/` is the single source for BarberFlow's dark theme. Import `theme` or individual token groups from `@/theme`. Tokens contain the approved palette, semantic colors, nine text styles, spacing, radii, touch target sizes, border widths and platform-specific shadows. Tokens are read-only in TypeScript. They do not create components or change screen styling.
 
 Spacing keys are the actual logical pixel values, such as `theme.spacing[16]`. Radius tokens include `card`, `input`, `button` and `pill`. Minimum touch targets are 44 x 44, preferred targets are 48 x 48, and FABs are 56 x 56.
 
@@ -127,3 +127,36 @@ The design document specifies restrained elevation without numerical shadow valu
 Semantic colors follow `docs/DESIGN_SYSTEM.md`. `NO_SHOW` uses the permitted muted color and normal stock uses success. Status UI must pair color with a label/icon. `textMuted` has approximately 3.90:1 contrast on `background`, below the [WCAG AA 4.5:1 minimum for normal text](https://www.w3.org/WAI/WCAG22/Understanding/contrast-minimum.html). Reserve it for inactive/decorative content or qualifying large text after checking its background; use `textSecondary` for readable secondary information. Primary action backgrounds should use the dark `background` color for text (12.15:1 contrast), rather than `textPrimary` (1.46:1). The approved palette remains unchanged.
 
 The unused scaffold theme constants, color-scheme hooks and CSS font variables were removed so that consumers cannot accidentally import a second light/dark palette. Routing, environment configuration and the shared Supabase client are unchanged.
+
+## Shared UI primitives
+
+Import `Button`, `IconButton`, `Card`, `Badge` and `Divider` from `@/components/ui`. Their props/types are exported from the same module. `borderWidths.thin` is the approved 1 logical pixel token used by borders, focus indicators and dividers.
+
+- `Button` requires `label` and supports `primary` (default), `secondary`, `outline`, `danger` and `ghost`. `loading` keeps the label visible, adds the native loading indicator and blocks presses; both native accessibility state and Web ARIA announce busy/disabled. Pressed danger inverts the existing danger/background colors to avoid inventing another shade.
+- `IconButton` requires `accessibilityLabel` and an `icon` render function receiving `{ color, size }`. Compose an existing icon or other decorative node with those values; no icon/UI dependency is added. Its content is hidden from screen readers so only the button name is announced.
+- `Card` is a static container accepting children and normal View props. It uses the raised surface, card radius, padding and restrained raised shadow; it does not group or hide interactive children.
+- `Badge` requires a visible `label` and accepts a `tone`: `neutral` (default), `primary`, `accent`, `success`, `warning` or `danger`. Tones are presentation only; feature status mappings remain inside their features.
+- `Divider` is a decorative horizontal rule, hidden from accessibility tools.
+
+Buttons support normal Pressable events, style objects or style callbacks and caller focus/blur handlers. They preserve minimum 48 x 48 touch targets and show keyboard focus using theme borders and, on Web, an outline. Text remains scalable and can wrap; no fixed text height or line limit is imposed. Container styles and Button/Badge `textStyle` allow composition; callers must use theme tokens and preserve contrast. Disabled controls use the approved muted text; no opacity token is introduced. Static text styles use the Inter faces already loaded by the root layout.
+
+```tsx
+import { Text } from 'react-native';
+import { Badge, Button, Card, Divider, IconButton } from '@/components/ui';
+import { theme } from '@/theme';
+
+<Card style={{ gap: theme.spacing[16] }}>
+  <Badge label="Disponible" tone="success" />
+  <Divider />
+  <Button label="Continuar" onPress={handleContinue} />
+  <IconButton
+    accessibilityLabel="Agregar"
+    onPress={handleAdd}
+    icon={({ color, size }) => (
+      <Text style={{ ...theme.typography.heading, color, fontSize: size }}>+</Text>
+    )}
+  />
+</Card>;
+```
+
+BF-030 does not apply primitives to placeholder routes. No Inputs, feature components or additional state components are included. Run `node --test tests/ui-primitives.test.cjs` for the component behavior checks, in addition to lint, TypeScript and formatting checks. The interaction contracts follow [React Native Pressable](https://reactnative.dev/docs/0.86/pressable), [accessibility](https://reactnative.dev/docs/0.86/accessibility) and [React Native Web Pressable](https://necolas.github.io/react-native-web/docs/pressable/).
