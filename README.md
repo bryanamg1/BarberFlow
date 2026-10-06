@@ -195,3 +195,30 @@ function FieldsExample() {
 ```
 
 Run `node --test tests/ui-primitives.test.cjs` for the shared UI checks, including input states, accessory actions, refs and real React Native Web rendering. No form library, feature validation or business behavior is added. The input contracts follow [React Native TextInput](https://reactnative.dev/docs/0.86/textinput) and [React Native Web TextInput](https://necolas.github.io/react-native-web/docs/text-input/).
+
+## Shared feedback states
+
+BF-032 exports `LoadingState`, `EmptyState`, `ErrorState` and `Skeleton` and their prop types from `@/components/ui`. They use existing theme tokens and Inter. Consumers own which state appears, requests and retry status; these components do not fetch data or change navigation.
+
+- `LoadingState` centers an ActivityIndicator and a message, defaulting to Cargando…. Pass `message=""` for a spinner without visible text; it retains the accessible name Cargando…. The state exposes a named, busy, indeterminate progress bar, while its decorative spinner is hidden from assistive tools. No percentage is fabricated.
+- `EmptyState` accepts `title` (default Sin resultados), optional `message` and optional `action: { label, onPress, disabled?, loading?, accessibilityLabel? }`. Its text forms a polite status region. The existing Button is a separate accessibility target outside that group.
+- `ErrorState` accepts `title` (default Ocurrió un error), optional user-facing `message` and `onRetry`. A retry button appears only when `onRetry` exists. `retryLabel` defaults to Reintentar; `retrying` and `retryDisabled` delegate blocking to Button. The message forms an assertive alert; its button remains independently accessible. Pass friendly presentation text, never a raw SQL/Supabase error.
+- `Skeleton` renders one static decorative block, hidden from screen readers and unable to intercept touches. Its default width fills the container, height uses `theme.spacing[24]` and radius uses the `8` radius token. `width`/`height` accept standard native dimensions, and `radius` selects an existing theme radius key. Use theme tokens for custom dimensions/styles; compose multiple blocks in the consumer. A parent LoadingState can describe their loading status. No shimmer, pulse or animation tokens are introduced.
+
+All four accept `style` and `testID`. State containers center their contents with token padding/gaps; use `style={{ flex: 1 }}` when their parent should give them the full available section/page height. Text remains scalable and wraps without line limits. The danger-colored error title uses the approved `headingLg` scale, retaining large-text contrast even on `surfaceStrong`. Placeholder routes are unchanged.
+
+```tsx
+import { EmptyState, ErrorState, LoadingState, Skeleton } from '@/components/ui';
+import { theme } from '@/theme';
+
+<LoadingState message="Cargando información…" />;
+<EmptyState title="Sin resultados" message="Prueba otra búsqueda." />;
+<ErrorState
+  message="No pudimos cargar la información."
+  onRetry={handleRetry}
+  retrying={retrying}
+/>;
+<Skeleton height={theme.spacing[40]} radius="card" />;
+```
+
+The existing `node --test tests/ui-primitives.test.cjs` suite covers state names, busy semantics, actions, blocked retries, decorative skeletons and real Web markup, along with previous UI contracts. Follow [React Native accessibility](https://reactnative.dev/docs/0.86/accessibility) and [ActivityIndicator](https://reactnative.dev/docs/0.86/activityindicator) for the underlying platform semantics.

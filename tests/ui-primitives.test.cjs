@@ -436,3 +436,164 @@ test('Web: actual TextInput renders unique labels/messages, error description, p
     assert(ids.includes(match[1]));
   }
 });
+
+for (const platform of ['ios', 'android', 'web']) {
+  test(`${platform}: LoadingState has a named indeterminate busy state and a decorative spinner`, () => {
+    const ui = loadUI(platform);
+    const output = ui.LoadingState({
+      message: 'Cargando información',
+      style: { flex: 1 },
+      testID: 'loading-section',
+    });
+    assert.equal(output.props.role, 'progressbar');
+    assert.equal(output.props['aria-label'], 'Cargando información');
+    assert.equal(output.props['aria-busy'], true);
+    assert.equal(output.props.accessibilityState.busy, true);
+    assert.equal(output.props.accessible, true);
+    assert.equal(output.props['aria-valuenow'], undefined);
+    assert.equal(output.props.testID, 'loading-section');
+    const style = flatten(output.props.style);
+    assert.equal(style.flex, 1);
+    assert.equal(style.alignItems, 'center');
+    assert.equal(style.justifyContent, 'center');
+    const spinner = nodes(output).find((node) => node.type === 'ActivityIndicator');
+    assert.equal(spinner.props.color, ui.theme.colors.primary);
+    assert.equal(spinner.props['aria-hidden'], true);
+    assert.equal(spinner.props.accessible, false);
+    const text = nodes(output).find((node) => node.type === 'Text');
+    assert.equal(flatten(text.props.style).fontFamily, ui.theme.fontFamilies.regular);
+    assert.equal(text.props.allowFontScaling, undefined);
+    assert.equal(text.props.numberOfLines, undefined);
+    assert.equal(ui.LoadingState({}).props['aria-label'], 'Cargando…');
+    const silent = ui.LoadingState({ message: '' });
+    assert.equal(silent.props['aria-label'], 'Cargando…');
+    assert(!nodes(silent).some((node) => node.type === 'Text'));
+  });
+
+  test(`${platform}: EmptyState keeps actions outside its status group and delegates blocked states`, () => {
+    const ui = loadUI(platform);
+    assert(!nodes(ui.EmptyState({})).some((node) => typeof node.type === 'function'));
+    let presses = 0;
+    for (const state of [{}, { loading: true }, { disabled: true }]) {
+      const output = ui.EmptyState({
+        title: 'Sin resultados',
+        message: 'Cambia tu búsqueda.',
+        action: { label: 'Continuar', onPress: () => presses++, ...state },
+        style: { margin: ui.theme.spacing[8] },
+      });
+      assert.equal(output.props.accessible, undefined);
+      assert.equal(flatten(output.props.style).margin, ui.theme.spacing[8]);
+      const status = nodes(output).find((node) => node.props.role === 'status');
+      assert.equal(status.props['aria-live'], 'polite');
+      assert.equal(status.props['aria-label'], 'Sin resultados. Cambia tu búsqueda.');
+      assert(!nodes(status).some((node) => typeof node.type === 'function'));
+      const action = nodes(output).find((node) => typeof node.type === 'function');
+      const button = ui.render(action.type, action.props);
+      if (state.disabled || state.loading) {
+        assert.equal(button.props.onPress, undefined);
+        assert.equal(button.props.disabled, true);
+      } else {
+        button.props.onPress();
+      }
+    }
+    assert.equal(presses, 1);
+  });
+
+  test(`${platform}: ErrorState exposes an alert, optional retry and caller-owned retry status`, () => {
+    const ui = loadUI(platform);
+    let retries = 0;
+    const props = {
+      message: 'Inténtalo nuevamente.',
+      onRetry: () => retries++,
+      retryLabel: 'Volver a intentar',
+    };
+    for (const state of [{}, { retrying: true }, { retryDisabled: true }]) {
+      const output = ui.ErrorState({ ...props, ...state });
+      assert.equal(output.props.accessible, undefined);
+      const alert = nodes(output).find((node) => node.props.role === 'alert');
+      assert.equal(alert.props['aria-live'], 'assertive');
+      assert.equal(alert.props['aria-label'], 'Ocurrió un error. Inténtalo nuevamente.');
+      assert(!nodes(alert).some((node) => typeof node.type === 'function'));
+      const title = nodes(alert).find((node) => node.props.children === 'Ocurrió un error');
+      assert.equal(flatten(title.props.style).color, ui.theme.colors.danger);
+      assert.equal(flatten(title.props.style).fontFamily, ui.theme.fontFamilies.bold);
+      assert.equal(flatten(title.props.style).fontSize, ui.theme.typography.headingLg.fontSize);
+      assert(contrast(ui.theme.colors.danger, ui.theme.colors.surfaceStrong) >= 3);
+      const action = nodes(output).find((node) => typeof node.type === 'function');
+      const button = ui.render(action.type, action.props);
+      assert.equal(button.props['aria-label'], 'Volver a intentar');
+      if (state.retrying || state.retryDisabled) {
+        assert.equal(button.props.onPress, undefined);
+        assert.equal(button.props.disabled, true);
+      } else {
+        button.props.onPress();
+      }
+    }
+    assert.equal(retries, 1);
+    assert(!nodes(ui.ErrorState({})).some((node) => typeof node.type === 'function'));
+  });
+
+  test(`${platform}: Skeleton is static, hidden from accessibility, ignores touches and composes token dimensions`, () => {
+    const ui = loadUI(platform);
+    const output = ui.Skeleton({});
+    assert.equal(output.props.role, 'presentation');
+    assert.equal(output.props.accessible, false);
+    assert.equal(output.props['aria-hidden'], true);
+    assert.equal(output.props.importantForAccessibility, 'no-hide-descendants');
+    assert.equal(flatten(output.props.style).pointerEvents, 'none');
+    assert.equal(output.props.children, undefined);
+    const style = flatten(output.props.style);
+    assert.equal(style.width, '100%');
+    assert.equal(style.height, ui.theme.spacing[24]);
+    assert.equal(style.backgroundColor, ui.theme.colors.surfaceStrong);
+    assert.equal(style.borderRadius, ui.theme.radius[8]);
+    const custom = ui.Skeleton({
+      width: ui.theme.sizing.touchTarget,
+      height: ui.theme.spacing[40],
+      radius: 'pill',
+      style: { margin: ui.theme.spacing[8] },
+      testID: 'placeholder-block',
+    });
+    assert.equal(custom.props.testID, 'placeholder-block');
+    assert.equal(flatten(custom.props.style).width, ui.theme.sizing.touchTarget);
+    assert.equal(flatten(custom.props.style).height, ui.theme.spacing[40]);
+    assert.equal(flatten(custom.props.style).borderRadius, ui.theme.radius.pill);
+    assert.equal(flatten(custom.props.style).margin, ui.theme.spacing[8]);
+  });
+}
+
+test('Web: real feedback markup names busy progress, separates status/alert actions and hides skeletons', () => {
+  const { LoadingState, EmptyState, ErrorState, Skeleton } = loadUI('web', true);
+  const markup = renderToStaticMarkup(
+    React.createElement(
+      React.Fragment,
+      null,
+      React.createElement(LoadingState, { message: 'Cargando información' }),
+      React.createElement(EmptyState, {
+        title: 'Sin resultados',
+        message: 'Prueba otra búsqueda.',
+        action: { label: 'Continuar', onPress: () => {} },
+      }),
+      React.createElement(ErrorState, { message: 'Inténtalo nuevamente.', onRetry: () => {} }),
+      React.createElement(Skeleton, { testID: 'skeleton-block' }),
+    ),
+  );
+  assert.match(markup, /role="progressbar"/);
+  assert.match(markup, /aria-busy="true"/);
+  assert.match(markup, /aria-label="Cargando información"/);
+  assert(!markup.includes('aria-valuenow'));
+  assert.match(markup, /role="status"/);
+  assert.match(markup, /aria-live="polite"/);
+  assert.match(markup, /role="alert"/);
+  assert.match(markup, /aria-live="assertive"/);
+  const buttons = [...markup.matchAll(/<button\b[^>]*>/g)].map(([tag]) => tag);
+  for (const label of ['Continuar', 'Reintentar']) {
+    assert(
+      buttons.some((tag) => tag.includes('role="button"') && tag.includes(`aria-label="${label}"`)),
+    );
+  }
+  assert.match(
+    markup,
+    /aria-hidden="true"[^>]*role="presentation"[^>]*data-testid="skeleton-block"/,
+  );
+});
