@@ -3,12 +3,12 @@ import { radius } from './radius';
 import { shadows } from './shadows';
 import { sizing } from './sizing';
 import { spacing } from './spacing';
-import { fontFamily, fontWeights, typography } from './typography';
+import { fontFamilies, fontWeights, typography } from './typography';
 
 export const theme = {
   colors,
   semanticColors,
-  fontFamily,
+  fontFamilies,
   fontWeights,
   typography,
   spacing,

@@ -116,7 +116,11 @@ The URL polyfill loads before client creation. Session persistence and automatic
 
 Spacing keys are the actual logical pixel values, such as `theme.spacing[16]`. Radius tokens include `card`, `input`, `button` and `pill`. Minimum touch targets are 44 x 44, preferred targets are 48 x 48, and FABs are 56 x 56.
 
-Typography declares Inter with weights 400, 500, 600 and 700. Font assets and loading remain a separate BF-025 task; Inter must be registered before these text styles are used. Theme tokens do not disable system text scaling.
+Typography uses four registered Inter families through `fontFamilies`: `Inter_400Regular`, `Inter_500Medium`, `Inter_600SemiBold` and `Inter_700Bold`. Each text style selects its actual static font face; it omits `fontWeight` to avoid synthetic weight selection. The exported `fontWeights` metadata and approved sizes/line heights are preserved. Theme tokens do not disable system text scaling.
+
+The root layout loads these four bundled faces from `@expo-google-fonts/inter` using the existing `expo-font` dependency, following [Expo's runtime font-loading guide](https://docs.expo.dev/develop/user-interface/fonts/#with-usefonts-hook). Individual weight imports avoid bundling the package's unused faces. No external CDN, manually copied font files or additional native font plugin is needed.
+
+Native startup keeps the splash screen visible until fonts finish loading. The root renders navigation once fonts are ready, or continues with system fallback fonts and a diagnostic warning if loading fails. Web static rendering registers the fonts for preload and generated `@font-face` rules; `FontDisplay.BLOCK` reduces fallback-font flashes while the browser fetches the local assets. The placeholder screens and navigation options are preserved; later UI components can apply `theme.typography` styles.
 
 The design document specifies restrained elevation without numerical shadow values. `raised` and `floating` provide small defaults: iOS uses native shadow props, Android uses elevation (2 and 4), and Web uses CSS `boxShadow`. See the [React Native 0.86 shadow documentation](https://reactnative.dev/docs/0.86/shadow-props). `none` clears the corresponding shadow for each platform; colored glow is not applied automatically.
 

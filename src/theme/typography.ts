@@ -1,7 +1,11 @@
 import type { TextStyle } from 'react-native';
 
-// Font registration/loading belongs to BF-025; these tokens only declare the family.
-export const fontFamily = 'Inter';
+export const fontFamilies = {
+  regular: 'Inter_400Regular',
+  medium: 'Inter_500Medium',
+  semibold: 'Inter_600SemiBold',
+  bold: 'Inter_700Bold',
+} as const;
 
 export const fontWeights = {
   regular: '400',
@@ -10,14 +14,15 @@ export const fontWeights = {
   bold: '700',
 } as const satisfies Record<string, TextStyle['fontWeight']>;
 
+// Select each static face directly to avoid synthetic weight selection.
 export const typography = {
-  displayLg: { fontFamily, fontSize: 32, lineHeight: 38, fontWeight: fontWeights.bold },
-  display: { fontFamily, fontSize: 28, lineHeight: 34, fontWeight: fontWeights.bold },
-  headingLg: { fontFamily, fontSize: 24, lineHeight: 30, fontWeight: fontWeights.bold },
-  heading: { fontFamily, fontSize: 20, lineHeight: 26, fontWeight: fontWeights.semibold },
-  headingSm: { fontFamily, fontSize: 18, lineHeight: 24, fontWeight: fontWeights.semibold },
-  bodyLg: { fontFamily, fontSize: 16, lineHeight: 24, fontWeight: fontWeights.regular },
-  body: { fontFamily, fontSize: 14, lineHeight: 21, fontWeight: fontWeights.regular },
-  bodyMedium: { fontFamily, fontSize: 14, lineHeight: 21, fontWeight: fontWeights.medium },
-  caption: { fontFamily, fontSize: 12, lineHeight: 18, fontWeight: fontWeights.regular },
+  displayLg: { fontFamily: fontFamilies.bold, fontSize: 32, lineHeight: 38 },
+  display: { fontFamily: fontFamilies.bold, fontSize: 28, lineHeight: 34 },
+  headingLg: { fontFamily: fontFamilies.bold, fontSize: 24, lineHeight: 30 },
+  heading: { fontFamily: fontFamilies.semibold, fontSize: 20, lineHeight: 26 },
+  headingSm: { fontFamily: fontFamilies.semibold, fontSize: 18, lineHeight: 24 },
+  bodyLg: { fontFamily: fontFamilies.regular, fontSize: 16, lineHeight: 24 },
+  body: { fontFamily: fontFamilies.regular, fontSize: 14, lineHeight: 21 },
+  bodyMedium: { fontFamily: fontFamilies.medium, fontSize: 14, lineHeight: 21 },
+  caption: { fontFamily: fontFamilies.regular, fontSize: 12, lineHeight: 18 },
 } as const satisfies Record<string, TextStyle>;
