@@ -21,13 +21,19 @@ function loadUI(platform, realWeb = false) {
   const native = realWeb
     ? require('react-native-web')
     : {
-        Platform: { select: (values) => values[platform] ?? values.default },
-        StyleSheet: { create: (styles) => styles },
+        Platform: { OS: platform, select: (values) => values[platform] ?? values.default },
+        StyleSheet: {
+          create: (styles) => styles,
+          absoluteFill: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0 },
+        },
         Pressable: 'Pressable',
         View: 'View',
         Text: 'Text',
         ActivityIndicator: 'ActivityIndicator',
         TextInput: 'TextInput',
+        Modal: 'NativeModal',
+        KeyboardAvoidingView: 'KeyboardAvoidingView',
+        ScrollView: 'ScrollView',
       };
 
   function load(filename) {
@@ -40,6 +46,10 @@ function loadUI(platform, realWeb = false) {
     }).outputText;
     const localRequire = (name) => {
       if (name === 'react-native') return native;
+      // Safe-area's native bridge requires Metro; browser integration verifies the real provider.
+      if (name === 'react-native-safe-area-context') {
+        return { SafeAreaProvider: 'SafeAreaProvider', SafeAreaView: 'SafeAreaView' };
+      }
       if (name === 'react') {
         return realWeb
           ? React
@@ -56,6 +66,7 @@ function loadUI(platform, realWeb = false) {
                 ];
               },
               useId: () => ':test-input:',
+              useEffect: () => {},
               useRef: (initial) => {
                 const index = cursor++;
                 if (!(index in hooks)) hooks[index] = { current: initial };
@@ -596,4 +607,107 @@ test('Web: real feedback markup names busy progress, separates status/alert acti
     markup,
     /aria-hidden="true"[^>]*role="presentation"[^>]*data-testid="skeleton-block"/,
   );
+});
+
+for (const platform of ['ios', 'android', 'web']) {
+  for (const componentName of ['Modal', 'BottomSheet']) {
+    test(`${platform}: ${componentName} content, safe area, keyboard and guarded dismissal`, () => {
+      const ui = loadUI(platform);
+      let closes = 0;
+      const props = {
+        visible: true,
+        onClose: () => closes++,
+        title: 'Título',
+        description: 'Descripción',
+        testID: 'overlay',
+        children: React.createElement('Content'),
+        actions: React.createElement('Action'),
+        style: { margin: ui.theme.spacing[8] },
+      };
+      const open = (values) => {
+        const wrapper = ui[componentName](values);
+        return ui.render(wrapper.type, wrapper.props);
+      };
+      assert.equal(open({ ...props, visible: false }), null);
+      const output = open(props);
+      assert.equal(output.type, 'NativeModal');
+      assert.equal(output.props.transparent, true);
+      assert.equal(output.props.animationType, 'none');
+      assert.equal(output.props.presentationStyle, 'overFullScreen');
+      assert.equal(output.props.allowSwipeDismissal, false);
+      assert.equal(output.props['aria-label'], props.title);
+      output.props.onRequestClose();
+      const backdrop = nodes(output).find((node) => node.props.testID === 'overlay-backdrop');
+      assert.equal(flatten(backdrop.props.style).backgroundColor, ui.theme.colors.overlay);
+      assert.equal(backdrop.props['aria-hidden'], true);
+      assert.equal(backdrop.props.onStartShouldSetResponder(), true);
+      backdrop.props.onResponderRelease();
+      const panel = nodes(output).find((node) => node.props.testID === 'overlay-panel');
+      assert.equal(panel.props.accessibilityViewIsModal, true);
+      assert.equal(panel.props.accessible, undefined);
+      assert.equal(flatten(panel.props.style).margin, ui.theme.spacing[8]);
+      assert.equal(flatten(panel.props.style).maxHeight, '100%');
+      assert.equal(flatten(panel.props.style).width, platform === 'web' ? 'auto' : '100%');
+      panel.props.onAccessibilityEscape();
+      nodes(output)
+        .find((node) => typeof node.type === 'function')
+        .props.onPress();
+      assert.equal(closes, 4);
+      assert(nodes(output).some((node) => node.type === 'Content'));
+      assert(nodes(output).some((node) => node.type === 'Action'));
+      assert.equal(
+        nodes(output).find((node) => node.type === 'ScrollView').props.keyboardShouldPersistTaps,
+        'handled',
+      );
+      const keyboard = nodes(output).find((node) => node.type === 'KeyboardAvoidingView');
+      assert.equal(keyboard.props.enabled, platform !== 'web');
+      assert.equal(keyboard.props.behavior, platform === 'ios' ? 'padding' : 'height');
+      const safeViews = nodes(output).filter((node) => node.type === 'SafeAreaView');
+      assert.equal(
+        safeViews.some((node) => node.props.edges.length === 1 && node.props.edges[0] === 'bottom'),
+        componentName === 'BottomSheet',
+      );
+      assert.equal(flatten(panel.props.style).borderRadius, ui.theme.radius.card);
+      if (platform === 'web') {
+        const title = nodes(output).find((node) => node.props.children === props.title);
+        const description = nodes(output).find((node) => node.props.children === props.description);
+        assert.equal(output.props['aria-labelledby'], title.props.id);
+        assert.equal(output.props['aria-describedby'], description.props.id);
+      }
+      const blocked = open({ ...props, dismissible: false });
+      blocked.props.onRequestClose();
+      const blockedBackdrop = nodes(blocked).find(
+        (node) => node.props.testID === 'overlay-backdrop',
+      );
+      assert.equal(blockedBackdrop.props.onStartShouldSetResponder(), false);
+      blockedBackdrop.props.onResponderRelease();
+      nodes(blocked)
+        .find((node) => node.props.testID === 'overlay-panel')
+        .props.onAccessibilityEscape();
+      assert(!nodes(blocked).some((node) => typeof node.type === 'function'));
+      assert.equal(closes, 4);
+      const named = open({
+        ...props,
+        title: undefined,
+        description: undefined,
+        accessibilityLabel: 'Panel accesible',
+      });
+      assert.equal(named.props['aria-label'], 'Panel accesible');
+      assert.equal(named.props['aria-describedby'], undefined);
+    });
+  }
+}
+
+test('Web: overlays render safely on the server without a DOM or visible portal', () => {
+  const { Modal, BottomSheet } = loadUI('web', true);
+  for (const component of [Modal, BottomSheet]) {
+    for (const visible of [false, true]) {
+      assert.equal(
+        renderToStaticMarkup(
+          React.createElement(component, { visible, onClose: () => {}, title: 'Panel' }),
+        ),
+        '',
+      );
+    }
+  }
 });

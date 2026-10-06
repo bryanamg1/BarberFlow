@@ -222,3 +222,37 @@ import { theme } from '@/theme';
 ```
 
 The existing `node --test tests/ui-primitives.test.cjs` suite covers state names, busy semantics, actions, blocked retries, decorative skeletons and real Web markup, along with previous UI contracts. Follow [React Native accessibility](https://reactnative.dev/docs/0.86/accessibility) and [ActivityIndicator](https://reactnative.dev/docs/0.86/activityindicator) for the underlying platform semantics.
+
+## Shared overlays
+
+BF-033 exports `Modal`, `BottomSheet` and their prop types from `@/components/ui`. Both wrap the existing React Native Modal and use theme tokens, Inter and the existing Button. No dependencies, theme values or placeholder routes are added.
+
+Both accept controlled `visible` and `onClose`, optional `title`, `description`, `children` and `actions`, plus `dismissible`, `accessibilityLabel`, `closeLabel`, `style` and `testID`. The owner updates `visible` when closing. `dismissible` defaults to true: the Cerrar button, backdrop, Android Back, native accessibility escape and Web Escape request closure. With `dismissible={false}`, those requests are blocked and the close button is omitted; provide an explicit action to update the owning state. Clicking content does not dismiss an overlay.
+
+The native modal isolates the presentation; React Native Web supplies its dialog semantics, focus containment, Escape handling and focus restoration. The title names the Web dialog and its description is associated through ARIA; use `accessibilityLabel` when omitting a title or to override its accessible name. Content and action controls stay individually accessible. Background body scrolling is locked on Web, including nested overlays, and restored when the last overlay closes. Overlays render nothing while closed or during Web server rendering.
+
+`Modal` centers its panel within the safe area. `BottomSheet` anchors its panel to the bottom and includes the bottom safe inset inside its surface. Native panels fill the available width; Web panels use their content width, bounded by the viewport. Both retain the approved card radius and floating shadow. Long content and actions share an internal scroll area, with keyboard avoidance on native and handled keyboard taps. Pass theme-based styles when a consumer needs a particular width or layout. This base BottomSheet has no drag gestures or snap points; it opens and closes through controlled visibility without animation.
+
+```tsx
+import { useState } from 'react';
+import { Button, Modal } from '@/components/ui';
+
+function OverlayExample() {
+  const [visible, setVisible] = useState(false);
+
+  return (
+    <>
+      <Button label="Abrir" onPress={() => setVisible(true)} />
+      <Modal
+        visible={visible}
+        onClose={() => setVisible(false)}
+        title="Información"
+        description="Contenido del panel."
+        actions={<Button label="Cerrar" onPress={() => setVisible(false)} />}
+      />
+    </>
+  );
+}
+```
+
+The shared UI suite covers both overlays on iOS, Android and Web, including closure guards, naming, safe area, keyboard and server rendering contracts. Browser checks additionally cover Tab cycling, focus restoration, nested overlays and scrolling. Native bundling verifies module compatibility; VoiceOver, TalkBack and software keyboard behavior still require device testing. Underlying contracts follow [React Native Modal](https://reactnative.dev/docs/0.86/modal), [React Native Web Modal](https://necolas.github.io/react-native-web/docs/modal/) and [Expo SDK 57 safe area context](https://docs.expo.dev/versions/v57.0.0/sdk/safe-area-context/).

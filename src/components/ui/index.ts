@@ -22,3 +22,7 @@ export { ErrorState } from './ErrorState';
 export type { ErrorStateProps } from './ErrorState';
 export { Skeleton } from './Skeleton';
 export type { SkeletonProps } from './Skeleton';
+export { Modal } from './Modal';
+export type { ModalProps } from './Modal';
+export { BottomSheet } from './BottomSheet';
+export type { BottomSheetProps } from './BottomSheet';
