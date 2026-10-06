@@ -1,0 +1,2 @@
+-- BF-050 intentionally seeds no users, businesses or domain data.
+-- Real seeds are reserved for BF-080.
