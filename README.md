@@ -160,3 +160,38 @@ import { theme } from '@/theme';
 ```
 
 BF-030 does not apply primitives to placeholder routes. No Inputs, feature components or additional state components are included. Run `node --test tests/ui-primitives.test.cjs` for the component behavior checks, in addition to lint, TypeScript and formatting checks. The interaction contracts follow [React Native Pressable](https://reactnative.dev/docs/0.86/pressable), [accessibility](https://reactnative.dev/docs/0.86/accessibility) and [React Native Web Pressable](https://necolas.github.io/react-native-web/docs/pressable/).
+
+## Shared form inputs
+
+BF-031 adds `Input`, `PasswordInput` and `SearchInput` to `@/components/ui`, with their public prop types. They reuse the approved theme and loaded Inter faces. Placeholder routes remain unchanged.
+
+- `Input` accepts standard React Native `TextInput` props, plus `label`, `error`, `helperText`, `disabled`, `containerStyle` and an optional `trailingAccessory`. Provide a visible `label` or an `accessibilityLabel` when omitting the label. `style` customizes the text field; `containerStyle` customizes its outer container. The minimum field height remains 48 logical pixels. Controlled `value`/`onChangeText` and uncontrolled `defaultValue` are supported; focus/blur callbacks are composed with the internal focus state.
+- `PasswordInput` starts masked and adds a labeled Mostrar/Ocultar button. It preserves the value while toggling visibility and restores field focus. It uses a single-line text keyboard without capitalization, correction or spell checking. `autoComplete` defaults to `current-password`; future account creation screens can pass `new-password`.
+- `SearchInput` requires controlled `value` and `onChangeText`. It requests the search keyboard action and shows a Limpiar button for nonempty values. Clearing calls `onChangeText('')` once and restores focus. `onSubmitEditing` is forwarded; search execution, filtering and debounce belong to future consumers.
+
+Password and search labels default to Contraseña and Buscar. Pass a custom `label`, or only `accessibilityLabel` to omit the visible label. All three accept a React 19 `ref` to the actual native/Web `TextInput`, allowing focus and other standard field methods. In controlled fields, update the owning value to clear the text.
+
+Errors replace helper text, use the approved danger border and include a visible Error prefix. Web associates labels/messages through IDs and `aria-describedby`, exposes `aria-invalid` and uses the DOM disabled state. Native accessibility hints include the message. Disabled, `readOnly` and `editable={false}` fields block changes and their accessory actions; read-only fields remain focusable. Focus uses the approved primary border and Web outline color. Text keeps system scaling and multiline is supported by `Input`.
+
+```tsx
+import { useRef, useState } from 'react';
+import { TextInput } from 'react-native';
+import { Input, PasswordInput, SearchInput } from '@/components/ui';
+
+function FieldsExample() {
+  const inputRef = useRef<TextInput>(null);
+  const [name, setName] = useState('');
+  const [password, setPassword] = useState('');
+  const [search, setSearch] = useState('');
+
+  return (
+    <>
+      <Input ref={inputRef} label="Nombre" value={name} onChangeText={setName} />
+      <PasswordInput value={password} onChangeText={setPassword} />
+      <SearchInput value={search} onChangeText={setSearch} />
+    </>
+  );
+}
+```
+
+Run `node --test tests/ui-primitives.test.cjs` for the shared UI checks, including input states, accessory actions, refs and real React Native Web rendering. No form library, feature validation or business behavior is added. The input contracts follow [React Native TextInput](https://reactnative.dev/docs/0.86/textinput) and [React Native Web TextInput](https://necolas.github.io/react-native-web/docs/text-input/).

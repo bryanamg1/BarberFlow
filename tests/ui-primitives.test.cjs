@@ -14,7 +14,10 @@ const root = path.resolve(__dirname, '..');
 // The Web rendering test below uses real React and React Native Web instead.
 function loadUI(platform, realWeb = false) {
   const cache = new Map();
-  let focused = false;
+  const componentHooks = new Map();
+  const pendingRefs = [];
+  let hooks = [];
+  let cursor = 0;
   const native = realWeb
     ? require('react-native-web')
     : {
@@ -24,6 +27,7 @@ function loadUI(platform, realWeb = false) {
         View: 'View',
         Text: 'Text',
         ActivityIndicator: 'ActivityIndicator',
+        TextInput: 'TextInput',
       };
 
   function load(filename) {
@@ -37,7 +41,33 @@ function loadUI(platform, realWeb = false) {
     const localRequire = (name) => {
       if (name === 'react-native') return native;
       if (name === 'react') {
-        return realWeb ? React : { useState: () => [focused, (value) => (focused = value)] };
+        return realWeb
+          ? React
+          : {
+              useState: (initial) => {
+                const index = cursor++;
+                const state = hooks;
+                if (!(index in state)) state[index] = initial;
+                return [
+                  state[index],
+                  (value) => {
+                    state[index] = typeof value === 'function' ? value(state[index]) : value;
+                  },
+                ];
+              },
+              useId: () => ':test-input:',
+              useRef: (initial) => {
+                const index = cursor++;
+                if (!(index in hooks)) hooks[index] = { current: initial };
+                return hooks[index];
+              },
+              useImperativeHandle: (ref, createHandle) => {
+                pendingRefs.push(() => {
+                  if (typeof ref === 'function') ref(createHandle());
+                  else if (ref) ref.current = createHandle();
+                });
+              },
+            };
       }
       if (name.startsWith('.') || name.startsWith('@/')) {
         const base = name.startsWith('@/')
@@ -57,7 +87,24 @@ function loadUI(platform, realWeb = false) {
     return module.exports;
   }
 
-  return { ...load('src/components/ui/index.ts'), theme: load('src/theme/index.ts').theme };
+  const components = load('src/components/ui/index.ts');
+  function render(component, props) {
+    if (!componentHooks.has(component)) componentHooks.set(component, []);
+    hooks = componentHooks.get(component);
+    cursor = 0;
+    return component(props);
+  }
+  return {
+    ...Object.fromEntries(
+      Object.entries(components).map(([name, component]) => [
+        name,
+        realWeb ? component : (props) => render(component, props),
+      ]),
+    ),
+    theme: load('src/theme/index.ts').theme,
+    render,
+    commitRefs: () => pendingRefs.splice(0).forEach((commit) => commit()),
+  };
 }
 
 function flatten(style) {
@@ -222,4 +269,170 @@ test('Web: real React Native Web renders labels, ARIA busy/disabled and icon nam
   assert.match(markup, /aria-label="Agregar"/);
   assert.match(markup, /Disponible/);
   assert.match(markup, /aria-hidden="true"/);
+});
+
+function nodes(element) {
+  if (!element || typeof element !== 'object' || !element.props) return [];
+  return [element, ...React.Children.toArray(element.props.children).flatMap(nodes)];
+}
+
+for (const platform of ['ios', 'android', 'web']) {
+  test(`${platform}: Input names, focus/error precedence, changes, disabled and read-only`, () => {
+    const ui = loadUI(platform);
+    let changes = [];
+    let focused = 0;
+    let blurred = 0;
+    const ref = { current: null };
+    const props = {
+      label: 'Nombre',
+      value: '',
+      onChangeText: (value) => changes.push(value),
+      onFocus: () => focused++,
+      onBlur: () => blurred++,
+      helperText: 'Ayuda',
+      ref,
+      keyboardType: 'email-address',
+      containerStyle: { margin: ui.theme.spacing[8] },
+      style: { minHeight: ui.theme.spacing[4] },
+    };
+    let output = ui.Input(props);
+    const getInput = (tree) => nodes(tree).find((node) => node.type === 'TextInput');
+    const getBorder = (tree) =>
+      nodes(tree)
+        .map((node) => flatten(node.props.style))
+        .find((style) => style.borderWidth === ui.theme.borderWidths.thin);
+    let input = getInput(output);
+    assert.equal(input.props.ref, ref);
+    assert.equal(input.props['aria-label'], 'Nombre');
+    assert.equal(input.props.keyboardType, 'email-address');
+    assert.equal(flatten(input.props.style).fontFamily, ui.theme.fontFamilies.regular);
+    assert.equal(flatten(input.props.style).minHeight, ui.theme.sizing.touchTarget);
+    assert.equal(flatten(output.props.style).margin, ui.theme.spacing[8]);
+    input.props.onChangeText('Ana');
+    assert.deepEqual(changes, ['Ana']);
+    input.props.onFocus({});
+    output = ui.Input(props);
+    assert.equal(focused, 1);
+    assert.equal(getBorder(output).borderColor, ui.theme.semanticColors.input.focusedBorder);
+    output = ui.Input({ ...props, error: 'Requerido' });
+    input = getInput(output);
+    assert.equal(getBorder(output).borderColor, ui.theme.semanticColors.input.errorBorder);
+    assert.equal(input.props.accessibilityHint, 'Error: Requerido');
+    assert(nodes(output).some((node) => node.props.children === 'Error: Requerido'));
+    assert(!nodes(output).some((node) => node.props.children === 'Ayuda'));
+    if (platform === 'web') {
+      assert.equal(input.props['aria-invalid'], true);
+      assert(input.props['aria-describedby'].endsWith('-message'));
+    }
+    input.props.onBlur({});
+    assert.equal(blurred, 1);
+    for (const state of [{ disabled: true }, { readOnly: true }, { editable: false }]) {
+      input = getInput(ui.Input({ ...props, ...state }));
+      input.props.onChangeText('Blocked');
+      assert.equal(input.props.editable, false);
+      assert.equal(input.props.readOnly, true);
+    }
+    assert.deepEqual(changes, ['Ana']);
+    const uncontrolled = loadUI(platform);
+    output = uncontrolled.Input({ accessibilityLabel: 'Notas', defaultValue: '' });
+    getInput(output).props.onChangeText('Texto');
+    output = uncontrolled.Input({ accessibilityLabel: 'Notas', defaultValue: '' });
+    assert.equal(getInput(output).props.value, undefined);
+    assert.equal(getBorder(output).borderColor, ui.theme.colors.borderStrong);
+  });
+
+  test(`${platform}: PasswordInput masks, toggles without altering value and forwards focus ref`, () => {
+    const ui = loadUI(platform);
+    const ref = { current: null };
+    let focusCount = 0;
+    const props = { value: 'example-password', ref };
+    let output = ui.PasswordInput(props);
+    assert.equal(output.props.label, 'Contraseña');
+    assert.equal(
+      ui.PasswordInput({ ...props, accessibilityLabel: 'Clave' }).props.label,
+      undefined,
+    );
+    assert.equal(output.props.secureTextEntry, true);
+    assert.equal(output.props.autoCapitalize, 'none');
+    assert.equal(output.props.autoCorrect, false);
+    assert.equal(output.props.multiline, false);
+    output.props.ref.current = { focus: () => focusCount++ };
+    ui.commitRefs();
+    assert.equal(ref.current, output.props.ref.current);
+    output.props.trailingAccessory.props.onPress();
+    output = ui.PasswordInput(props);
+    assert.equal(output.props.secureTextEntry, false);
+    assert.equal(output.props.value, 'example-password');
+    assert.equal(output.props.trailingAccessory.props.accessibilityLabel, 'Ocultar contraseña');
+    assert.equal(focusCount, 1);
+    output.props.trailingAccessory.props.onPress();
+    assert.equal(ui.PasswordInput(props).props.secureTextEntry, true);
+    for (const state of [{ disabled: true }, { readOnly: true }, { editable: false }]) {
+      output = ui.PasswordInput({ ...props, ...state });
+      assert.equal(output.props.trailingAccessory.props.disabled, true);
+      output.props.trailingAccessory.props.onPress();
+      assert.equal(ui.PasswordInput(props).props.secureTextEntry, true);
+    }
+  });
+
+  test(`${platform}: SearchInput clear emits once, restores focus and respects non-editable states`, () => {
+    const ui = loadUI(platform);
+    const changes = [];
+    const ref = { current: null };
+    let focusCount = 0;
+    const props = { value: 'texto', onChangeText: (value) => changes.push(value), ref };
+    let output = ui.SearchInput(props);
+    assert.equal(output.props.label, 'Buscar');
+    assert.equal(
+      ui.SearchInput({ ...props, accessibilityLabel: 'Búsqueda' }).props.label,
+      undefined,
+    );
+    assert.equal(output.props.inputMode, 'search');
+    assert.equal(output.props.enterKeyHint, 'search');
+    assert.equal(output.props.autoCorrect, false);
+    assert.equal(output.props.multiline, false);
+    output.props.ref.current = { focus: () => focusCount++ };
+    ui.commitRefs();
+    assert.equal(ref.current, output.props.ref.current);
+    output.props.trailingAccessory.props.onPress();
+    assert.deepEqual(changes, ['']);
+    assert.equal(focusCount, 1);
+    assert.equal(ui.SearchInput({ ...props, value: '' }).props.trailingAccessory, false);
+    for (const state of [{ disabled: true }, { readOnly: true }, { editable: false }]) {
+      output = ui.SearchInput({ ...props, ...state });
+      assert.equal(output.props.trailingAccessory.props.disabled, true);
+      output.props.trailingAccessory.props.onPress();
+    }
+    assert.deepEqual(changes, ['']);
+  });
+}
+
+test('Web: actual TextInput renders unique labels/messages, error description, password and search types', () => {
+  const { Input, PasswordInput, SearchInput } = loadUI('web', true);
+  const markup = renderToStaticMarkup(
+    React.createElement(
+      React.Fragment,
+      null,
+      React.createElement(Input, { label: 'Nombre', error: 'Requerido', helperText: 'Oculto' }),
+      React.createElement(Input, {
+        accessibilityLabel: 'Notas',
+        helperText: 'Ayuda',
+        disabled: true,
+      }),
+      React.createElement(PasswordInput, { value: 'test' }),
+      React.createElement(SearchInput, { value: 'texto', onChangeText: () => {} }),
+    ),
+  );
+  assert.match(markup, /aria-invalid="true"/);
+  assert.match(markup, /aria-describedby="[^"]+-message"/);
+  assert.match(markup, /Error: Requerido/);
+  assert(!markup.includes('Oculto'));
+  assert.match(markup, /type="password"/);
+  assert.match(markup, /type="search"/);
+  assert.match(markup, /disabled=""/);
+  const ids = [...markup.matchAll(/\bid="([^"]+)"/g)].map((match) => match[1]);
+  assert.equal(new Set(ids).size, ids.length);
+  for (const match of markup.matchAll(/aria-describedby="([^"]+)"/g)) {
+    assert(ids.includes(match[1]));
+  }
 });
