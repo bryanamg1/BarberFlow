@@ -256,3 +256,17 @@ function OverlayExample() {
 ```
 
 The shared UI suite covers both overlays on iOS, Android and Web, including closure guards, naming, safe area, keyboard and server rendering contracts. Browser checks additionally cover Tab cycling, focus restoration, nested overlays and scrolling. Native bundling verifies module compatibility; VoiceOver, TalkBack and software keyboard behavior still require device testing. Underlying contracts follow [React Native Modal](https://reactnative.dev/docs/0.86/modal), [React Native Web Modal](https://necolas.github.io/react-native-web/docs/modal/) and [Expo SDK 57 safe area context](https://docs.expo.dev/versions/v57.0.0/sdk/safe-area-context/).
+
+## Server state infrastructure
+
+BF-040 adds `@tanstack/react-query` and the SDK-compatible `expo-network`. `src/lib/query/client.ts` exports the application's single `queryClient`; `QueryProvider` supplies it around both route groups in the root layout, after the existing font startup gate. Import shared infrastructure through `@/lib/query`. Features and screens must reuse this client; query keys and operation-specific policies will belong to their future features.
+
+Query defaults are a 60-second `staleTime`, five-minute inactive cache retention (`gcTime`), up to two retries and `networkMode: 'online'`. Stale active queries may refetch on mount, focus or reconnection; fresh data is reused. Mutations use online mode and zero automatic retries, avoiding repeated writes after a failure. Individual operations may override these defaults when their requirements are known. No polling or default query function is configured.
+
+On iOS/Android, the provider initializes focus from a known `AppState.currentState` and follows active/background/inactive changes through `focusManager`. It initializes connectivity with `Network.getNetworkStateAsync()` and sends subsequent network events to `onlineManager`. A reported disconnect or unreachable internet pauses online operations; otherwise reachability takes precedence over connectivity. Unknown network fields and lookup failures retain the last known state, initially online. OS connectivity is a signal, not a guarantee that a particular server is reachable.
+
+The provider removes both native subscriptions on unmount. Late callbacks cannot update the managers, and a delayed startup reading cannot overwrite a newer network event. Remounting installs one listener of each kind. Web keeps TanStack's built-in browser visibility and online/offline handling; native subscriptions do not run there or during static server rendering.
+
+The cache lives in memory only. There are no business queries, repositories, feature hooks, Supabase requests, query cache persisters or DevTools. Existing placeholder screens and the Supabase client remain unchanged. Run `node --test tests/query-infrastructure.test.cjs` for lifecycle and actual QueryClient behavior checks, including pause/resume, stale focus refresh, mutation retry policy and server-side context rendering. Device testing remains necessary for real foreground/background and airplane-mode transitions.
+
+The integration follows [TanStack Query's React Native guidance](https://tanstack.com/query/v5/docs/react/react-native), [query defaults](https://tanstack.com/query/v5/docs/react/guides/important-defaults), [Expo SDK 57 Network](https://docs.expo.dev/versions/v57.0.0/sdk/network.md) and [React Native AppState](https://reactnative.dev/docs/0.86/appstate).

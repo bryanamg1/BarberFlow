@@ -7,6 +7,7 @@ import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 
+import { QueryProvider } from '@/lib/query';
 import { fontFamilies } from '@/theme/typography';
 
 // Direct weight imports keep unused Inter faces out of the application bundle.
@@ -44,9 +45,11 @@ export default function RootLayout() {
   }
 
   return (
-    <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="(app)" />
-      <Stack.Screen name="(auth)" />
-    </Stack>
+    <QueryProvider>
+      <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="(app)" />
+        <Stack.Screen name="(auth)" />
+      </Stack>
+    </QueryProvider>
   );
 }
