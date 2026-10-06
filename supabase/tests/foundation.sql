@@ -28,7 +28,7 @@ DECLARE
   check_case record;
 BEGIN
   SELECT array_agg(tablename::text ORDER BY tablename) INTO actual_tables
-  FROM pg_tables WHERE schemaname = 'public';
+  FROM pg_tables WHERE schemaname = 'public' AND tablename = ANY(foundation_tables);
   IF actual_tables IS DISTINCT FROM foundation_tables THEN
     RAISE EXCEPTION 'Unexpected public tables: %', actual_tables;
   END IF;

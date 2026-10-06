@@ -7,6 +7,7 @@ Desde la raíz del proyecto, con Docker funcionando:
 npx supabase start
 npx supabase db reset --local
 Get-Content supabase/tests/foundation.sql | docker exec -i supabase_db_barberflow psql -U postgres -d postgres -v ON_ERROR_STOP=1
+Get-Content supabase/tests/clients.sql | docker exec -i supabase_db_barberflow psql -U postgres -d postgres -v ON_ERROR_STOP=1
 npx supabase stop
 ```
 
@@ -32,3 +33,9 @@ El seed contiene solo comentarios. La prueba SQL verifica estructura, defaults, 
 CHECKs, triggers y denegación para ambos roles de cliente. Sus identidades de Auth son fixtures
 SQL locales dentro de una transacción que siempre se revierte; no son usuarios de aplicación ni
 seeds permanentes. Ejecutar esta prueba solo sobre una base local limpia después del reset.
+
+BF-056 agrega una séptima migración para `clients`, con RLS habilitado sin policies y sin seed.
+`last_name` y `preferences` son `text NULL`; las preferencias son texto libre en V1.
+`clients.sql` prueba el contrato, los contactos compartidos, archivo lógico, timestamps y bloqueo
+para ambos roles de cliente; sus datos también se revierten. `foundation.sql` sigue validando
+exclusivamente sus cinco tablas de BF-050 y permite que existan otras tablas en el schema.
