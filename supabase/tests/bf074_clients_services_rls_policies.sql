@@ -8,8 +8,20 @@ DECLARE
   actual record;
   col record;
 BEGIN
-  IF (SELECT count(*) FROM pg_policies WHERE schemaname = 'public') <> 21 THEN
-    RAISE EXCEPTION 'Expected exactly 21 BF-073/BF-074 policies';
+  IF (SELECT count(*) FROM pg_policies WHERE schemaname = 'public') <> 28 THEN
+    RAISE EXCEPTION 'Expected exactly 28 BF-073/BF-074/BF-075 policies';
+  END IF;
+  IF (SELECT array_agg(tablename || '.' || policyname ORDER BY tablename, policyname)
+      FROM pg_policies WHERE schemaname = 'public'
+        AND tablename IN ('appointments', 'appointment_services')) IS DISTINCT FROM
+     ARRAY['appointment_services.appointment_services_delete_authorized',
+           'appointment_services.appointment_services_insert_authorized',
+           'appointment_services.appointment_services_select_authorized',
+           'appointment_services.appointment_services_update_authorized',
+           'appointments.appointments_insert_authorized',
+           'appointments.appointments_select_authorized',
+           'appointments.appointments_update_authorized']::text[] THEN
+    RAISE EXCEPTION 'Expected exactly the seven approved BF-075 policy identities';
   END IF;
   FOR expected IN
     SELECT * FROM (VALUES
@@ -64,12 +76,12 @@ BEGIN
     RAISE EXCEPTION 'Expected exactly 19 RLS tables with FORCE off';
   END IF;
   IF EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = ANY(ARRAY[
-      'appointments', 'appointment_services', 'product_categories', 'products',
+      'product_categories', 'products',
       'sales', 'sale_items', 'payments', 'purchases', 'purchase_items',
       'stock_movements', 'expense_categories', 'expenses'])) THEN
     RAISE EXCEPTION 'A future domain received a policy';
   END IF;
-  RAISE NOTICE 'BF-074 metadata passed: exactly 21 known policies including six clients/services policies, authenticated only, exact USING/WITH CHECK, immutable tenant columns, 12 future tables without policies, 19 RLS tables with FORCE off';
+  RAISE NOTICE 'BF-074 metadata passed: exactly 28 known policies including six clients/services and seven appointment policies, authenticated only, exact USING/WITH CHECK, immutable tenant columns, 10 future tables without policies, 19 RLS tables with FORCE off';
 END;
 $$;
 
@@ -82,7 +94,7 @@ DECLARE
   client_ids uuid[] := ARRAY[gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), gen_random_uuid()];
   service_ids uuid[] := ARRAY[gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), gen_random_uuid()];
   future_tables constant text[] := ARRAY[
-    'appointments', 'appointment_services', 'product_categories', 'products',
+    'product_categories', 'products',
     'sales', 'sale_items', 'payments', 'purchases', 'purchase_items',
     'stock_movements', 'expense_categories', 'expenses'
   ];

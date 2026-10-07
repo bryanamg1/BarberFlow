@@ -8,8 +8,20 @@ DECLARE
   actual record;
   col record;
 BEGIN
-  IF (SELECT count(*) FROM pg_policies WHERE schemaname = 'public') <> 21 THEN
-    RAISE EXCEPTION 'Expected exactly 21 BF-073/BF-074 policies';
+  IF (SELECT count(*) FROM pg_policies WHERE schemaname = 'public') <> 28 THEN
+    RAISE EXCEPTION 'Expected exactly 28 BF-073/BF-074/BF-075 policies';
+  END IF;
+  IF (SELECT array_agg(tablename || '.' || policyname ORDER BY tablename, policyname)
+      FROM pg_policies WHERE schemaname = 'public'
+        AND tablename IN ('appointments', 'appointment_services')) IS DISTINCT FROM
+     ARRAY['appointment_services.appointment_services_delete_authorized',
+           'appointment_services.appointment_services_insert_authorized',
+           'appointment_services.appointment_services_select_authorized',
+           'appointment_services.appointment_services_update_authorized',
+           'appointments.appointments_insert_authorized',
+           'appointments.appointments_select_authorized',
+           'appointments.appointments_update_authorized']::text[] THEN
+    RAISE EXCEPTION 'Expected exactly the seven approved BF-075 policy identities';
   END IF;
   FOR expected IN
     SELECT * FROM (VALUES
@@ -56,7 +68,7 @@ BEGIN
       RAISE EXCEPTION 'Incorrect scoped UPDATE grant on % column %', col.oid::regclass, col.attname;
     END IF;
   END LOOP;
-  RAISE NOTICE 'BF-073 metadata passed: 15 original policies plus exactly six BF-074 policies, authenticated only, exact USING/WITH CHECK, immutable tenant columns';
+  RAISE NOTICE 'BF-073 metadata passed: 15 original policies plus exactly six BF-074 and seven BF-075 policies, authenticated only, exact USING/WITH CHECK, immutable tenant columns';
 END;
 $$;
 

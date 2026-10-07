@@ -24,11 +24,13 @@ BF-050 extensions; 051 profiles; 052 businesses; 053 members; 054 settings; 055 
 BF-060 product_categories; 061 products; 062 sales; 063 sale_items; 064 payments; 065 purchases; 066 purchase_items; 067 stock_movements; 068 expense_categories; 069 expenses.
 
 ## Epic 6 Security
-BF-070 indexes; 071 enable RLS; 072 membership helpers; BF-073 Business & Membership RLS Policies; BF-074 Clients & Services RLS Policies; 075-079 policies by domain (individual scopes remain to be defined).
+BF-070 indexes; 071 enable RLS; 072 membership helpers; BF-073 Business & Membership RLS Policies; BF-074 Clients & Services RLS Policies; BF-075 Appointments RLS Policies; 076-079 policies by domain (individual scopes remain to be defined).
 
 BF-073 includes exactly `profiles`, `businesses`, `business_members`, `business_settings` and `business_hours`. Apply the explicit BF-073 contract in `RLS_MATRIX.md`; no policies on other tables, no business/first-OWNER bootstrap, no new helpers or SECURITY DEFINER functions, and no global grant hardening.
 
 BF-074 includes exactly `clients` and `services`. Apply the explicit BF-074 contract in `RLS_MATRIX.md`: six new authenticated policies, no DELETE, immutable `business_id`, and no policies for future domains or global grant hardening.
+
+BF-075 includes exactly `appointments` and `appointment_services`. Apply the explicit BF-075 contract in `RLS_MATRIX.md`: seven new authenticated policies; OWNER manages business appointments, BARBER only their assigned appointments; parent-derived line authorization, tenant-consistent references and immutable tenant/audit/parent columns. No appointment DELETE, new helpers, state machine, future-domain policies or global grant hardening.
 
 ## Epic 7 Seed
 BF-080 demo business; 081 owner linkage; 082 services; 083 categories; 084 products; 085 clients.

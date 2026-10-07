@@ -2,7 +2,7 @@
 BEGIN;
 
 -- BF-071 table baseline plus the two explicitly approved BF-072 definers:
--- 19 known tables, exactly BF-073/BF-074 policies, no FORCE RLS and two invoker triggers.
+-- 19 known tables, exactly BF-073/BF-074/BF-075 policies, no FORCE RLS and two invoker triggers.
 -- This suite creates no helper, function or policy.
 -- All fixtures, role changes and positive controls are rolled back.
 DO $$
@@ -28,7 +28,14 @@ DECLARE
     'clients.clients_update_members',
     'services.services_select_members',
     'services.services_insert_owners',
-    'services.services_update_owners'
+    'services.services_update_owners',
+    'appointments.appointments_select_authorized',
+    'appointments.appointments_insert_authorized',
+    'appointments.appointments_update_authorized',
+    'appointment_services.appointment_services_select_authorized',
+    'appointment_services.appointment_services_insert_authorized',
+    'appointment_services.appointment_services_update_authorized',
+    'appointment_services.appointment_services_delete_authorized'
   ];
   v_tables constant text[] := ARRAY[
     'profiles', 'businesses', 'business_members', 'business_settings', 'business_hours',
@@ -85,9 +92,13 @@ BEGIN
       FOREACH v_privilege IN ARRAY ARRAY['SELECT', 'INSERT', 'UPDATE', 'DELETE'] LOOP
         IF NOT (has_table_privilege(v_role, v_metadata.oid, v_privilege)
                 OR (v_role = 'authenticated' AND v_privilege = 'UPDATE'
-                    AND v_table = ANY(ARRAY['business_members', 'business_settings', 'business_hours', 'clients', 'services'])
+                    AND v_table = ANY(ARRAY['business_members', 'business_settings', 'business_hours', 'clients', 'services', 'appointments'])
                     AND has_column_privilege(v_role, v_metadata.oid, 'created_at', 'UPDATE')
-                    AND NOT has_column_privilege(v_role, v_metadata.oid, 'business_id', 'UPDATE'))) THEN
+                    AND NOT has_column_privilege(v_role, v_metadata.oid, 'business_id', 'UPDATE')
+                    AND (v_table <> 'appointments' OR NOT has_column_privilege(v_role, v_metadata.oid, 'created_by', 'UPDATE')))
+                OR (v_role = 'authenticated' AND v_privilege = 'UPDATE' AND v_table = 'appointment_services'
+                    AND has_column_privilege(v_role, v_metadata.oid, 'created_at', 'UPDATE')
+                    AND NOT has_column_privilege(v_role, v_metadata.oid, 'appointment_id', 'UPDATE'))) THEN
           RAISE EXCEPTION 'Missing % grant on % for %; test must exercise RLS',
             v_privilege, v_table, v_role;
         END IF;
@@ -111,7 +122,7 @@ BEGIN
   IF (SELECT array_agg(tablename || '.' || policyname ORDER BY tablename, policyname)
       FROM pg_policies WHERE schemaname = 'public')
      IS DISTINCT FROM (SELECT array_agg(p ORDER BY p) FROM unnest(v_policy_names) AS names(p)) THEN
-    RAISE EXCEPTION 'Expected exactly the 21 approved BF-073/BF-074 policies and no others';
+    RAISE EXCEPTION 'Expected exactly the 28 approved BF-073/BF-074/BF-075 policies and no others';
   END IF;
   IF (SELECT array_agg(p.proname::text ORDER BY p.proname)
       FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace WHERE n.nspname = 'public')
@@ -269,7 +280,7 @@ BEGIN
       RAISE EXCEPTION 'Denied DML changed rows on %', v_table;
     END IF;
   END LOOP;
-  RAISE NOTICE 'BF-071 passed: 19 RLS tables, 21 approved policies, zero FORCE/unexpected functions, % denied DML checks, 19 service_role reads and unchanged fixtures', v_checks;
+  RAISE NOTICE 'BF-071 passed: 19 RLS tables, 28 approved policies, zero FORCE/unexpected functions, % denied DML checks, 19 service_role reads and unchanged fixtures', v_checks;
 END;
 $$;
 

@@ -26,6 +26,7 @@ Get-Content supabase/tests/rls_enablement.sql | docker exec -i supabase_db_barbe
 Get-Content supabase/tests/membership_helpers.sql | docker exec -i supabase_db_barberflow psql -U postgres -d postgres -v ON_ERROR_STOP=1
 Get-Content supabase/tests/bf073_rls_policies.sql | docker exec -i supabase_db_barberflow psql -U postgres -d postgres -v ON_ERROR_STOP=1
 Get-Content supabase/tests/bf074_clients_services_rls_policies.sql | docker exec -i supabase_db_barberflow psql -U postgres -d postgres -v ON_ERROR_STOP=1
+Get-Content supabase/tests/bf075_appointments_rls_policies.sql | docker exec -i supabase_db_barberflow psql -U postgres -d postgres -v ON_ERROR_STOP=1
 npx supabase stop
 ```
 

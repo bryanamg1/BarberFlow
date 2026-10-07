@@ -20,8 +20,8 @@ Create safe helper functions such as `is_business_member(business_id)` and `has_
 | Services | Read/Create/Update/Archive; NO DELETE | Read; NO INSERT/UPDATE/DELETE |
 | Product categories | Read/Create/Update/Archive | Read |
 | Expense categories | Read/Create/Update/Archive | No |
-| Appointments | Read/Create; Update operational fields/status; Reschedule/Cancel/Mark no-show, all | Same operational actions, own only |
-| Appointment services | Read/Create/Update through appointment workflow; preserve historical snapshots | own, through authorized appointment workflow |
+| Appointments | Read/Create/Update all in own businesses; NO DELETE | Read/Create/Update assigned to own active membership only; NO reassignment/DELETE |
+| Appointment services | Read/Create/Update/Delete lines of authorized business appointments | Read/Create/Update/Delete lines of own assigned appointments |
 | Products | Read/Create/Update/Archive | Read |
 | Stock movements | Read; append through authorized stock workflows only | Read |
 | Purchases DRAFT | Read/Create/Update through purchase workflow | No |
@@ -50,7 +50,7 @@ Use only the approved BF-072 helpers. Membership activity controls business acce
 
 ### BF-074 — Clients & Services RLS Policies
 
-Approved scope: exactly `clients` and `services`. Add six policies TO authenticated, for a total of 21 public policies including the 15 BF-073 policies. BF-075–079 remain unspecified; their tables receive no policies here.
+Approved scope: exactly `clients` and `services`. Add six policies TO authenticated, for a total of 21 public policies including the 15 BF-073 policies. Subsequent domains receive policies only in their own tickets.
 
 - `clients`: active OWNER and BARBER may SELECT/INSERT/UPDATE within their businesses via `public.is_business_member(business_id)`. SELECT uses USING, INSERT uses WITH CHECK, and UPDATE uses both. No DELETE; archive/reactivate through `is_active`.
 - `services`: active OWNER and BARBER may SELECT via `public.is_business_member(business_id)`. Only active OWNER may INSERT/UPDATE via `public.has_business_role(business_id, ARRAY['OWNER'])`, using WITH CHECK on INSERT and USING/WITH CHECK on UPDATE. No DELETE; OWNER archives/reactivates through `is_active`.
@@ -59,6 +59,19 @@ Approved scope: exactly `clients` and `services`. Add six policies TO authentica
 - `authenticated` cannot UPDATE `business_id`, including callers active in both businesses; preserve UPDATE privileges on every other existing column using the BF-073 column-grant pattern. No cross-business row transfers.
 
 Reuse BF-072 helpers without changes. No new helpers, SECURITY DEFINER, RPC, business logic, FORCE RLS, future-domain policies or global grant hardening; service_role and the inherited TRUNCATE/REFERENCES/TRIGGER/MAINTAIN debt remain unchanged.
+
+### BF-075 — Appointments RLS Policies
+
+Approved scope: exactly `appointments` and `appointment_services`. Add seven policies TO authenticated, for exactly 28 public policies including BF-073/BF-074. BF-076–079 remain unspecified and their ten tables remain without policies.
+
+- `appointments`: active OWNER may SELECT/INSERT/UPDATE all appointments of that business. Active BARBER may SELECT/INSERT/UPDATE only appointments assigned to their own membership. Match `barber_member_id` to `business_members.id`, `user_id = auth.uid()`, the appointment business and active BARBER membership; use `has_business_role(business_id, ARRAY['OWNER'])` for OWNER. UPDATE requires authorization both before and after the change, preventing BARBER reassignment or taking another barber's appointment.
+- INSERT requires `created_by = auth.uid()`. INSERT/UPDATE require the referenced client and assigned member to belong to the same business. OWNER may assign/reassign any member of that business, including inactive members, preserving historical access; the caller's membership must be active. Archived clients do not invalidate tenant consistency.
+- `authenticated` cannot UPDATE `appointments.business_id` or `appointments.created_by`; preserve every other existing column's UPDATE privilege. No appointment DELETE policy. Valid status CHECKs remain unchanged; no state-transition, conflict, availability or business-hours rules are implemented by RLS.
+- `appointment_services`: SELECT inherits parent visibility. INSERT/UPDATE/DELETE independently require OWNER of the parent business or its assigned active BARBER, in addition to the parent RLS check; visibility alone does not grant writes. INSERT/UPDATE accept nullable `service_id`; when present, the service must belong to the parent's business, without requiring catalog activity.
+- `authenticated` cannot UPDATE `appointment_services.appointment_id`; preserve every other existing column's UPDATE privilege. Authorized editors may change line snapshots and remove lines. BF-075 adds no status-based snapshot immutability; catalog changes still never rewrite snapshots automatically. Deleting a line never deletes its appointment.
+- Inactive memberships and authenticated users without membership have no appointment/line access; reactivation restores access according to the current role and assignment. Anon remains blocked. Even an OWNER of both businesses cannot transfer an appointment, spoof its creator or attach a client/member/service from the other tenant.
+
+Reuse unchanged BF-072 helpers and BF-073 membership visibility; no new helper, SECURITY DEFINER, RPC, redundant business_id, FORCE RLS or global grant hardening. The inherited TRUNCATE/REFERENCES/TRIGGER/MAINTAIN debt and service_role privileges remain unchanged.
 
 Every business-owned table enables RLS. Frontend filters are not authorization. INSERT/UPDATE must validate membership with WITH CHECK. Global finance/purchase/expense operations require OWNER. Critical RPCs verify auth and role independently. The service-role key never reaches Expo/Web clients.
 
