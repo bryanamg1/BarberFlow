@@ -90,11 +90,12 @@ BEGIN
      OR NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid = 'public.expenses'::regclass
                     AND conname = 'expenses_purchase_id_key' AND contype = 'u'
                     AND pg_get_constraintdef(oid) = 'UNIQUE (purchase_id)')
-     OR (SELECT count(*) FROM pg_indexes WHERE schemaname = 'public' AND tablename = 'expenses') <> 3
+     -- BF-070 audits additional indexes; preserve this ticket's required coverage.
+     OR (SELECT count(*) FROM pg_indexes WHERE schemaname = 'public' AND tablename = 'expenses') < 3
      OR NOT EXISTS (SELECT 1 FROM pg_indexes WHERE schemaname = 'public' AND tablename = 'expenses'
                     AND indexname = 'expenses_business_id_expense_date_idx'
                     AND indexdef LIKE '% USING btree (business_id, expense_date)') THEN
-    RAISE EXCEPTION 'Only PK, purchase uniqueness and business/date index are approved';
+    RAISE EXCEPTION 'Required PK, purchase uniqueness or business/date index missing';
   END IF;
   IF NOT (SELECT relrowsecurity FROM pg_class WHERE oid = 'public.expenses'::regclass)
      OR EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'expenses') THEN

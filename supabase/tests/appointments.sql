@@ -75,8 +75,9 @@ BEGIN
               AND contype IN ('u', 'x')) THEN
     RAISE EXCEPTION 'No uniqueness or overlap exclusion constraint is approved';
   END IF;
-  IF (SELECT count(*) FROM pg_indexes WHERE schemaname = 'public' AND tablename = 'appointments') <> 4 THEN
-    RAISE EXCEPTION 'Expected PK and three agenda/history indexes';
+  -- BF-070 audits the full index inventory; retain the BF-058 required indexes here.
+  IF (SELECT count(*) FROM pg_indexes WHERE schemaname = 'public' AND tablename = 'appointments') < 4 THEN
+    RAISE EXCEPTION 'Required PK and three agenda/history indexes missing';
   END IF;
   FOR v_case IN
     SELECT * FROM (VALUES
