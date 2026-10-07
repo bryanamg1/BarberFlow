@@ -18,6 +18,7 @@ Get-Content supabase/tests/sale_items.sql | docker exec -i supabase_db_barberflo
 Get-Content supabase/tests/payments.sql | docker exec -i supabase_db_barberflow psql -U postgres -d postgres -v ON_ERROR_STOP=1
 Get-Content supabase/tests/purchases.sql | docker exec -i supabase_db_barberflow psql -U postgres -d postgres -v ON_ERROR_STOP=1
 Get-Content supabase/tests/purchase_items.sql | docker exec -i supabase_db_barberflow psql -U postgres -d postgres -v ON_ERROR_STOP=1
+Get-Content supabase/tests/stock_movements.sql | docker exec -i supabase_db_barberflow psql -U postgres -d postgres -v ON_ERROR_STOP=1
 npx supabase stop
 ```
 
