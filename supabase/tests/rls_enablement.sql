@@ -1,8 +1,9 @@
 \set ON_ERROR_STOP on
 BEGIN;
 
--- BF-071 baseline: 19 known tables, no policies, no FORCE RLS and two existing
--- invoker trigger functions. This suite creates no helper, function or policy.
+-- BF-071 table baseline plus the two explicitly approved BF-072 definers:
+-- 19 known tables, no policies, no FORCE RLS and the two invoker triggers.
+-- This suite creates no helper, function or policy.
 -- All fixtures, role changes and positive controls are rolled back.
 DO $$
 DECLARE
@@ -85,11 +86,19 @@ BEGIN
   END IF;
   IF (SELECT array_agg(p.proname::text ORDER BY p.proname)
       FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace WHERE n.nspname = 'public')
-     IS DISTINCT FROM ARRAY['prevent_stock_movement_changes', 'set_updated_at']::text[]
+     IS DISTINCT FROM ARRAY['has_business_role', 'is_business_member',
+                            'prevent_stock_movement_changes', 'set_updated_at']::text[]
      OR EXISTS (SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
-                WHERE n.nspname = 'public' AND (p.prosecdef OR p.pronargs <> 0
-                      OR p.prorettype <> 'pg_catalog.trigger'::regtype)) THEN
-    RAISE EXCEPTION 'Unexpected public function, helper or SECURITY DEFINER';
+                WHERE n.nspname = 'public' AND CASE
+                  WHEN p.proname IN ('is_business_member', 'has_business_role') THEN
+                    NOT p.prosecdef OR p.prorettype <> 'pg_catalog.bool'::regtype
+                    OR p.proretset OR p.proconfig IS DISTINCT FROM ARRAY['search_path=""']::text[]
+                    OR p.oid NOT IN ('public.is_business_member(uuid)'::regprocedure,
+                                    'public.has_business_role(uuid,text[])'::regprocedure)
+                  ELSE p.prosecdef OR p.pronargs <> 0
+                       OR p.prorettype <> 'pg_catalog.trigger'::regtype
+                END) THEN
+    RAISE EXCEPTION 'Public functions differ from the approved BF-071/BF-072 baseline';
   END IF;
   IF (SELECT count(*) FROM pg_roles WHERE rolname IN ('anon', 'authenticated')
       AND NOT rolsuper AND NOT rolbypassrls) <> 2
@@ -229,7 +238,7 @@ BEGIN
       RAISE EXCEPTION 'Denied DML changed rows on %', v_table;
     END IF;
   END LOOP;
-  RAISE NOTICE 'BF-071 passed: 19 RLS tables, zero FORCE/policies/new functions, % denied DML checks, 19 service_role reads and unchanged fixtures', v_checks;
+  RAISE NOTICE 'BF-071 passed: 19 RLS tables, zero FORCE/policies/unexpected functions, % denied DML checks, 19 service_role reads and unchanged fixtures', v_checks;
 END;
 $$;
 

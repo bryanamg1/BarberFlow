@@ -23,6 +23,7 @@ Get-Content supabase/tests/expense_categories.sql | docker exec -i supabase_db_b
 Get-Content supabase/tests/expenses.sql | docker exec -i supabase_db_barberflow psql -U postgres -d postgres -v ON_ERROR_STOP=1
 Get-Content supabase/tests/database_indexes.sql | docker exec -i supabase_db_barberflow psql -U postgres -d postgres -v ON_ERROR_STOP=1
 Get-Content supabase/tests/rls_enablement.sql | docker exec -i supabase_db_barberflow psql -U postgres -d postgres -v ON_ERROR_STOP=1
+Get-Content supabase/tests/membership_helpers.sql | docker exec -i supabase_db_barberflow psql -U postgres -d postgres -v ON_ERROR_STOP=1
 npx supabase stop
 ```
 
