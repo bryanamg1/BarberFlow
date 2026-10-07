@@ -67,8 +67,10 @@ BEGIN
     RAISE EXCEPTION 'Expected PK and two business-scoped indexes';
   END IF;
   IF NOT (SELECT relrowsecurity FROM pg_class WHERE oid = 'public.clients'::regclass)
-     OR EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'clients') THEN
-    RAISE EXCEPTION 'Clients must have RLS enabled without policies';
+     OR (SELECT array_agg(policyname::text ORDER BY policyname) FROM pg_policies
+         WHERE schemaname = 'public' AND tablename = 'clients') IS DISTINCT FROM
+        ARRAY['clients_insert_members', 'clients_select_members', 'clients_update_members']::text[] THEN
+    RAISE EXCEPTION 'Clients must have RLS and exactly the three BF-074 policies';
   END IF;
   IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgrelid = 'public.clients'::regclass
                  AND tgname = 'clients_set_updated_at'

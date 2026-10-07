@@ -20,7 +20,13 @@ DECLARE
     'business_hours.business_hours_select_members',
     'business_hours.business_hours_insert_owners',
     'business_hours.business_hours_update_owners',
-    'business_hours.business_hours_delete_owners'
+    'business_hours.business_hours_delete_owners',
+    'clients.clients_select_members',
+    'clients.clients_insert_members',
+    'clients.clients_update_members',
+    'services.services_select_members',
+    'services.services_insert_owners',
+    'services.services_update_owners'
   ];
   v_user_a uuid := gen_random_uuid();
   v_user_b uuid := gen_random_uuid();
@@ -86,7 +92,7 @@ BEGIN
   IF (SELECT array_agg(tablename || '.' || policyname ORDER BY tablename, policyname)
       FROM pg_policies WHERE schemaname = 'public')
      IS DISTINCT FROM (SELECT array_agg(p ORDER BY p) FROM unnest(v_policy_names) AS names(p)) THEN
-    RAISE EXCEPTION 'Expected exactly the 15 approved BF-073 policies and no others';
+    RAISE EXCEPTION 'Expected exactly the 21 approved BF-073/BF-074 policies and no others';
   END IF;
 
   INSERT INTO auth.users (id) VALUES (v_user_a), (v_user_b), (v_nonmember), (v_inactive_user);
@@ -225,9 +231,9 @@ BEGIN
   IF (SELECT array_agg(tablename || '.' || policyname ORDER BY tablename, policyname)
       FROM pg_policies WHERE schemaname = 'public')
      IS DISTINCT FROM (SELECT array_agg(p ORDER BY p) FROM unnest(v_policy_names) AS names(p)) THEN
-    RAISE EXCEPTION 'Expected exactly the 15 approved BF-073 policies and no others';
+    RAISE EXCEPTION 'Expected exactly the 21 approved BF-073/BF-074 policies and no others';
   END IF;
-  RAISE NOTICE 'BF-072 passed: % authenticated helper results, scoped direct membership reads, no recursion, hostile search_path, NULL safety, literal roles, revocation, anon EXECUTE denial, service_role semantics, 15 approved policies and unchanged fixtures', v_checks;
+  RAISE NOTICE 'BF-072 passed: % authenticated helper results, scoped direct membership reads, no recursion, hostile search_path, NULL safety, literal roles, revocation, anon EXECUTE denial, service_role semantics, 21 approved policies and unchanged fixtures', v_checks;
 END;
 $$;
 

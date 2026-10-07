@@ -20,7 +20,13 @@ DECLARE
     'business_hours.business_hours_select_members',
     'business_hours.business_hours_insert_owners',
     'business_hours.business_hours_update_owners',
-    'business_hours.business_hours_delete_owners'
+    'business_hours.business_hours_delete_owners',
+    'clients.clients_select_members',
+    'clients.clients_insert_members',
+    'clients.clients_update_members',
+    'services.services_select_members',
+    'services.services_insert_owners',
+    'services.services_update_owners'
   ];
   foundation_tables constant text[] := ARRAY[
     'business_hours', 'business_members', 'business_settings', 'businesses', 'profiles'
@@ -53,7 +59,7 @@ BEGIN
   IF (SELECT array_agg(tablename || '.' || policyname ORDER BY tablename, policyname)
       FROM pg_policies WHERE schemaname = 'public')
      IS DISTINCT FROM (SELECT array_agg(p ORDER BY p) FROM unnest(v_policy_names) AS names(p)) THEN
-    RAISE EXCEPTION 'Expected exactly the 15 approved BF-073 policies and no others';
+    RAISE EXCEPTION 'Expected exactly the 21 approved BF-073/BF-074 policies and no others';
   END IF;
 
   FOREACH target_table IN ARRAY foundation_tables LOOP

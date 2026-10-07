@@ -8,8 +8,8 @@ DECLARE
   actual record;
   col record;
 BEGIN
-  IF (SELECT count(*) FROM pg_policies WHERE schemaname = 'public') <> 15 THEN
-    RAISE EXCEPTION 'Expected exactly 15 BF-073 policies';
+  IF (SELECT count(*) FROM pg_policies WHERE schemaname = 'public') <> 21 THEN
+    RAISE EXCEPTION 'Expected exactly 21 BF-073/BF-074 policies';
   END IF;
   FOR expected IN
     SELECT * FROM (VALUES
@@ -27,7 +27,13 @@ BEGIN
       ('business_hours', 'business_hours_select_members', 'SELECT', 'public.is_business_member(business_id)', NULL),
       ('business_hours', 'business_hours_insert_owners', 'INSERT', NULL, 'public.has_business_role(business_id, ARRAY[''OWNER''::text])'),
       ('business_hours', 'business_hours_update_owners', 'UPDATE', 'public.has_business_role(business_id, ARRAY[''OWNER''::text])', 'public.has_business_role(business_id, ARRAY[''OWNER''::text])'),
-      ('business_hours', 'business_hours_delete_owners', 'DELETE', 'public.has_business_role(business_id, ARRAY[''OWNER''::text])', NULL)
+      ('business_hours', 'business_hours_delete_owners', 'DELETE', 'public.has_business_role(business_id, ARRAY[''OWNER''::text])', NULL),
+      ('clients', 'clients_select_members', 'SELECT', 'public.is_business_member(business_id)', NULL),
+      ('clients', 'clients_insert_members', 'INSERT', NULL, 'public.is_business_member(business_id)'),
+      ('clients', 'clients_update_members', 'UPDATE', 'public.is_business_member(business_id)', 'public.is_business_member(business_id)'),
+      ('services', 'services_select_members', 'SELECT', 'public.is_business_member(business_id)', NULL),
+      ('services', 'services_insert_owners', 'INSERT', NULL, 'public.has_business_role(business_id, ARRAY[''OWNER''::text])'),
+      ('services', 'services_update_owners', 'UPDATE', 'public.has_business_role(business_id, ARRAY[''OWNER''::text])', 'public.has_business_role(business_id, ARRAY[''OWNER''::text])')
     ) AS policies(table_name, policy_name, command, using_expression, check_expression)
   LOOP
     SELECT * INTO STRICT actual FROM pg_policies
@@ -50,7 +56,7 @@ BEGIN
       RAISE EXCEPTION 'Incorrect scoped UPDATE grant on % column %', col.oid::regclass, col.attname;
     END IF;
   END LOOP;
-  RAISE NOTICE 'BF-073 metadata passed: exactly 15 policies on five tables, authenticated only, exact USING/WITH CHECK, immutable tenant columns';
+  RAISE NOTICE 'BF-073 metadata passed: 15 original policies plus exactly six BF-074 policies, authenticated only, exact USING/WITH CHECK, immutable tenant columns';
 END;
 $$;
 
@@ -94,8 +100,8 @@ BEGIN
     INSERT INTO public.business_settings (business_id) VALUES (biz[idx]);
     INSERT INTO public.business_hours (id, business_id, day_of_week, open_time, close_time)
       VALUES (hour_ids[idx], biz[idx], 0, '09:00', '18:00');
-    INSERT INTO public.clients (business_id, first_name) VALUES (biz[idx], 'Closed client');
-    INSERT INTO public.services (business_id, name, price, duration_minutes) VALUES (biz[idx], 'Closed service', 10, 30);
+    INSERT INTO public.product_categories (business_id, name) VALUES (biz[idx], 'Closed product category');
+    INSERT INTO public.expense_categories (business_id, name) VALUES (biz[idx], 'Closed expense category');
     INSERT INTO public.products (business_id, name, sale_price, default_purchase_cost) VALUES (biz[idx], 'Closed product', 10, 4);
   END LOOP;
   INSERT INTO public.business_members (business_id, user_id, role, is_active) VALUES (biz[1], users[6], 'BARBER', false);
@@ -197,13 +203,14 @@ BEGIN
       END LOOP;
     END LOOP;
 
-    -- Actual populated out-of-scope domains stay closed even for active OWNER.
+    -- BF-074 now opens clients/services; use still-closed populated domains.
+    -- Keep all 84 denial checks; the BF-074 suite covers the newly allowed access.
     PERFORM set_config('request.jwt.claims', jsonb_build_object('sub', person.user_id, 'role', person.database_role)::text, true);
     PERFORM set_config('request.jwt.claim.sub', coalesce(person.user_id::text, ''), true);
     FOR outside IN
       SELECT * FROM (VALUES
-        ('clients', format('INSERT INTO public.clients (business_id, first_name) VALUES (%L, ''Denied'')', biz[1])),
-        ('services', format('INSERT INTO public.services (business_id, name, price, duration_minutes) VALUES (%L, ''Denied'', 10, 30)', biz[1])),
+        ('product_categories', format('INSERT INTO public.product_categories (business_id, name) VALUES (%L, ''Denied'')', biz[1])),
+        ('expense_categories', format('INSERT INTO public.expense_categories (business_id, name) VALUES (%L, ''Denied'')', biz[1])),
         ('products', format('INSERT INTO public.products (business_id, name, sale_price, default_purchase_cost) VALUES (%L, ''Denied'', 10, 4)', biz[1]))
       ) AS domains(table_name, insert_statement)
     LOOP

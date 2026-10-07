@@ -16,8 +16,8 @@ Create safe helper functions such as `is_business_member(business_id)` and `has_
 | Business settings | Read/Create/Update; NO DELETE | Read |
 | Business hours | CRUD | Read |
 | Members | Read/Create/Update/Deactivate; NO DELETE | Read memberships in own businesses |
-| Clients | Read/Create/Update/Archive | Read/Create/Update |
-| Services | Read/Create/Update/Archive | Read |
+| Clients | Read/Create/Update/Archive; NO DELETE | Read/Create/Update/Archive; NO DELETE |
+| Services | Read/Create/Update/Archive; NO DELETE | Read; NO INSERT/UPDATE/DELETE |
 | Product categories | Read/Create/Update/Archive | Read |
 | Expense categories | Read/Create/Update/Archive | No |
 | Appointments | Read/Create; Update operational fields/status; Reschedule/Cancel/Mark no-show, all | Same operational actions, own only |
@@ -47,6 +47,18 @@ Approved scope: exactly `profiles`, `businesses`, `business_members`, `business_
 - `business_hours`: active members may SELECT; active OWNER may INSERT/UPDATE/DELETE, with USING/WITH CHECK on UPDATE.
 
 Use only the approved BF-072 helpers. Membership activity controls business access; no additional business-is-active condition. Inactive/nonmember identities and anon have no business access. No role hierarchy, self-OWNER bootstrap policy, new SECURITY DEFINER, FORCE RLS, business RPC or global grant hardening. Existing rows cannot be moved between businesses, including when the caller owns both businesses.
+
+### BF-074 — Clients & Services RLS Policies
+
+Approved scope: exactly `clients` and `services`. Add six policies TO authenticated, for a total of 21 public policies including the 15 BF-073 policies. BF-075–079 remain unspecified; their tables receive no policies here.
+
+- `clients`: active OWNER and BARBER may SELECT/INSERT/UPDATE within their businesses via `public.is_business_member(business_id)`. SELECT uses USING, INSERT uses WITH CHECK, and UPDATE uses both. No DELETE; archive/reactivate through `is_active`.
+- `services`: active OWNER and BARBER may SELECT via `public.is_business_member(business_id)`. Only active OWNER may INSERT/UPDATE via `public.has_business_role(business_id, ARRAY['OWNER'])`, using WITH CHECK on INSERT and USING/WITH CHECK on UPDATE. No DELETE; OWNER archives/reactivates through `is_active`.
+- Inactive clients/services remain visible to active members and editable according to the same role rules. Record `is_active` is not an RLS condition; availability filtering belongs to application queries.
+- Inactive memberships, authenticated users without membership, and anon have no access to either table. Revoking a membership removes access on subsequent statements.
+- `authenticated` cannot UPDATE `business_id`, including callers active in both businesses; preserve UPDATE privileges on every other existing column using the BF-073 column-grant pattern. No cross-business row transfers.
+
+Reuse BF-072 helpers without changes. No new helpers, SECURITY DEFINER, RPC, business logic, FORCE RLS, future-domain policies or global grant hardening; service_role and the inherited TRUNCATE/REFERENCES/TRIGGER/MAINTAIN debt remain unchanged.
 
 Every business-owned table enables RLS. Frontend filters are not authorization. INSERT/UPDATE must validate membership with WITH CHECK. Global finance/purchase/expense operations require OWNER. Critical RPCs verify auth and role independently. The service-role key never reaches Expo/Web clients.
 
