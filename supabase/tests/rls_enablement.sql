@@ -1,0 +1,236 @@
+\set ON_ERROR_STOP on
+BEGIN;
+
+-- BF-071 baseline: 19 known tables, no policies, no FORCE RLS and two existing
+-- invoker trigger functions. This suite creates no helper, function or policy.
+-- All fixtures, role changes and positive controls are rolled back.
+DO $$
+DECLARE
+  v_tables constant text[] := ARRAY[
+    'profiles', 'businesses', 'business_members', 'business_settings', 'business_hours',
+    'clients', 'services', 'appointments', 'appointment_services', 'product_categories',
+    'products', 'sales', 'sale_items', 'payments', 'purchases', 'purchase_items',
+    'stock_movements', 'expense_categories', 'expenses'
+  ];
+  v_user uuid := gen_random_uuid();
+  v_other_user uuid := gen_random_uuid();
+  v_business uuid := gen_random_uuid();
+  v_other_business uuid := gen_random_uuid();
+  v_member uuid := gen_random_uuid();
+  v_client uuid := gen_random_uuid();
+  v_service uuid := gen_random_uuid();
+  v_appointment uuid := gen_random_uuid();
+  v_category uuid := gen_random_uuid();
+  v_product uuid := gen_random_uuid();
+  v_sale uuid := gen_random_uuid();
+  v_purchase uuid := gen_random_uuid();
+  v_expense_category uuid := gen_random_uuid();
+  v_table text;
+  v_role text;
+  v_privilege text;
+  v_metadata record;
+  v_baseline jsonb := '{}'::jsonb;
+  v_inserts jsonb := '{}'::jsonb;
+  v_rows jsonb;
+  v_payload jsonb;
+  v_count bigint;
+  v_affected bigint;
+  v_message text;
+  v_checks integer := 0;
+BEGIN
+  IF (SELECT array_agg(c.relname::text ORDER BY c.relname)
+      FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+      WHERE n.nspname = 'public' AND c.relkind IN ('r', 'p'))
+     IS DISTINCT FROM (SELECT array_agg(t ORDER BY t) FROM unnest(v_tables) AS tables(t)) THEN
+    RAISE EXCEPTION 'Public table inventory differs from the approved BF-071 baseline';
+  END IF;
+
+  FOREACH v_table IN ARRAY v_tables LOOP
+    SELECT c.oid, c.relowner, c.relrowsecurity, c.relforcerowsecurity INTO STRICT v_metadata
+    FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+    WHERE n.nspname = 'public' AND c.relname = v_table AND c.relkind IN ('r', 'p');
+    IF NOT v_metadata.relrowsecurity OR v_metadata.relforcerowsecurity THEN
+      RAISE EXCEPTION 'Expected RLS enabled without FORCE on %', v_table;
+    END IF;
+
+    FOREACH v_role IN ARRAY ARRAY['anon', 'authenticated', 'service_role'] LOOP
+      IF NOT has_schema_privilege(v_role, 'public', 'USAGE') THEN
+        RAISE EXCEPTION 'Schema USAGE missing for %', v_role;
+      END IF;
+      FOREACH v_privilege IN ARRAY ARRAY['SELECT', 'INSERT', 'UPDATE', 'DELETE'] LOOP
+        IF NOT has_table_privilege(v_role, v_metadata.oid, v_privilege) THEN
+          RAISE EXCEPTION 'Missing % grant on % for %; test must exercise RLS',
+            v_privilege, v_table, v_role;
+        END IF;
+      END LOOP;
+      IF v_role <> 'service_role'
+         AND pg_has_role(v_role, v_metadata.relowner, 'USAGE') THEN
+        RAISE EXCEPTION '% inherits table ownership on %', v_role, v_table;
+      END IF;
+      -- Audit rather than freeze unsafe default grants into a required baseline.
+      -- PostgreSQL RLS does not cover TRUNCATE/REFERENCES; these require separate
+      -- grant hardening approval. No destructive TRUNCATE is executed by this test.
+      FOREACH v_privilege IN ARRAY ARRAY['TRUNCATE', 'REFERENCES', 'TRIGGER', 'MAINTAIN'] LOOP
+        IF has_table_privilege(v_role, v_metadata.oid, v_privilege) THEN
+          RAISE NOTICE 'Grant audit: % has % on public.% (outside row-level DML checks)',
+            v_role, v_privilege, v_table;
+        END IF;
+      END LOOP;
+    END LOOP;
+  END LOOP;
+
+  IF EXISTS (SELECT 1 FROM pg_policy p JOIN pg_class c ON c.oid = p.polrelid
+             JOIN pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname = 'public') THEN
+    RAISE EXCEPTION 'BF-071 requires exactly zero public policies';
+  END IF;
+  IF (SELECT array_agg(p.proname::text ORDER BY p.proname)
+      FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace WHERE n.nspname = 'public')
+     IS DISTINCT FROM ARRAY['prevent_stock_movement_changes', 'set_updated_at']::text[]
+     OR EXISTS (SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+                WHERE n.nspname = 'public' AND (p.prosecdef OR p.pronargs <> 0
+                      OR p.prorettype <> 'pg_catalog.trigger'::regtype)) THEN
+    RAISE EXCEPTION 'Unexpected public function, helper or SECURITY DEFINER';
+  END IF;
+  IF (SELECT count(*) FROM pg_roles WHERE rolname IN ('anon', 'authenticated')
+      AND NOT rolsuper AND NOT rolbypassrls) <> 2
+     OR NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'service_role'
+                    AND NOT rolsuper AND rolbypassrls) THEN
+    RAISE EXCEPTION 'Unexpected client/service role bypass attributes';
+  END IF;
+
+  INSERT INTO auth.users (id) VALUES (v_user), (v_other_user);
+  INSERT INTO public.profiles (id, first_name, last_name) VALUES (v_user, 'RLS', 'Fixture');
+  INSERT INTO public.businesses (id, name)
+    VALUES (v_business, 'RLS fixture'), (v_other_business, 'RLS insert reference');
+  INSERT INTO public.business_members (id, business_id, user_id, role)
+    VALUES (v_member, v_business, v_user, 'OWNER');
+  INSERT INTO public.business_settings (business_id) VALUES (v_business);
+  INSERT INTO public.business_hours (business_id, day_of_week, open_time, close_time)
+    VALUES (v_business, 0, '09:00', '18:00');
+  INSERT INTO public.clients (id, business_id, first_name) VALUES (v_client, v_business, 'RLS');
+  INSERT INTO public.services (id, business_id, name, price, duration_minutes)
+    VALUES (v_service, v_business, 'RLS service', 20, 30);
+  INSERT INTO public.appointments
+    (id, business_id, client_id, barber_member_id, start_at, end_at, created_by)
+    VALUES (v_appointment, v_business, v_client, v_member,
+            '2030-01-07T12:00:00Z', '2030-01-07T12:30:00Z', v_user);
+  INSERT INTO public.appointment_services
+    (appointment_id, service_id, service_name_snapshot, unit_price_snapshot,
+     duration_minutes_snapshot, line_total)
+    VALUES (v_appointment, v_service, 'RLS service', 20, 30, 20);
+  INSERT INTO public.product_categories (id, business_id, name)
+    VALUES (v_category, v_business, 'RLS category');
+  INSERT INTO public.products
+    (id, business_id, category_id, name, sale_price, default_purchase_cost)
+    VALUES (v_product, v_business, v_category, 'RLS product', 10, 4);
+  INSERT INTO public.sales (id, business_id, operation_id, subtotal, total, created_by)
+    VALUES (v_sale, v_business, gen_random_uuid(), 10, 10, v_user);
+  INSERT INTO public.sale_items
+    (sale_id, item_type, product_id, item_name_snapshot, unit_price_snapshot,
+     unit_cost_snapshot, line_total)
+    VALUES (v_sale, 'PRODUCT', v_product, 'RLS product', 10, 4, 10);
+  INSERT INTO public.payments (business_id, sale_id, payment_method, amount, created_by)
+    VALUES (v_business, v_sale, 'CASH', 10, v_user);
+  INSERT INTO public.purchases (id, business_id, operation_id, supplier, total, created_by)
+    VALUES (v_purchase, v_business, gen_random_uuid(), 'RLS supplier', 4, v_user);
+  INSERT INTO public.purchase_items
+    (purchase_id, product_id, product_name_snapshot, quantity, unit_cost_snapshot, line_total)
+    VALUES (v_purchase, v_product, 'RLS product', 1, 4, 4);
+  INSERT INTO public.stock_movements (business_id, product_id, type, quantity_delta, created_by)
+    VALUES (v_business, v_product, 'PURCHASE', 1, v_user);
+  INSERT INTO public.expense_categories (id, business_id, name)
+    VALUES (v_expense_category, v_business, 'RLS expense category');
+  INSERT INTO public.expenses
+    (business_id, category_id, source_type, description, amount, payment_method, expense_date, created_by)
+    VALUES (v_business, v_expense_category, 'MANUAL', 'RLS expense', 1, 'CASH', '2030-01-07', v_user);
+
+  FOREACH v_table IN ARRAY v_tables LOOP
+    EXECUTE format('SELECT jsonb_agg(to_jsonb(t) ORDER BY to_jsonb(t)::text) FROM public.%I t', v_table)
+      INTO v_rows;
+    IF v_rows IS NULL THEN RAISE EXCEPTION 'Missing positive fixture on %', v_table; END IF;
+    v_baseline := v_baseline || jsonb_build_object(v_table, v_rows);
+    -- Clone a valid row with fresh keys. Avoid every existing UNIQUE combination.
+    v_payload := (v_rows -> 0) || jsonb_build_object('id', gen_random_uuid());
+    CASE v_table
+      WHEN 'profiles' THEN v_payload := v_payload || jsonb_build_object('id', v_other_user);
+      WHEN 'business_members' THEN v_payload := v_payload || jsonb_build_object('user_id', v_other_user);
+      WHEN 'business_settings' THEN v_payload := (v_payload - 'id') || jsonb_build_object('business_id', v_other_business);
+      WHEN 'business_hours' THEN v_payload := v_payload || jsonb_build_object('day_of_week', 1);
+      WHEN 'sales', 'purchases' THEN v_payload := v_payload || jsonb_build_object('operation_id', gen_random_uuid());
+      ELSE NULL;
+    END CASE;
+    v_inserts := v_inserts || jsonb_build_object(v_table, v_payload);
+    -- An administrative positive control proves each rejected INSERT is otherwise
+    -- valid (including FK/UNIQUE/CHECK), then rolls back only that insert.
+    BEGIN
+      EXECUTE format('INSERT INTO public.%I SELECT (jsonb_populate_record(NULL::public.%I, $1)).*',
+                     v_table, v_table) USING v_payload;
+      RAISE EXCEPTION 'Rollback valid insert control' USING ERRCODE = 'ZB071';
+    EXCEPTION WHEN SQLSTATE 'ZB071' THEN NULL;
+    END;
+  END LOOP;
+
+  FOREACH v_role IN ARRAY ARRAY['anon', 'authenticated'] LOOP
+    PERFORM set_config('request.jwt.claims',
+      CASE WHEN v_role = 'authenticated'
+        THEN jsonb_build_object('sub', v_user, 'role', v_role)::text
+        ELSE jsonb_build_object('role', v_role)::text END, true);
+    PERFORM set_config('request.jwt.claim.sub',
+      CASE WHEN v_role = 'authenticated' THEN v_user::text ELSE '' END, true);
+    EXECUTE format('SET LOCAL ROLE %I', v_role);
+    IF current_user <> v_role OR auth.uid() IS DISTINCT FROM
+       (CASE WHEN v_role = 'authenticated' THEN v_user ELSE NULL::uuid END) THEN
+      RAISE EXCEPTION 'Role/JWT simulation failed for %', v_role;
+    END IF;
+
+    FOREACH v_table IN ARRAY v_tables LOOP
+      IF NOT row_security_active(format('public.%I', v_table)::regclass) THEN
+        RAISE EXCEPTION 'RLS is not effective for % on %', v_role, v_table;
+      END IF;
+      EXECUTE format('SELECT count(*) FROM public.%I', v_table) INTO v_count;
+      IF v_count <> 0 THEN RAISE EXCEPTION '% can read %', v_role, v_table; END IF;
+      EXECUTE format('UPDATE public.%I SET created_at = created_at', v_table);
+      GET DIAGNOSTICS v_affected = ROW_COUNT;
+      IF v_affected <> 0 THEN RAISE EXCEPTION '% can update %', v_role, v_table; END IF;
+      EXECUTE format('DELETE FROM public.%I', v_table);
+      GET DIAGNOSTICS v_affected = ROW_COUNT;
+      IF v_affected <> 0 THEN RAISE EXCEPTION '% can delete %', v_role, v_table; END IF;
+      BEGIN
+        EXECUTE format('INSERT INTO public.%I SELECT (jsonb_populate_record(NULL::public.%I, $1)).*',
+                       v_table, v_table) USING v_inserts -> v_table;
+        RAISE EXCEPTION '% can insert into %', v_role, v_table;
+      EXCEPTION WHEN insufficient_privilege THEN
+        GET STACKED DIAGNOSTICS v_message = MESSAGE_TEXT;
+        IF v_message NOT LIKE '%row-level security%' THEN
+          RAISE EXCEPTION 'INSERT failed for a reason other than RLS: %', v_message;
+        END IF;
+      END;
+      v_checks := v_checks + 4;
+    END LOOP;
+    RESET ROLE;
+  END LOOP;
+
+  SET LOCAL ROLE service_role;
+  FOREACH v_table IN ARRAY v_tables LOOP
+    IF row_security_active(format('public.%I', v_table)::regclass) THEN
+      RAISE EXCEPTION 'service_role unexpectedly subject to RLS on %', v_table;
+    END IF;
+    EXECUTE format('SELECT count(*) FROM public.%I', v_table) INTO v_count;
+    IF v_count <> jsonb_array_length(v_baseline -> v_table) THEN
+      RAISE EXCEPTION 'service_role cannot read the baseline on %', v_table;
+    END IF;
+  END LOOP;
+  RESET ROLE;
+
+  FOREACH v_table IN ARRAY v_tables LOOP
+    EXECUTE format('SELECT jsonb_agg(to_jsonb(t) ORDER BY to_jsonb(t)::text) FROM public.%I t', v_table)
+      INTO v_rows;
+    IF v_rows IS DISTINCT FROM v_baseline -> v_table THEN
+      RAISE EXCEPTION 'Denied DML changed rows on %', v_table;
+    END IF;
+  END LOOP;
+  RAISE NOTICE 'BF-071 passed: 19 RLS tables, zero FORCE/policies/new functions, % denied DML checks, 19 service_role reads and unchanged fixtures', v_checks;
+END;
+$$;
+
+ROLLBACK;
