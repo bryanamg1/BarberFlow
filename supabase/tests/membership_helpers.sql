@@ -40,7 +40,10 @@ DECLARE
     'products.products_select_members',
     'products.products_insert_owners',
     'products.products_update_owners',
-    'stock_movements.stock_movements_select_members'
+    'stock_movements.stock_movements_select_members',
+    'sales.sales_select_authorized',
+    'sale_items.sale_items_select_authorized',
+    'payments.payments_select_authorized'
   ];
   v_user_a uuid := gen_random_uuid();
   v_user_b uuid := gen_random_uuid();
@@ -106,7 +109,7 @@ BEGIN
   IF (SELECT array_agg(tablename || '.' || policyname ORDER BY tablename, policyname)
       FROM pg_policies WHERE schemaname = 'public')
      IS DISTINCT FROM (SELECT array_agg(p ORDER BY p) FROM unnest(v_policy_names) AS names(p)) THEN
-    RAISE EXCEPTION 'Expected exactly the 35 approved BF-073/BF-074/BF-075/BF-076 policies and no others';
+    RAISE EXCEPTION 'Expected exactly the 38 approved BF-073/BF-074/BF-075/BF-076/BF-077 policies and no others';
   END IF;
 
   INSERT INTO auth.users (id) VALUES (v_user_a), (v_user_b), (v_nonmember), (v_inactive_user);
@@ -245,9 +248,9 @@ BEGIN
   IF (SELECT array_agg(tablename || '.' || policyname ORDER BY tablename, policyname)
       FROM pg_policies WHERE schemaname = 'public')
      IS DISTINCT FROM (SELECT array_agg(p ORDER BY p) FROM unnest(v_policy_names) AS names(p)) THEN
-    RAISE EXCEPTION 'Expected exactly the 35 approved BF-073/BF-074/BF-075/BF-076 policies and no others';
+    RAISE EXCEPTION 'Expected exactly the 38 approved BF-073/BF-074/BF-075/BF-076/BF-077 policies and no others';
   END IF;
-  RAISE NOTICE 'BF-072 passed: % authenticated helper results, scoped direct membership reads, no recursion, hostile search_path, NULL safety, literal roles, revocation, anon EXECUTE denial, service_role semantics, 35 approved policies and unchanged fixtures', v_checks;
+  RAISE NOTICE 'BF-072 passed: % authenticated helper results, scoped direct membership reads, no recursion, hostile search_path, NULL safety, literal roles, revocation, anon EXECUTE denial, service_role semantics, 38 approved policies and unchanged fixtures', v_checks;
 END;
 $$;
 

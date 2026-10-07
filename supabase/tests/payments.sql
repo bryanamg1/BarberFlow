@@ -85,8 +85,10 @@ BEGIN
     RAISE EXCEPTION 'Only PK and nonunique sale lookup index are approved';
   END IF;
   IF NOT (SELECT relrowsecurity FROM pg_class WHERE oid = 'public.payments'::regclass)
-     OR EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'payments') THEN
-    RAISE EXCEPTION 'Payments must have RLS enabled without policies';
+     OR (SELECT array_agg(policyname::text ORDER BY policyname) FROM pg_policies
+         WHERE schemaname = 'public' AND tablename = 'payments')
+        IS DISTINCT FROM ARRAY['payments_select_authorized']::text[] THEN
+    RAISE EXCEPTION 'Payments must have RLS enabled with exactly its BF-077 SELECT policy';
   END IF;
   IF EXISTS (SELECT 1 FROM pg_trigger WHERE tgrelid = 'public.payments'::regclass AND NOT tgisinternal) THEN
     RAISE EXCEPTION 'No payment aggregate, completion, timestamp or commerce trigger is approved';

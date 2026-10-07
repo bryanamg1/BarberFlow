@@ -2,7 +2,7 @@
 BEGIN;
 
 -- BF-071 table baseline plus the two explicitly approved BF-072 definers:
--- 19 known tables, exactly BF-073/BF-074/BF-075/BF-076 policies, no FORCE RLS and two invoker triggers.
+-- 19 known tables, exactly BF-073/BF-074/BF-075/BF-076/BF-077 policies, no FORCE RLS and two invoker triggers.
 -- This suite creates no helper, function or policy.
 -- All fixtures, role changes and positive controls are rolled back.
 DO $$
@@ -42,7 +42,10 @@ DECLARE
     'products.products_select_members',
     'products.products_insert_owners',
     'products.products_update_owners',
-    'stock_movements.stock_movements_select_members'
+    'stock_movements.stock_movements_select_members',
+    'sales.sales_select_authorized',
+    'sale_items.sale_items_select_authorized',
+    'payments.payments_select_authorized'
   ];
   v_tables constant text[] := ARRAY[
     'profiles', 'businesses', 'business_members', 'business_settings', 'business_hours',
@@ -129,7 +132,7 @@ BEGIN
   IF (SELECT array_agg(tablename || '.' || policyname ORDER BY tablename, policyname)
       FROM pg_policies WHERE schemaname = 'public')
      IS DISTINCT FROM (SELECT array_agg(p ORDER BY p) FROM unnest(v_policy_names) AS names(p)) THEN
-    RAISE EXCEPTION 'Expected exactly the 35 approved BF-073/BF-074/BF-075/BF-076 policies and no others';
+    RAISE EXCEPTION 'Expected exactly the 38 approved BF-073/BF-074/BF-075/BF-076/BF-077 policies and no others';
   END IF;
   IF (SELECT array_agg(p.proname::text ORDER BY p.proname)
       FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace WHERE n.nspname = 'public')
@@ -287,7 +290,7 @@ BEGIN
       RAISE EXCEPTION 'Denied DML changed rows on %', v_table;
     END IF;
   END LOOP;
-  RAISE NOTICE 'BF-071 passed: 19 RLS tables, 35 approved policies, zero FORCE/unexpected functions, % denied DML checks, 19 service_role reads and unchanged fixtures', v_checks;
+  RAISE NOTICE 'BF-071 passed: 19 RLS tables, 38 approved policies, zero FORCE/unexpected functions, % denied DML checks, 19 service_role reads and unchanged fixtures', v_checks;
 END;
 $$;
 

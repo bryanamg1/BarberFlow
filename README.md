@@ -270,3 +270,9 @@ The provider removes both native subscriptions on unmount. Late callbacks cannot
 The cache lives in memory only. There are no business queries, repositories, feature hooks, Supabase requests, query cache persisters or DevTools. Existing placeholder screens and the Supabase client remain unchanged. Run `node --test tests/query-infrastructure.test.cjs` for lifecycle and actual QueryClient behavior checks, including pause/resume, stale focus refresh, mutation retry policy and server-side context rendering. Device testing remains necessary for real foreground/background and airplane-mode transitions.
 
 The integration follows [TanStack Query's React Native guidance](https://tanstack.com/query/v5/docs/react/react-native), [query defaults](https://tanstack.com/query/v5/docs/react/guides/important-defaults), [Expo SDK 57 Network](https://docs.expo.dev/versions/v57.0.0/sdk/network.md) and [React Native AppState](https://reactnative.dev/docs/0.86/appstate).
+
+Run the BF-077 local security suite after applying local migrations:
+
+```powershell
+Get-Content supabase/tests/bf077_sales_payments_rls_policies.sql | docker exec -i supabase_db_barberflow psql -U postgres -d postgres -v ON_ERROR_STOP=1
+```

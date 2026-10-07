@@ -107,8 +107,10 @@ BEGIN
     END IF;
   END LOOP;
   IF NOT (SELECT relrowsecurity FROM pg_class WHERE oid = 'public.sales'::regclass)
-     OR EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'sales') THEN
-    RAISE EXCEPTION 'Sales must have RLS enabled without policies';
+     OR (SELECT array_agg(policyname::text ORDER BY policyname) FROM pg_policies
+         WHERE schemaname = 'public' AND tablename = 'sales')
+        IS DISTINCT FROM ARRAY['sales_select_authorized']::text[] THEN
+    RAISE EXCEPTION 'Sales must have RLS enabled with exactly its BF-077 SELECT policy';
   END IF;
   IF (SELECT count(*) FROM pg_trigger WHERE tgrelid = 'public.sales'::regclass AND NOT tgisinternal) <> 1
      OR NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgrelid = 'public.sales'::regclass
