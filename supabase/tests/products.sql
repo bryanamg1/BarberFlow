@@ -84,8 +84,10 @@ BEGIN
     RAISE EXCEPTION 'Expected PK, business/active and category indexes only';
   END IF;
   IF NOT (SELECT relrowsecurity FROM pg_class WHERE oid = 'public.products'::regclass)
-     OR EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'products') THEN
-    RAISE EXCEPTION 'Products must have RLS enabled without policies';
+     OR (SELECT array_agg(policyname::text ORDER BY policyname) FROM pg_policies
+         WHERE schemaname = 'public' AND tablename = 'products') IS DISTINCT FROM
+        ARRAY['products_insert_owners', 'products_select_members', 'products_update_owners']::text[] THEN
+    RAISE EXCEPTION 'Products must have RLS enabled with exactly the approved BF-076 policies';
   END IF;
   IF (SELECT count(*) FROM pg_trigger WHERE tgrelid = 'public.products'::regclass AND NOT tgisinternal) <> 1
      OR NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgrelid = 'public.products'::regclass

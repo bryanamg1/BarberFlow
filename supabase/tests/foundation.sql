@@ -33,7 +33,14 @@ DECLARE
     'appointment_services.appointment_services_select_authorized',
     'appointment_services.appointment_services_insert_authorized',
     'appointment_services.appointment_services_update_authorized',
-    'appointment_services.appointment_services_delete_authorized'
+    'appointment_services.appointment_services_delete_authorized',
+    'product_categories.product_categories_select_members',
+    'product_categories.product_categories_insert_owners',
+    'product_categories.product_categories_update_owners',
+    'products.products_select_members',
+    'products.products_insert_owners',
+    'products.products_update_owners',
+    'stock_movements.stock_movements_select_members'
   ];
   foundation_tables constant text[] := ARRAY[
     'business_hours', 'business_members', 'business_settings', 'businesses', 'profiles'
@@ -66,7 +73,7 @@ BEGIN
   IF (SELECT array_agg(tablename || '.' || policyname ORDER BY tablename, policyname)
       FROM pg_policies WHERE schemaname = 'public')
      IS DISTINCT FROM (SELECT array_agg(p ORDER BY p) FROM unnest(v_policy_names) AS names(p)) THEN
-    RAISE EXCEPTION 'Expected exactly the 28 approved BF-073/BF-074/BF-075 policies and no others';
+    RAISE EXCEPTION 'Expected exactly the 35 approved BF-073/BF-074/BF-075/BF-076 policies and no others';
   END IF;
 
   FOREACH target_table IN ARRAY foundation_tables LOOP

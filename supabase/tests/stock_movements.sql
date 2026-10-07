@@ -99,8 +99,10 @@ BEGIN
     END IF;
   END LOOP;
   IF NOT (SELECT relrowsecurity FROM pg_class WHERE oid = 'public.stock_movements'::regclass)
-     OR EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'stock_movements') THEN
-    RAISE EXCEPTION 'Ledger must have RLS enabled without policies';
+     OR (SELECT array_agg(policyname::text ORDER BY policyname) FROM pg_policies
+         WHERE schemaname = 'public' AND tablename = 'stock_movements') IS DISTINCT FROM
+        ARRAY['stock_movements_select_members']::text[] THEN
+    RAISE EXCEPTION 'Ledger must have RLS enabled with exactly the approved BF-076 policies';
   END IF;
   IF (SELECT count(*) FROM pg_trigger WHERE tgrelid = 'public.stock_movements'::regclass AND NOT tgisinternal) <> 1
      OR NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgrelid = 'public.stock_movements'::regclass

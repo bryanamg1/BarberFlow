@@ -34,7 +34,14 @@ DECLARE
     'appointment_services.appointment_services_select_authorized',
     'appointment_services.appointment_services_insert_authorized',
     'appointment_services.appointment_services_update_authorized',
-    'appointment_services.appointment_services_delete_authorized'
+    'appointment_services.appointment_services_delete_authorized',
+    'product_categories.product_categories_select_members',
+    'product_categories.product_categories_insert_owners',
+    'product_categories.product_categories_update_owners',
+    'products.products_select_members',
+    'products.products_insert_owners',
+    'products.products_update_owners',
+    'stock_movements.stock_movements_select_members'
   ];
   expected record;
   actual record;
@@ -43,7 +50,7 @@ BEGIN
   IF (SELECT array_agg(tablename || '.' || policyname ORDER BY tablename, policyname)
       FROM pg_policies WHERE schemaname = 'public')
      IS DISTINCT FROM (SELECT array_agg(p ORDER BY p) FROM unnest(policy_names) AS names(p)) THEN
-    RAISE EXCEPTION 'Expected exactly the 28 approved public policy identities';
+    RAISE EXCEPTION 'Expected exactly the 35 approved public policy identities';
   END IF;
   FOR expected IN SELECT * FROM (VALUES
     ('appointment_services', 'appointment_services_delete_authorized', 'DELETE', $policy$(EXISTS ( SELECT 1
@@ -123,11 +130,11 @@ BEGIN
     RAISE EXCEPTION 'Expected 19 RLS tables without FORCE';
   END IF;
   IF EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = ANY(ARRAY[
-      'product_categories','products','sales','sale_items','payments','purchases',
-      'purchase_items','stock_movements','expense_categories','expenses'])) THEN
+      'sales','sale_items','payments','purchases',
+      'purchase_items','expense_categories','expenses'])) THEN
     RAISE EXCEPTION 'A future domain received a policy';
   END IF;
-  RAISE NOTICE 'BF-075 metadata passed: exactly 28 known policies, seven exact appointment policies, authenticated only, three immutable columns, other UPDATE columns and service_role unchanged, ten future domains closed, 19 RLS tables without FORCE';
+  RAISE NOTICE 'BF-075 metadata passed: exactly 35 known policies, seven exact appointment policies, authenticated only, three immutable columns, other UPDATE columns and service_role unchanged, seven future domains closed, 19 RLS tables without FORCE';
 END;
 $$;
 
@@ -144,8 +151,8 @@ DECLARE
                         gen_random_uuid(), gen_random_uuid(), gen_random_uuid()];
   lines uuid[] := ARRAY[gen_random_uuid(), gen_random_uuid(), gen_random_uuid(),
                        gen_random_uuid(), gen_random_uuid(), gen_random_uuid()];
-  future_tables constant text[] := ARRAY['product_categories','products','sales','sale_items','payments',
-    'purchases','purchase_items','stock_movements','expense_categories','expenses'];
+  future_tables constant text[] := ARRAY['sales','sale_items','payments',
+    'purchases','purchase_items','expense_categories','expenses'];
   person record;
   scenario record;
   table_name text;

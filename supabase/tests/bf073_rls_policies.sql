@@ -8,8 +8,8 @@ DECLARE
   actual record;
   col record;
 BEGIN
-  IF (SELECT count(*) FROM pg_policies WHERE schemaname = 'public') <> 28 THEN
-    RAISE EXCEPTION 'Expected exactly 28 BF-073/BF-074/BF-075 policies';
+  IF (SELECT count(*) FROM pg_policies WHERE schemaname = 'public') <> 35 THEN
+    RAISE EXCEPTION 'Expected exactly 35 BF-073/BF-074/BF-075/BF-076 policies';
   END IF;
   IF (SELECT array_agg(tablename || '.' || policyname ORDER BY tablename, policyname)
       FROM pg_policies WHERE schemaname = 'public'
@@ -22,6 +22,18 @@ BEGIN
            'appointments.appointments_select_authorized',
            'appointments.appointments_update_authorized']::text[] THEN
     RAISE EXCEPTION 'Expected exactly the seven approved BF-075 policy identities';
+  END IF;
+  IF (SELECT array_agg(tablename || '.' || policyname ORDER BY tablename, policyname)
+      FROM pg_policies WHERE schemaname = 'public'
+        AND tablename IN ('product_categories', 'products', 'stock_movements')) IS DISTINCT FROM
+     ARRAY['product_categories.product_categories_insert_owners',
+           'product_categories.product_categories_select_members',
+           'product_categories.product_categories_update_owners',
+           'products.products_insert_owners',
+           'products.products_select_members',
+           'products.products_update_owners',
+           'stock_movements.stock_movements_select_members']::text[] THEN
+    RAISE EXCEPTION 'Expected exactly the seven approved BF-076 policy identities';
   END IF;
   FOR expected IN
     SELECT * FROM (VALUES
@@ -68,7 +80,7 @@ BEGIN
       RAISE EXCEPTION 'Incorrect scoped UPDATE grant on % column %', col.oid::regclass, col.attname;
     END IF;
   END LOOP;
-  RAISE NOTICE 'BF-073 metadata passed: 15 original policies plus exactly six BF-074 and seven BF-075 policies, authenticated only, exact USING/WITH CHECK, immutable tenant columns';
+  RAISE NOTICE 'BF-073 metadata passed: 15 original policies plus exactly six BF-074, seven BF-075 and seven BF-076 policies, authenticated only, exact USING/WITH CHECK, immutable tenant columns';
 END;
 $$;
 
@@ -80,6 +92,7 @@ DECLARE
   barber_members uuid[] := ARRAY[gen_random_uuid(), gen_random_uuid()];
   hour_ids uuid[] := ARRAY[gen_random_uuid(), gen_random_uuid()];
   insert_user uuid := gen_random_uuid();
+  closed_category uuid;
   person record;
   target record;
   outside record;
@@ -112,11 +125,15 @@ BEGIN
     INSERT INTO public.business_settings (business_id) VALUES (biz[idx]);
     INSERT INTO public.business_hours (id, business_id, day_of_week, open_time, close_time)
       VALUES (hour_ids[idx], biz[idx], 0, '09:00', '18:00');
-    INSERT INTO public.product_categories (business_id, name) VALUES (biz[idx], 'Closed product category');
+    INSERT INTO public.purchases (business_id, operation_id, supplier, total, created_by) VALUES (biz[idx], gen_random_uuid(), 'Closed supplier', 10, users[1]);
     INSERT INTO public.expense_categories (business_id, name) VALUES (biz[idx], 'Closed expense category');
-    INSERT INTO public.products (business_id, name, sale_price, default_purchase_cost) VALUES (biz[idx], 'Closed product', 10, 4);
+    INSERT INTO public.expenses (business_id, category_id, source_type, description, amount, payment_method, expense_date, created_by)
+      SELECT biz[idx], id, 'MANUAL', 'Closed expense', 10, 'CASH', DATE '2030-01-07', users[1]
+      FROM public.expense_categories WHERE business_id = biz[idx];
   END LOOP;
   INSERT INTO public.business_members (business_id, user_id, role, is_active) VALUES (biz[1], users[6], 'BARBER', false);
+
+  SELECT id INTO STRICT closed_category FROM public.expense_categories WHERE business_id = biz[1];
 
   -- Every matrix operation runs in its own rolled-back subtransaction, so an
   -- allowed INSERT/UPDATE/DELETE cannot change the next role's prerequisites.
@@ -215,15 +232,15 @@ BEGIN
       END LOOP;
     END LOOP;
 
-    -- BF-074 now opens clients/services; use still-closed populated domains.
-    -- Keep all 84 denial checks; the BF-074 suite covers the newly allowed access.
+    -- BF-076 opens inventory; keep denial coverage on still-closed populated domains.
+    -- Keep all 84 denial checks; domain suites cover the newly allowed access.
     PERFORM set_config('request.jwt.claims', jsonb_build_object('sub', person.user_id, 'role', person.database_role)::text, true);
     PERFORM set_config('request.jwt.claim.sub', coalesce(person.user_id::text, ''), true);
     FOR outside IN
       SELECT * FROM (VALUES
-        ('product_categories', format('INSERT INTO public.product_categories (business_id, name) VALUES (%L, ''Denied'')', biz[1])),
+        ('purchases', format('INSERT INTO public.purchases (business_id, operation_id, supplier, total, created_by) VALUES (%L, gen_random_uuid(), ''Denied supplier'', 10, %L)', biz[1], users[1])),
         ('expense_categories', format('INSERT INTO public.expense_categories (business_id, name) VALUES (%L, ''Denied'')', biz[1])),
-        ('products', format('INSERT INTO public.products (business_id, name, sale_price, default_purchase_cost) VALUES (%L, ''Denied'', 10, 4)', biz[1]))
+        ('expenses', format('INSERT INTO public.expenses (business_id, category_id, source_type, description, amount, payment_method, expense_date, created_by) VALUES (%L, %L, ''MANUAL'', ''Denied'', 10, ''CASH'', DATE ''2030-01-07'', %L)', biz[1], closed_category, users[1]))
       ) AS domains(table_name, insert_statement)
     LOOP
       EXECUTE format('SET LOCAL ROLE %I', person.database_role);
