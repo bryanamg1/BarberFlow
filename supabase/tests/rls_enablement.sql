@@ -2,11 +2,28 @@
 BEGIN;
 
 -- BF-071 table baseline plus the two explicitly approved BF-072 definers:
--- 19 known tables, no policies, no FORCE RLS and the two invoker triggers.
+-- 19 known tables, exactly the BF-073 policies, no FORCE RLS and two invoker triggers.
 -- This suite creates no helper, function or policy.
 -- All fixtures, role changes and positive controls are rolled back.
 DO $$
 DECLARE
+  v_policy_names constant text[] := ARRAY[
+    'profiles.profiles_select_self',
+    'profiles.profiles_insert_self',
+    'profiles.profiles_update_self',
+    'businesses.businesses_select_members',
+    'businesses.businesses_update_owners',
+    'business_members.business_members_select_members',
+    'business_members.business_members_insert_owners',
+    'business_members.business_members_update_owners',
+    'business_settings.business_settings_select_members',
+    'business_settings.business_settings_insert_owners',
+    'business_settings.business_settings_update_owners',
+    'business_hours.business_hours_select_members',
+    'business_hours.business_hours_insert_owners',
+    'business_hours.business_hours_update_owners',
+    'business_hours.business_hours_delete_owners'
+  ];
   v_tables constant text[] := ARRAY[
     'profiles', 'businesses', 'business_members', 'business_settings', 'business_hours',
     'clients', 'services', 'appointments', 'appointment_services', 'product_categories',
@@ -14,6 +31,7 @@ DECLARE
     'stock_movements', 'expense_categories', 'expenses'
   ];
   v_user uuid := gen_random_uuid();
+  v_unprivileged_user uuid := gen_random_uuid();
   v_other_user uuid := gen_random_uuid();
   v_business uuid := gen_random_uuid();
   v_other_business uuid := gen_random_uuid();
@@ -59,7 +77,11 @@ BEGIN
         RAISE EXCEPTION 'Schema USAGE missing for %', v_role;
       END IF;
       FOREACH v_privilege IN ARRAY ARRAY['SELECT', 'INSERT', 'UPDATE', 'DELETE'] LOOP
-        IF NOT has_table_privilege(v_role, v_metadata.oid, v_privilege) THEN
+        IF NOT (has_table_privilege(v_role, v_metadata.oid, v_privilege)
+                OR (v_role = 'authenticated' AND v_privilege = 'UPDATE'
+                    AND v_table = ANY(ARRAY['business_members', 'business_settings', 'business_hours'])
+                    AND has_column_privilege(v_role, v_metadata.oid, 'created_at', 'UPDATE')
+                    AND NOT has_column_privilege(v_role, v_metadata.oid, 'business_id', 'UPDATE'))) THEN
           RAISE EXCEPTION 'Missing % grant on % for %; test must exercise RLS',
             v_privilege, v_table, v_role;
         END IF;
@@ -80,9 +102,10 @@ BEGIN
     END LOOP;
   END LOOP;
 
-  IF EXISTS (SELECT 1 FROM pg_policy p JOIN pg_class c ON c.oid = p.polrelid
-             JOIN pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname = 'public') THEN
-    RAISE EXCEPTION 'BF-071 requires exactly zero public policies';
+  IF (SELECT array_agg(tablename || '.' || policyname ORDER BY tablename, policyname)
+      FROM pg_policies WHERE schemaname = 'public')
+     IS DISTINCT FROM (SELECT array_agg(p ORDER BY p) FROM unnest(v_policy_names) AS names(p)) THEN
+    RAISE EXCEPTION 'Expected exactly the 15 approved BF-073 policies and no others';
   END IF;
   IF (SELECT array_agg(p.proname::text ORDER BY p.proname)
       FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace WHERE n.nspname = 'public')
@@ -107,7 +130,7 @@ BEGIN
     RAISE EXCEPTION 'Unexpected client/service role bypass attributes';
   END IF;
 
-  INSERT INTO auth.users (id) VALUES (v_user), (v_other_user);
+  INSERT INTO auth.users (id) VALUES (v_user), (v_other_user), (v_unprivileged_user);
   INSERT INTO public.profiles (id, first_name, last_name) VALUES (v_user, 'RLS', 'Fixture');
   INSERT INTO public.businesses (id, name)
     VALUES (v_business, 'RLS fixture'), (v_other_business, 'RLS insert reference');
@@ -180,15 +203,17 @@ BEGIN
   END LOOP;
 
   FOREACH v_role IN ARRAY ARRAY['anon', 'authenticated'] LOOP
+    -- BF-073 allows own profiles and active business membership. Keep this
+    -- deny matrix on a nonmember identity and a DIFFERENT user's profile.
     PERFORM set_config('request.jwt.claims',
       CASE WHEN v_role = 'authenticated'
-        THEN jsonb_build_object('sub', v_user, 'role', v_role)::text
+        THEN jsonb_build_object('sub', v_unprivileged_user, 'role', v_role)::text
         ELSE jsonb_build_object('role', v_role)::text END, true);
     PERFORM set_config('request.jwt.claim.sub',
-      CASE WHEN v_role = 'authenticated' THEN v_user::text ELSE '' END, true);
+      CASE WHEN v_role = 'authenticated' THEN v_unprivileged_user::text ELSE '' END, true);
     EXECUTE format('SET LOCAL ROLE %I', v_role);
     IF current_user <> v_role OR auth.uid() IS DISTINCT FROM
-       (CASE WHEN v_role = 'authenticated' THEN v_user ELSE NULL::uuid END) THEN
+       (CASE WHEN v_role = 'authenticated' THEN v_unprivileged_user ELSE NULL::uuid END) THEN
       RAISE EXCEPTION 'Role/JWT simulation failed for %', v_role;
     END IF;
 
@@ -238,7 +263,7 @@ BEGIN
       RAISE EXCEPTION 'Denied DML changed rows on %', v_table;
     END IF;
   END LOOP;
-  RAISE NOTICE 'BF-071 passed: 19 RLS tables, zero FORCE/policies/unexpected functions, % denied DML checks, 19 service_role reads and unchanged fixtures', v_checks;
+  RAISE NOTICE 'BF-071 passed: 19 RLS tables, 15 approved policies, zero FORCE/unexpected functions, % denied DML checks, 19 service_role reads and unchanged fixtures', v_checks;
 END;
 $$;
 

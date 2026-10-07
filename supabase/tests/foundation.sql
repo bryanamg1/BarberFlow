@@ -5,6 +5,23 @@ BEGIN;
 -- Everything is rolled back; no Auth schema changes or permanent seed data.
 DO $$
 DECLARE
+  v_policy_names constant text[] := ARRAY[
+    'profiles.profiles_select_self',
+    'profiles.profiles_insert_self',
+    'profiles.profiles_update_self',
+    'businesses.businesses_select_members',
+    'businesses.businesses_update_owners',
+    'business_members.business_members_select_members',
+    'business_members.business_members_insert_owners',
+    'business_members.business_members_update_owners',
+    'business_settings.business_settings_select_members',
+    'business_settings.business_settings_insert_owners',
+    'business_settings.business_settings_update_owners',
+    'business_hours.business_hours_select_members',
+    'business_hours.business_hours_insert_owners',
+    'business_hours.business_hours_update_owners',
+    'business_hours.business_hours_delete_owners'
+  ];
   foundation_tables constant text[] := ARRAY[
     'business_hours', 'business_members', 'business_settings', 'businesses', 'profiles'
   ];
@@ -33,15 +50,18 @@ BEGIN
     RAISE EXCEPTION 'Unexpected public tables: %', actual_tables;
   END IF;
 
+  IF (SELECT array_agg(tablename || '.' || policyname ORDER BY tablename, policyname)
+      FROM pg_policies WHERE schemaname = 'public')
+     IS DISTINCT FROM (SELECT array_agg(p ORDER BY p) FROM unnest(v_policy_names) AS names(p)) THEN
+    RAISE EXCEPTION 'Expected exactly the 15 approved BF-073 policies and no others';
+  END IF;
+
   FOREACH target_table IN ARRAY foundation_tables LOOP
     IF NOT EXISTS (
       SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
       WHERE n.nspname = 'public' AND c.relname = target_table AND c.relrowsecurity
     ) THEN
       RAISE EXCEPTION 'RLS missing on %', target_table;
-    END IF;
-    IF EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = target_table) THEN
-      RAISE EXCEPTION 'Unexpected policies on %', target_table;
     END IF;
     IF (SELECT count(*) FROM pg_constraint
         WHERE conrelid = format('public.%I', target_table)::regclass AND contype = 'p') <> 1 THEN
@@ -152,7 +172,7 @@ BEGIN
     END IF;
   END LOOP;
 
-  -- Even existing rows must be hidden and immutable for both public client roles.
+  -- Both roles without a request identity remain denied despite BF-073 policies.
   FOREACH client_role IN ARRAY ARRAY['anon', 'authenticated'] LOOP
     EXECUTE format('SET LOCAL ROLE %I', client_role);
     FOREACH target_table IN ARRAY foundation_tables LOOP

@@ -24,7 +24,9 @@ BF-050 extensions; 051 profiles; 052 businesses; 053 members; 054 settings; 055 
 BF-060 product_categories; 061 products; 062 sales; 063 sale_items; 064 payments; 065 purchases; 066 purchase_items; 067 stock_movements; 068 expense_categories; 069 expenses.
 
 ## Epic 6 Security
-BF-070 indexes; 071 enable RLS; 072 membership helpers; 073-079 policies by domain.
+BF-070 indexes; 071 enable RLS; 072 membership helpers; BF-073 Business & Membership RLS Policies; 074-079 policies by domain (individual scopes remain to be defined).
+
+BF-073 includes exactly `profiles`, `businesses`, `business_members`, `business_settings` and `business_hours`. Apply the explicit BF-073 contract in `RLS_MATRIX.md`; no policies on other tables, no business/first-OWNER bootstrap, no new helpers or SECURITY DEFINER functions, and no global grant hardening.
 
 ## Epic 7 Seed
 BF-080 demo business; 081 owner linkage; 082 services; 083 categories; 084 products; 085 clients.

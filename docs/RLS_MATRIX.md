@@ -11,9 +11,11 @@ Create safe helper functions such as `is_business_member(business_id)` and `has_
 
 | Resource | OWNER | BARBER future |
 |---|---|---|
-| Business | Read/Update | Read |
-| Business settings/hours | CRUD | Read |
-| Members | CRUD | Limited read |
+| Own profile (authenticated, membership not required) | Read/Create/Update own only; NO DELETE | Same own-profile rule |
+| Business | Read/Update; NO direct INSERT/DELETE | Read |
+| Business settings | Read/Create/Update; NO DELETE | Read |
+| Business hours | CRUD | Read |
+| Members | Read/Create/Update/Deactivate; NO DELETE | Read memberships in own businesses |
 | Clients | Read/Create/Update/Archive | Read/Create/Update |
 | Services | Read/Create/Update/Archive | Read |
 | Product categories | Read/Create/Update/Archive | Read |
@@ -33,6 +35,18 @@ Create safe helper functions such as `is_business_member(business_id)` and `has_
 | Client history | Read | Read |
 
 ## Principles
+
+### BF-073 — Business & Membership RLS Policies
+
+Approved scope: exactly `profiles`, `businesses`, `business_members`, `business_settings` and `business_hours`. Policies apply only TO authenticated. All other tables remain deny-by-default until their own tickets.
+
+- `profiles`: SELECT/INSERT/UPDATE only where `id = auth.uid()`, with the same UPDATE USING/WITH CHECK condition; no DELETE and no reading other members' profiles. This rule also applies to authenticated users without a business membership.
+- `businesses`: SELECT via `is_business_member(id)`; UPDATE USING/WITH CHECK via `has_business_role(id, ARRAY['OWNER'])`; no direct INSERT or DELETE. Initial business/first-OWNER bootstrap belongs to a later secure server-side flow.
+- `business_members`: SELECT lists all memberships of businesses where the caller has an active membership, using `is_business_member(business_id)`. INSERT/UPDATE require an active OWNER of that business; INSERT uses WITH CHECK and UPDATE uses both USING and WITH CHECK. BARBER cannot change membership/role/activity. No DELETE; OWNER deactivates through `is_active=false`.
+- `business_settings`: active members may SELECT; active OWNER may INSERT/UPDATE, with WITH CHECK on INSERT and USING/WITH CHECK on UPDATE. No DELETE.
+- `business_hours`: active members may SELECT; active OWNER may INSERT/UPDATE/DELETE, with USING/WITH CHECK on UPDATE.
+
+Use only the approved BF-072 helpers. Membership activity controls business access; no additional business-is-active condition. Inactive/nonmember identities and anon have no business access. No role hierarchy, self-OWNER bootstrap policy, new SECURITY DEFINER, FORCE RLS, business RPC or global grant hardening. Existing rows cannot be moved between businesses, including when the caller owns both businesses.
 
 Every business-owned table enables RLS. Frontend filters are not authorization. INSERT/UPDATE must validate membership with WITH CHECK. Global finance/purchase/expense operations require OWNER. Critical RPCs verify auth and role independently. The service-role key never reaches Expo/Web clients.
 

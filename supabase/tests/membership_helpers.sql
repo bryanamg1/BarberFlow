@@ -1,9 +1,27 @@
 \set ON_ERROR_STOP on
 BEGIN;
 
--- Local administrative fixtures only. No policy, helper mock or data survives.
+-- Local administrative fixtures only. BF-073 scopes direct reads; helper semantics
+-- remain unchanged. No policy, helper mock or data survives this test.
 DO $$
 DECLARE
+  v_policy_names constant text[] := ARRAY[
+    'profiles.profiles_select_self',
+    'profiles.profiles_insert_self',
+    'profiles.profiles_update_self',
+    'businesses.businesses_select_members',
+    'businesses.businesses_update_owners',
+    'business_members.business_members_select_members',
+    'business_members.business_members_insert_owners',
+    'business_members.business_members_update_owners',
+    'business_settings.business_settings_select_members',
+    'business_settings.business_settings_insert_owners',
+    'business_settings.business_settings_update_owners',
+    'business_hours.business_hours_select_members',
+    'business_hours.business_hours_insert_owners',
+    'business_hours.business_hours_update_owners',
+    'business_hours.business_hours_delete_owners'
+  ];
   v_user_a uuid := gen_random_uuid();
   v_user_b uuid := gen_random_uuid();
   v_nonmember uuid := gen_random_uuid();
@@ -62,10 +80,13 @@ BEGIN
       WHERE n.nspname = 'public' AND c.relkind IN ('r', 'p')) <> 19
      OR EXISTS (SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
                 WHERE n.nspname = 'public' AND c.relkind IN ('r', 'p')
-                AND (NOT c.relrowsecurity OR c.relforcerowsecurity))
-     OR EXISTS (SELECT 1 FROM pg_policy p JOIN pg_class c ON c.oid = p.polrelid
-                JOIN pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname = 'public') THEN
-    RAISE EXCEPTION 'BF-072 must preserve 19 RLS tables, no FORCE and zero policies';
+                AND (NOT c.relrowsecurity OR c.relforcerowsecurity)) THEN
+    RAISE EXCEPTION 'BF-072 must preserve 19 RLS tables and no FORCE';
+  END IF;
+  IF (SELECT array_agg(tablename || '.' || policyname ORDER BY tablename, policyname)
+      FROM pg_policies WHERE schemaname = 'public')
+     IS DISTINCT FROM (SELECT array_agg(p ORDER BY p) FROM unnest(v_policy_names) AS names(p)) THEN
+    RAISE EXCEPTION 'Expected exactly the 15 approved BF-073 policies and no others';
   END IF;
 
   INSERT INTO auth.users (id) VALUES (v_user_a), (v_user_b), (v_nonmember), (v_inactive_user);
@@ -124,7 +145,13 @@ BEGIN
       RAISE EXCEPTION 'Identity/RLS simulation failed: %', v_case.label;
     END IF;
     SELECT count(*) INTO v_count FROM public.business_members;
-    IF v_count <> 0 THEN RAISE EXCEPTION 'Direct membership rows leaked: %', v_case.label; END IF;
+    IF v_count <> (CASE v_case.user_id WHEN v_user_a THEN 3 WHEN v_user_b THEN 2 ELSE 0 END)
+       OR EXISTS (SELECT 1 FROM public.business_members
+                  WHERE NOT (CASE v_case.user_id
+                    WHEN v_user_a THEN business_id IN (v_business_a, v_inactive_business)
+                    WHEN v_user_b THEN business_id = v_business_b ELSE false END)) THEN
+      RAISE EXCEPTION 'Direct membership rows differ from BF-073 tenant scope: %', v_case.label;
+    END IF;
     IF public.is_business_member(v_case.business_id) IS DISTINCT FROM v_case.expected_member
        OR public.has_business_role(v_case.business_id, v_case.roles) IS DISTINCT FROM v_case.expected_role THEN
       RAISE EXCEPTION 'Membership/role result mismatch: %', v_case.label;
@@ -195,11 +222,12 @@ BEGIN
      OR (SELECT jsonb_agg(to_jsonb(u) ORDER BY id) FROM auth.users u) IS DISTINCT FROM v_users_before THEN
     RAISE EXCEPTION 'Helpers changed fixture data';
   END IF;
-  IF EXISTS (SELECT 1 FROM pg_policy p JOIN pg_class c ON c.oid = p.polrelid
-             JOIN pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname = 'public') THEN
-    RAISE EXCEPTION 'A public policy was introduced';
+  IF (SELECT array_agg(tablename || '.' || policyname ORDER BY tablename, policyname)
+      FROM pg_policies WHERE schemaname = 'public')
+     IS DISTINCT FROM (SELECT array_agg(p ORDER BY p) FROM unnest(v_policy_names) AS names(p)) THEN
+    RAISE EXCEPTION 'Expected exactly the 15 approved BF-073 policies and no others';
   END IF;
-  RAISE NOTICE 'BF-072 passed: % authenticated helper results, direct RLS denial, no recursion, hostile search_path, NULL safety, literal roles, revocation, anon EXECUTE denial, service_role semantics, no policies and unchanged fixtures', v_checks;
+  RAISE NOTICE 'BF-072 passed: % authenticated helper results, scoped direct membership reads, no recursion, hostile search_path, NULL safety, literal roles, revocation, anon EXECUTE denial, service_role semantics, 15 approved policies and unchanged fixtures', v_checks;
 END;
 $$;
 
