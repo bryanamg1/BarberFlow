@@ -438,3 +438,27 @@ Run `node --test tests/bf095-auth-bootstrap.test.cjs`. Tests exercise the actual
 controlled React lifecycle and the mocked service boundary, plus real React Context/SSR. They cover
 initial states/errors, event updates, stale-read races, cleanup, effect replay and root composition;
 they make no real Auth requests and do not prove device persistence or live token refresh.
+
+## Protected Auth routing (BF-096)
+
+`AuthNavigator` lives below the existing `AuthProvider` in the root layout and consumes only
+`useAuth()`. While `initializing`, it displays the shared accessible `LoadingState`; on `error`,
+it displays `ErrorState` with the normalized message and no retry or redirect. Neither state mounts
+login or private screens. The font/splash startup contract remains unchanged.
+
+Once settled, Expo Router `Stack.Protected` enables exactly one existing route group:
+
+- `authenticated`: `(app)` and all its descendants. Its default destination is `/` (Inicio),
+  through the existing `(tabs)` and `index` initial routes.
+- `unauthenticated`: `(auth)`, whose default is `/login`. The preexisting `/forgot-password`
+  placeholder stays in that group; recovery is not implemented by this ticket.
+
+The router handles unavailable destinations and removes protected history entries on session loss.
+There is no second redirect mechanism, navigation from LoginForm, role check, business lookup,
+return-to URL, or manual session persistence. Session replacement while authenticated keeps the same
+navigator and guards. The provider remains mounted when routing feedback changes.
+
+This is client-side visibility control, not server authorization; Supabase/RLS remains authoritative.
+BF-096 tests mock the public `useAuth` boundary, exercise the installed router's protected-screen
+filter and navigation router, and render the shared feedback with React/Web. These checks do not
+perform remote Auth requests or certify native device behavior.

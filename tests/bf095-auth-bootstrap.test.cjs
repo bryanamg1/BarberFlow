@@ -359,18 +359,18 @@ test('BF-095: real React Context preserves children and exposes initializing dur
   );
 });
 
-test('BF-095: root mounts AuthProvider inside QueryProvider around the unchanged Stack and font gate', () => {
+test('BF-095: root keeps AuthProvider inside QueryProvider around Auth routing and the font gate', () => {
   let fontsLoaded = true;
-  const Stack = Object.assign(function Stack() {}, { Screen: 'StackScreen' });
+  const AuthNavigator = function AuthNavigator() {};
   const exports = compile(path.join(root, 'src/app/_layout.tsx'), (name) => {
     if (name.startsWith('@expo-google-fonts/inter/')) return new Proxy({}, { get: () => 1 });
     if (name === 'expo-font')
       return { FontDisplay: { BLOCK: 'block' }, useFonts: () => [fontsLoaded, null] };
     if (name === 'expo-splash-screen')
       return { preventAutoHideAsync: () => Promise.resolve(), hide: () => {} };
-    if (name === 'expo-router') return { Stack };
     if (name === 'react') return { useEffect: () => {} };
     if (name === '@/features/auth/context/AuthContext') return { AuthProvider: 'AuthProvider' };
+    if (name === '@/features/auth/routing/AuthNavigator') return { AuthNavigator };
     if (name === '@/lib/query') return { QueryProvider: 'QueryProvider' };
     if (name === '@/theme/typography')
       return {
@@ -382,12 +382,7 @@ test('BF-095: root mounts AuthProvider inside QueryProvider around the unchanged
   const tree = exports.default();
   assert.equal(tree.type, 'QueryProvider');
   assert.equal(tree.props.children.type, 'AuthProvider');
-  const stack = tree.props.children.props.children;
-  assert.equal(stack.type, Stack);
-  assert.deepEqual(
-    stack.props.children.map((node) => node.props.name),
-    ['(app)', '(auth)'],
-  );
+  assert.equal(tree.props.children.props.children.type, AuthNavigator);
   assert.deepEqual(exports.unstable_settings, { initialRouteName: '(app)' });
   fontsLoaded = false;
   assert.equal(exports.default(), null);

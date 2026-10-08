@@ -3,11 +3,11 @@ import { Inter_500Medium } from '@expo-google-fonts/inter/500Medium';
 import { Inter_600SemiBold } from '@expo-google-fonts/inter/600SemiBold';
 import { Inter_700Bold } from '@expo-google-fonts/inter/700Bold';
 import { FontDisplay, useFonts } from 'expo-font';
-import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 
 import { AuthProvider } from '@/features/auth/context/AuthContext';
+import { AuthNavigator } from '@/features/auth/routing/AuthNavigator';
 import { QueryProvider } from '@/lib/query';
 import { fontFamilies } from '@/theme/typography';
 
@@ -48,10 +48,7 @@ export default function RootLayout() {
   return (
     <QueryProvider>
       <AuthProvider>
-        <Stack screenOptions={{ headerShown: false }}>
-          <Stack.Screen name="(app)" />
-          <Stack.Screen name="(auth)" />
-        </Stack>
+        <AuthNavigator />
       </AuthProvider>
     </QueryProvider>
   );
