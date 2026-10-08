@@ -340,6 +340,24 @@ Run `node --test tests/bf091-auth-service.test.cjs`. Tests exercise service beha
 repository and the real BF-090 repository with the installed SDK in memory, without remote Auth calls.
 Live login and device persistence remain outside this validation.
 
+## Login schema (BF-092)
+
+`src/features/auth/schemas/login.schema.ts` exports `loginSchema` and the inferred `LoginFormValues`.
+It validates only `email` and `password`, using the installed Zod package:
+
+- Email must be a nonempty string with valid email format. Outer whitespace is trimmed; case is preserved.
+- Password must be a nonempty string. Spaces, case and Unicode are preserved exactly, including
+  whitespace-only passwords. Login imposes no signup strength or minimum-length policy beyond nonempty.
+- Parsed output contains only these two fields; extra object keys are stripped. Input is not mutated.
+- Field messages are safe Spanish presentation text. Validation does not check account existence or
+  call Auth, perform requests, log credentials or manage a session.
+
+`LoginFormValues` is derived from the schema; the existing `SignInCredentials` remains the repository
+boundary type. No form, UI, route or submit flow is implemented.
+
+Run `node --test tests/bf092-login-schema.test.cjs` for deterministic validation and inferred-type
+compatibility checks. This validates input shape and format, not whether credentials authenticate.
+
 BF-079 expense authorization test (local Supabase running):
 
 ```powershell
