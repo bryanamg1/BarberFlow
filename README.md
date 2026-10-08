@@ -384,3 +384,21 @@ An additional real React/React Native Web server render checks the shared contro
 not establish live authentication, browser keyboard behavior or device behavior. Resolver 5.2.2 is
 compatible with the existing Zod 4/RHF versions and avoids unrelated optional validation peers;
 all previously locked package versions remain unchanged.
+
+## Login screen (BF-094)
+
+The existing `/login` route (`src/app/(auth)/login.tsx`) delegates to
+`src/features/auth/screens/LoginScreen.tsx`. The screen presents BarberFlow branding and the existing
+`LoginForm` inside a shared Card, using theme tokens. Its login Stack header is hidden; safe-area
+insets come from Expo Router's existing provider. A single scroll container and native keyboard
+avoidance keep the form reachable in smaller windows, while content is fluid up to a screen-local
+480 logical-pixel width on Web.
+
+This presentation-only screen omits the form's optional `onSuccess` callback: successful sign-in
+does not navigate, show session data or introduce bootstrap/protected routing. Root startup still
+uses the existing app group. No recovery/signup links or demo credentials are displayed.
+
+Run `node --test tests/bf094-login-screen.test.cjs` for composition, platform layout contracts and
+real React/Web rendering with the existing form. Native hosts/safe-area measurement are controlled
+in automated tests; no requests are made to Supabase. Device keyboard and screen-reader behavior
+require native verification.

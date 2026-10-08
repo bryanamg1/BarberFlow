@@ -7,7 +7,7 @@ export const unstable_settings = {
 export default function AuthLayout() {
   return (
     <Stack>
-      <Stack.Screen name="login" options={{ title: 'Iniciar sesión' }} />
+      <Stack.Screen name="login" options={{ title: 'Iniciar sesión', headerShown: false }} />
       <Stack.Screen name="forgot-password" options={{ title: 'Recuperar contraseña' }} />
     </Stack>
   );
