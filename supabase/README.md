@@ -49,7 +49,8 @@ Las cinco tablas tienen RLS habilitado **sin policies**. Los clientes `anon` y `
 no pueden leer ni escribir sus filas hasta BF-070. Esto no restringe a los roles que evitan RLS,
 como el administrador y `service_role`. No usar esas credenciales en el frontend.
 
-El seed contiene solo comentarios. La prueba SQL verifica estructura, defaults, FK, unicidad,
+BF-050 dejó inicialmente el seed vacío; BF-080 agrega únicamente el negocio demo descrito abajo.
+La prueba SQL verifica estructura, defaults, FK, unicidad,
 CHECKs, triggers y denegación para ambos roles de cliente. Sus identidades de Auth son fixtures
 SQL locales dentro de una transacción que siempre se revierte; no son usuarios de aplicación ni
 seeds permanentes. Ejecutar esta prueba solo sobre una base local limpia después del reset.
@@ -140,3 +141,30 @@ conserva el Sort por fecha. No se midieron tiempos ni se afirma un benchmark de 
 validez, unicidad y vínculo con PK/UNIQUE, además de detectar copias exactas bajo otros nombres.
 Los tests de citas y gastos conservan sus índices mínimos originales; la auditoría de BF-070
 valida los adicionales sin cambiar sus pruebas de integridad, timestamps o RLS.
+
+## BF-080: negocio demo local
+
+`supabase db reset --local` aplica las migraciones y ejecuta el `seed.sql` ya habilitado en
+`config.toml`. BF-080 crea únicamente **BarberFlow Demo (local)**, con UUID fijo
+`00000000-0000-4000-8000-000000000080`, moneda `ARS`, zona `America/Argentina/Buenos_Aires`
+y `is_active=true`. Los timestamps sintéticos son `2026-01-01T00:00:00Z`; teléfono, email,
+dirección y logo quedan NULL. No contiene datos reales, claves ni credenciales.
+
+El alcance específico del BACKLOG es «demo business». No se crean usuarios Auth, profiles,
+memberships, settings, horarios, catálogos ni operaciones transaccionales. El negocio no tiene
+OWNER todavía; la vinculación pertenece a BF-081. Este seed es exclusivamente local/dev,
+no un bootstrap de producción ni un flujo de Auth. No cambia las 46 policies ni sus helpers.
+
+El flujo soportado es reset limpio; ejecutar el INSERT de nuevo sobre una base poblada produce
+una colisión de PK. No hace upsert ni sobrescribe datos existentes.
+
+Después del reset, ejecutar la comprobación de contenido:
+
+```powershell
+Get-Content -Raw supabase/tests/bf080_seed_data.sql | docker exec -i supabase_db_barberflow psql -U postgres -d postgres -v ON_ERROR_STOP=1
+```
+
+La prueba verifica todos los campos del negocio, las 18 tablas públicas restantes vacías y
+la ausencia de usuarios/identidades Auth. Las 25 suites DB previas siguen usando fixtures que
+se revierten; después de ejecutarlas, volver a comprobar BF-080 permite detectar cualquier
+alteración del seed. Las referencias a BF-050/BF-070 de arriba describen sus baselines históricas.

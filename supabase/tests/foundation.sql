@@ -73,6 +73,7 @@ DECLARE
   actual_created_at timestamptz;
   affected_rows bigint;
   row_count bigint;
+  initial_counts jsonb := '{}'::jsonb;
   check_case record;
 BEGIN
   SELECT array_agg(tablename::text ORDER BY tablename) INTO actual_tables
@@ -121,6 +122,13 @@ BEGIN
                  AND indexname = 'business_members_user_id_idx') THEN
     RAISE EXCEPTION 'Membership user lookup index missing';
   END IF;
+
+  -- Account for existing local seed rows without relaxing the exact number of
+  -- test fixtures or allowing denied writes to add/remove any row.
+  FOREACH target_table IN ARRAY foundation_tables LOOP
+    EXECUTE format('SELECT count(*) FROM public.%I', target_table) INTO row_count;
+    initial_counts := initial_counts || jsonb_build_object(target_table, row_count);
+  END LOOP;
 
   INSERT INTO auth.users (id) VALUES (user_id), (barber_id);
   INSERT INTO public.profiles (id, first_name, last_name)
@@ -243,7 +251,8 @@ BEGIN
 
   FOREACH target_table IN ARRAY foundation_tables LOOP
     EXECUTE format('SELECT count(*) FROM public.%I', target_table) INTO row_count;
-    IF row_count <> (CASE WHEN target_table IN ('businesses', 'business_members', 'business_hours') THEN 2 ELSE 1 END) THEN
+    IF row_count IS DISTINCT FROM (initial_counts ->> target_table)::bigint
+       + (CASE WHEN target_table IN ('businesses', 'business_members', 'business_hours') THEN 2 ELSE 1 END) THEN
       RAISE EXCEPTION 'Denied writes changed the fixture rows in %', target_table;
     END IF;
   END LOOP;
