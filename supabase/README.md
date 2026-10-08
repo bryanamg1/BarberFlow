@@ -164,7 +164,7 @@ Después del reset, ejecutar la comprobación de contenido:
 Get-Content -Raw supabase/tests/bf080_seed_data.sql | docker exec -i supabase_db_barberflow psql -U postgres -d postgres -v ON_ERROR_STOP=1
 ```
 
-La prueba conserva todos los campos del negocio y las 14 tablas ajenas a BF-080/BF-081/BF-082/BF-083 vacías.
+La prueba conserva todos los campos del negocio y las 13 tablas ajenas a BF-080–BF-084 vacías.
 BF-081 valida exactamente Auth, profile y membership; sustituye la expectativa histórica de
 ausencia de usuarios. Las suites DB usan fixtures que se revierten y preservan el seed.
 Las referencias a BF-050/BF-070 de arriba describen sus baselines históricas.
@@ -236,8 +236,8 @@ productos, clientes, citas ni operaciones transaccionales, ni cambia schema, RLS
 Get-Content -Raw supabase/tests/bf082_services.sql | docker exec -i supabase_db_barberflow psql -U postgres -d postgres -v ON_ERROR_STOP=1
 ```
 
-BF-082 comprueba exactamente las tres filas completas, su tenant y las 14 tablas ajenas vacías;
-BF-083 valida las categorías de productos;
+BF-082 comprueba exactamente las tres filas completas, su tenant y las 13 tablas ajenas vacías;
+BF-083/BF-084 validan categorías/productos;
 BF-080/BF-081 mantienen las assertions completas del negocio y OWNER. Dos resets de entrega
 comparan los datos completos de servicios y de las entidades previas antes de ejecutar tests.
 
@@ -263,6 +263,39 @@ Get-Content -Raw -Encoding utf8 supabase/tests/bf083_product_categories.sql | do
 ```
 
 La prueba consume las filas del seed y comprueba cantidad, seis campos completos, UUIDs,
-tenant, estados y fechas, además de las 14 tablas ajenas vacías. BF-080/BF-081/BF-082 conservan
+tenant, estados y fechas, además de las 13 tablas ajenas vacías; BF-084 valida productos. BF-080/BF-081/BF-082 conservan
 sus validaciones exactas; dos resets de entrega comparan las categorías y todas las entidades
 previas. Se mantiene el flujo normal `migrations → seed.sql`, sin upsert ni scripts especiales.
+
+## BF-084: productos demo
+
+El seed añade exclusivamente seis filas a `public.products`, del business BarberFlow Demo
+`00000000-0000-4000-8000-000000000080`. Sus categorías son las filas BF-083 del mismo negocio:
+Cabello (`…831`), Barba (`…832`) y Accesorios (`…833`).
+
+| UUID                                 | Producto           | Categoría  | SKU        | Precio ARS | Costo referencia ARS | Stock mínimo |
+| ------------------------------------ | ------------------ | ---------- | ---------- | ---------- | -------------------- | ------------ |
+| 00000000-0000-4000-8000-000000000841 | Cera mate          | Cabello    | BF-CAB-001 | 12000.00   | 6500.00              | 3            |
+| 00000000-0000-4000-8000-000000000842 | Shampoo            | Cabello    | BF-CAB-002 | 10000.00   | 5500.00              | 3            |
+| 00000000-0000-4000-8000-000000000843 | Aceite para barba  | Barba      | BF-BAR-001 | 11000.00   | 6000.00              | 2            |
+| 00000000-0000-4000-8000-000000000844 | Bálsamo para barba | Barba      | BF-BAR-002 | 13000.00   | 7000.00              | 2            |
+| 00000000-0000-4000-8000-000000000845 | Peine profesional  | Accesorios | BF-ACC-001 | 6000.00    | 3000.00              | 4            |
+| 00000000-0000-4000-8000-000000000846 | Cepillo para barba | Accesorios | BF-ACC-002 | 9000.00    | 4500.00              | 3            |
+
+Todos están activos, con `description=NULL` y `created_at`/`updated_at` fijos en
+`2026-01-01T00:00:00Z`. Los seis SKU son distintos dentro del negocio; la tabla existente no
+posee un UNIQUE de SKU y BF-084 no agrega esa restricción. Los precios y costos son los valores
+ficticios aprobados; no generan COGS, compras, gastos ni snapshots de venta.
+
+`minimum_stock` es un umbral, no inventario inicial. No crea movimientos ni stock persistido:
+el stock sigue derivándose de `SUM(stock_movements.quantity_delta)`. No añade categorías ni
+ninguna otra entidad y preserva BF-080–BF-083, schema, RLS, policies, helpers y skills.
+
+```powershell
+Get-Content -Raw -Encoding utf8 supabase/tests/bf084_products.sql | docker exec -i supabase_db_barberflow psql -U postgres -d postgres -v ON_ERROR_STOP=1
+```
+
+La suite consume el seed y comprueba las seis filas completas, categorías del mismo tenant,
+SKU distintos y 13 tablas ajenas vacías. BF-080–BF-083 conservan sus oracles de datos exactos.
+Dos resets normales de entrega comparan productos y entidades previas; no hay scripts de seed
+paralelos ni upsert. Las pruebas deben ejecutarse sobre el baseline de reset local limpio.

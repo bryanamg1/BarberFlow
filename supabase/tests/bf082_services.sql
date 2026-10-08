@@ -38,13 +38,13 @@ BEGIN
     RAISE EXCEPTION 'BF082 must preserve the existing single demo business and OWNER';
   END IF;
   FOR target_table IN SELECT tablename FROM pg_tables WHERE schemaname = 'public'
-    AND tablename NOT IN ('businesses', 'profiles', 'business_members', 'services', 'product_categories') ORDER BY tablename
+    AND tablename NOT IN ('businesses', 'profiles', 'business_members', 'services', 'product_categories', 'products') ORDER BY tablename
   LOOP
     EXECUTE format('SELECT count(*) FROM public.%I', target_table) INTO row_count;
     IF row_count <> 0 THEN RAISE EXCEPTION 'BF082 created out-of-scope rows in %', target_table; END IF;
     checked_tables := checked_tables + 1;
   END LOOP;
-  IF checked_tables <> 14 THEN RAISE EXCEPTION 'Unexpected public table inventory'; END IF;
+  IF checked_tables <> 13 THEN RAISE EXCEPTION 'Unexpected public table inventory'; END IF;
   IF (SELECT count(*) FROM pg_policies WHERE schemaname = 'public') <> 46
      OR (SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
          WHERE n.nspname = 'public' AND c.relkind IN ('r', 'p') AND c.relrowsecurity
@@ -52,7 +52,7 @@ BEGIN
     RAISE EXCEPTION 'BF082 changed RLS/policy baseline';
   END IF;
   -- Existing services.sql checks all table constraints. BF080/BF081 retain their
-  -- full business/Auth/profile/membership oracles; BF083 owns product categories.
+  -- full business/Auth/profile/membership oracles; BF083/BF084 own categories/products.
   RAISE NOTICE 'BF082 passed: exact three approved services, fixed IDs/tenant/prices/durations/NULL descriptions/timestamps, no extra entities, RLS baseline preserved';
 END;
 $$;
