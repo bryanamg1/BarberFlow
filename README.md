@@ -311,6 +311,35 @@ References: Supabase [password sign-in](https://supabase.com/docs/reference/java
 [sign-out scopes](https://supabase.com/docs/guides/auth/signout), and
 [Auth events](https://supabase.com/docs/reference/javascript/auth-onauthstatechange).
 
+## Auth service (BF-091)
+
+`src/features/auth/services/authService.ts` calls the existing Auth repository. Its four asynchronous
+operations return a typed `{ data, error }` result: success preserves repository data, while failure
+returns `data: null` and an error containing only a domain `code` and a safe Spanish `message`.
+`signOut()` returns `data: null` on success and retains the repository's local scope.
+`getSession()` with no session succeeds with `{ session: null }`; it does not authorize business access.
+`onAuthStateChange(callback)` forwards events and returns the original subscription for consumer cleanup.
+
+Error mapping uses the installed SDK's guards, codes and client error types, following
+[Supabase's error guidance](https://supabase.com/docs/guides/auth/debugging/error-codes):
+
+| SDK error                                                                                                                 | Domain code                |
+| ------------------------------------------------------------------------------------------------------------------------- | -------------------------- |
+| `invalid_credentials` / `AuthInvalidCredentialsError`                                                                     | `AUTH_INVALID_CREDENTIALS` |
+| `AuthSessionMissingError` / `no_authorization`                                                                            | `AUTH_UNAUTHORIZED`        |
+| `bad_jwt`, `invalid_jwt`, `session_expired`, `session_not_found`, `refresh_token_not_found`, `refresh_token_already_used` | `AUTH_SESSION_EXPIRED`     |
+| `AuthRetryableFetchError` (transport/transient fetch failure)                                                             | `NETWORK_ERROR`            |
+| Remaining errors or unexpected exceptions                                                                                 | `UNKNOWN_ERROR`            |
+
+Returned errors and rejected operations use the same mapping. Raw messages are never parsed or exposed;
+responses contain no original error, cause or metadata. Success session data still contains the SDK's
+session tokens for authorized consumers; the service does not log or separately persist them. It adds
+no automatic retries, logout, validation, UI, navigation, bootstrap or business authorization.
+
+Run `node --test tests/bf091-auth-service.test.cjs`. Tests exercise service behavior against a controlled
+repository and the real BF-090 repository with the installed SDK in memory, without remote Auth calls.
+Live login and device persistence remain outside this validation.
+
 BF-079 expense authorization test (local Supabase running):
 
 ```powershell
