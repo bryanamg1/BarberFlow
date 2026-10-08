@@ -56,21 +56,21 @@ BEGIN
     RAISE EXCEPTION 'BF084 must preserve the demo business, OWNER, services and categories';
   END IF;
   FOR target_table IN SELECT tablename FROM pg_tables WHERE schemaname = 'public'
-    AND tablename NOT IN ('businesses', 'profiles', 'business_members', 'services', 'product_categories', 'products')
+    AND tablename NOT IN ('businesses', 'profiles', 'business_members', 'services', 'product_categories', 'products', 'clients')
     ORDER BY tablename
   LOOP
     EXECUTE format('SELECT count(*) FROM public.%I', target_table) INTO row_count;
     IF row_count <> 0 THEN RAISE EXCEPTION 'BF084 created out-of-scope rows in %', target_table; END IF;
     checked_tables := checked_tables + 1;
   END LOOP;
-  IF checked_tables <> 13 THEN RAISE EXCEPTION 'Unexpected public table inventory'; END IF;
+  IF checked_tables <> 12 THEN RAISE EXCEPTION 'Unexpected public table inventory'; END IF;
   IF (SELECT count(*) FROM pg_policies WHERE schemaname = 'public') <> 46
      OR (SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
          WHERE n.nspname = 'public' AND c.relkind IN ('r', 'p') AND c.relrowsecurity
            AND NOT c.relforcerowsecurity) <> 19 THEN
     RAISE EXCEPTION 'BF084 changed RLS/policy baseline';
   END IF;
-  -- BF080–BF083 retain exact old-data oracles; products.sql validates constraints.
+  -- BF080–BF083 retain old-data oracles; BF085 owns clients; products.sql covers constraints.
   -- SKU uniqueness is a fixture assertion, not a new database UNIQUE constraint.
   RAISE NOTICE 'BF084 passed: exact six products, same-tenant categories, distinct fixture SKUs, deterministic fields, no stock/transactions, RLS baseline preserved';
 END;

@@ -2,7 +2,7 @@
 BEGIN;
 SET LOCAL search_path = '';
 
--- Assert the actual reset seed; do not insert replacement category fixtures.
+-- Inspect the reset seed itself; no replacement clients or generated history.
 DO $$
 DECLARE
   actual jsonb;
@@ -12,19 +12,22 @@ DECLARE
   row_count bigint;
   checked_tables integer := 0;
 BEGIN
-  SELECT jsonb_agg(to_jsonb(c) ORDER BY id) INTO actual FROM public.product_categories c;
+  SELECT jsonb_agg(to_jsonb(c) ORDER BY id) INTO actual FROM public.clients c;
   SELECT jsonb_agg(jsonb_build_object(
     'id', v.id, 'business_id', '00000000-0000-4000-8000-000000000080',
-    'name', v.name, 'is_active', true,
+    'first_name', v.first_name, 'last_name', v.last_name,
+    'phone', NULL, 'email', NULL, 'instagram', NULL, 'birth_date', NULL,
+    'notes', NULL, 'preferences', NULL, 'is_active', v.is_active,
     'created_at', seeded_at, 'updated_at', seeded_at
   ) ORDER BY v.id) INTO expected
   FROM (VALUES
-    ('00000000-0000-4000-8000-000000000831', 'Cabello'),
-    ('00000000-0000-4000-8000-000000000832', 'Barba'),
-    ('00000000-0000-4000-8000-000000000833', 'Accesorios')
-  ) AS v(id, name);
+    ('00000000-0000-4000-8000-000000000851', 'Martín', 'Pérez', true),
+    ('00000000-0000-4000-8000-000000000852', 'Lucía', 'Gómez', true),
+    ('00000000-0000-4000-8000-000000000853', 'Diego', NULL, true),
+    ('00000000-0000-4000-8000-000000000854', 'Valentina', 'Ríos', false)
+  ) AS v(id, first_name, last_name, is_active);
   IF actual IS DISTINCT FROM expected THEN
-    RAISE EXCEPTION 'BF083 requires exactly the three approved product categories and all six fields';
+    RAISE EXCEPTION 'BF085 requires exactly four approved clients and all thirteen fields';
   END IF;
   IF (SELECT count(*) FROM public.businesses) <> 1
      OR NOT EXISTS (SELECT 1 FROM public.businesses
@@ -34,15 +37,17 @@ BEGIN
      OR (SELECT count(*) FROM auth.identities) <> 1
      OR (SELECT count(*) FROM public.profiles) <> 1
      OR (SELECT count(*) FROM public.business_members) <> 1
-     OR (SELECT count(*) FROM public.services) <> 3 THEN
-    RAISE EXCEPTION 'BF083 must preserve the single demo business, OWNER and three services';
+     OR (SELECT count(*) FROM public.services) <> 3
+     OR (SELECT count(*) FROM public.product_categories) <> 3
+     OR (SELECT count(*) FROM public.products) <> 6 THEN
+    RAISE EXCEPTION 'BF085 must preserve the demo business, OWNER and all previous catalogs';
   END IF;
   FOR target_table IN SELECT tablename FROM pg_tables WHERE schemaname = 'public'
     AND tablename NOT IN ('businesses', 'profiles', 'business_members', 'services', 'product_categories', 'products', 'clients')
     ORDER BY tablename
   LOOP
     EXECUTE format('SELECT count(*) FROM public.%I', target_table) INTO row_count;
-    IF row_count <> 0 THEN RAISE EXCEPTION 'BF083 created out-of-scope rows in %', target_table; END IF;
+    IF row_count <> 0 THEN RAISE EXCEPTION 'BF085 created out-of-scope rows in %', target_table; END IF;
     checked_tables := checked_tables + 1;
   END LOOP;
   IF checked_tables <> 12 THEN RAISE EXCEPTION 'Unexpected public table inventory'; END IF;
@@ -50,11 +55,10 @@ BEGIN
      OR (SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
          WHERE n.nspname = 'public' AND c.relkind IN ('r', 'p') AND c.relrowsecurity
            AND NOT c.relforcerowsecurity) <> 19 THEN
-    RAISE EXCEPTION 'BF083 changed RLS/policy baseline';
+    RAISE EXCEPTION 'BF085 changed RLS/policy baseline';
   END IF;
-  -- BF080/BF081/BF082 retain exact old-data oracles; product_categories.sql
-  -- validates constraints. BF084/BF085 own products/clients; expense categories stay empty.
-  RAISE NOTICE 'BF083 passed: exact product categories/IDs/tenant/active/timestamps, 12 unrelated empty tables, 46 policies and 19 RLS tables/FORCE off';
+  -- BF080–BF084 retain exact old-data oracles; clients.sql covers constraints.
+  RAISE NOTICE 'BF085 passed: exact four clients, active/named, NULL surname, inactive, optional NULL fields, deterministic tenant/IDs/dates, no transactions, RLS preserved';
 END;
 $$;
 ROLLBACK;

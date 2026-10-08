@@ -162,3 +162,33 @@ INSERT INTO public.products (
     'Cepillo para barba', NULL, 'BF-ACC-002', 9000.00, 4500.00, 3, true,
     '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z'
   );
+
+-- BF-085: fictional clients only; no contact data, Auth users or transactions.
+INSERT INTO public.clients (
+  id, business_id, first_name, last_name, phone, email, instagram, birth_date,
+  notes, preferences, is_active, created_at, updated_at
+) VALUES
+  (
+    '00000000-0000-4000-8000-000000000851',
+    '00000000-0000-4000-8000-000000000080',
+    'Martín', 'Pérez', NULL, NULL, NULL, NULL, NULL, NULL, true,
+    '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z'
+  ),
+  (
+    '00000000-0000-4000-8000-000000000852',
+    '00000000-0000-4000-8000-000000000080',
+    'Lucía', 'Gómez', NULL, NULL, NULL, NULL, NULL, NULL, true,
+    '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z'
+  ),
+  (
+    '00000000-0000-4000-8000-000000000853',
+    '00000000-0000-4000-8000-000000000080',
+    'Diego', NULL, NULL, NULL, NULL, NULL, NULL, NULL, true,
+    '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z'
+  ),
+  (
+    '00000000-0000-4000-8000-000000000854',
+    '00000000-0000-4000-8000-000000000080',
+    'Valentina', 'Ríos', NULL, NULL, NULL, NULL, NULL, NULL, false,
+    '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z'
+  );

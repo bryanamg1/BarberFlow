@@ -164,7 +164,7 @@ Después del reset, ejecutar la comprobación de contenido:
 Get-Content -Raw supabase/tests/bf080_seed_data.sql | docker exec -i supabase_db_barberflow psql -U postgres -d postgres -v ON_ERROR_STOP=1
 ```
 
-La prueba conserva todos los campos del negocio y las 13 tablas ajenas a BF-080–BF-084 vacías.
+La prueba conserva todos los campos del negocio y las 12 tablas ajenas a BF-080–BF-085 vacías.
 BF-081 valida exactamente Auth, profile y membership; sustituye la expectativa histórica de
 ausencia de usuarios. Las suites DB usan fixtures que se revierten y preservan el seed.
 Las referencias a BF-050/BF-070 de arriba describen sus baselines históricas.
@@ -236,8 +236,8 @@ productos, clientes, citas ni operaciones transaccionales, ni cambia schema, RLS
 Get-Content -Raw supabase/tests/bf082_services.sql | docker exec -i supabase_db_barberflow psql -U postgres -d postgres -v ON_ERROR_STOP=1
 ```
 
-BF-082 comprueba exactamente las tres filas completas, su tenant y las 13 tablas ajenas vacías;
-BF-083/BF-084 validan categorías/productos;
+BF-082 comprueba exactamente las tres filas completas, su tenant y las 12 tablas ajenas vacías;
+BF-083–BF-085 validan categorías/productos/clientes;
 BF-080/BF-081 mantienen las assertions completas del negocio y OWNER. Dos resets de entrega
 comparan los datos completos de servicios y de las entidades previas antes de ejecutar tests.
 
@@ -263,7 +263,7 @@ Get-Content -Raw -Encoding utf8 supabase/tests/bf083_product_categories.sql | do
 ```
 
 La prueba consume las filas del seed y comprueba cantidad, seis campos completos, UUIDs,
-tenant, estados y fechas, además de las 13 tablas ajenas vacías; BF-084 valida productos. BF-080/BF-081/BF-082 conservan
+tenant, estados y fechas, además de las 12 tablas ajenas vacías; BF-084/BF-085 validan productos/clientes. BF-080/BF-081/BF-082 conservan
 sus validaciones exactas; dos resets de entrega comparan las categorías y todas las entidades
 previas. Se mantiene el flujo normal `migrations → seed.sql`, sin upsert ni scripts especiales.
 
@@ -296,6 +296,36 @@ Get-Content -Raw -Encoding utf8 supabase/tests/bf084_products.sql | docker exec 
 ```
 
 La suite consume el seed y comprueba las seis filas completas, categorías del mismo tenant,
-SKU distintos y 13 tablas ajenas vacías. BF-080–BF-083 conservan sus oracles de datos exactos.
+SKU distintos y 12 tablas ajenas vacías. BF-080–BF-083 conservan sus oracles de datos exactos.
 Dos resets normales de entrega comparan productos y entidades previas; no hay scripts de seed
 paralelos ni upsert. Las pruebas deben ejecutarse sobre el baseline de reset local limpio.
+
+## BF-085: clientes demo
+
+El seed añade exclusivamente cuatro clientes ficticios a `public.clients`, del business
+BarberFlow Demo (`00000000-0000-4000-8000-000000000080`):
+
+| UUID                                 | first_name | last_name | is_active |
+| ------------------------------------ | ---------- | --------- | --------- |
+| 00000000-0000-4000-8000-000000000851 | Martín     | Pérez     | true      |
+| 00000000-0000-4000-8000-000000000852 | Lucía      | Gómez     | true      |
+| 00000000-0000-4000-8000-000000000853 | Diego      | NULL      | true      |
+| 00000000-0000-4000-8000-000000000854 | Valentina  | Ríos      | false     |
+
+Los cuatro tienen `phone`, `email`, `instagram`, `birth_date`, `notes` y `preferences` en NULL.
+`created_at` y `updated_at` son `2026-01-01T00:00:00Z`. Cubren clientes activos con apellido,
+un cliente activo sin apellido y una cliente archivada/inactiva, sin inventar datos de contacto.
+Son fixtures aprobadas, no personas reales ni cuentas Auth.
+
+No crea citas, ventas, mensajes ni historial transaccional. Conserva BF-080–BF-084 y sus UUIDs,
+credenciales, precios/costos, estados y timestamps, además del schema, RLS, policies, helpers y
+skills. No añade estadísticas persistidas como gasto total, cantidad de visitas o última visita.
+
+```powershell
+Get-Content -Raw -Encoding utf8 supabase/tests/bf085_clients.sql | docker exec -i supabase_db_barberflow psql -U postgres -d postgres -v ON_ERROR_STOP=1
+```
+
+La suite consume el seed real y valida las cuatro filas completas, sus 13 campos, tenant y
+12 tablas ajenas vacías. BF-080–BF-084 mantienen sus validaciones exactas y delegan solo los
+clientes a BF-085. Dos resets locales normales de entrega comparan los clientes y todas las
+entidades previas; ejecutar las pruebas sobre el baseline limpio, sin scripts paralelos ni upsert.

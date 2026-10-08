@@ -71,14 +71,14 @@ BEGIN
     RAISE EXCEPTION 'BF081 OWNER membership or business relationship differs';
   END IF;
   FOR target_table IN SELECT tablename FROM pg_tables WHERE schemaname = 'public'
-    AND tablename NOT IN ('profiles', 'businesses', 'business_members', 'services', 'product_categories', 'products') ORDER BY tablename
+    AND tablename NOT IN ('profiles', 'businesses', 'business_members', 'services', 'product_categories', 'products', 'clients') ORDER BY tablename
   LOOP
     EXECUTE format('SELECT count(*) FROM public.%I', target_table) INTO row_count;
     IF row_count <> 0 THEN RAISE EXCEPTION 'Out-of-scope seed in %', target_table; END IF;
     checked_tables := checked_tables + 1;
   END LOOP;
-  -- BF-082–BF-084 validate catalogs; every Auth/profile/OWNER oracle stays.
-  IF checked_tables <> 13 OR (SELECT count(*) FROM auth.sessions) <> 0
+  -- BF-082–BF-085 validate catalogs/clients; every Auth/profile/OWNER oracle stays.
+  IF checked_tables <> 12 OR (SELECT count(*) FROM auth.sessions) <> 0
      OR (SELECT count(*) FROM auth.refresh_tokens) <> 0 THEN
     RAISE EXCEPTION 'BF081 baseline has extra tables, sessions or refresh tokens';
   END IF;
