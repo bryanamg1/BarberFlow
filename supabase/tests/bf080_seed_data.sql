@@ -28,7 +28,7 @@ BEGIN
   END IF;
   FOR table_name IN SELECT tablename FROM pg_tables
     WHERE schemaname = 'public'
-      AND tablename NOT IN ('businesses', 'profiles', 'business_members', 'services') ORDER BY tablename
+      AND tablename NOT IN ('businesses', 'profiles', 'business_members', 'services', 'product_categories') ORDER BY tablename
   LOOP
     EXECUTE format('SELECT count(*) FROM public.%I', table_name) INTO row_count;
     IF row_count <> 0 THEN
@@ -37,8 +37,8 @@ BEGIN
     checked_tables := checked_tables + 1;
   END LOOP;
   -- BF-081 owns Auth/profile/OWNER assertions; BF-082 owns service assertions.
-  -- Preserve the complete BF-080 business oracle and unrelated empty tables.
-  IF checked_tables <> 15 THEN
+  -- BF-083 owns product category assertions; preserve the full business oracle.
+  IF checked_tables <> 14 THEN
     RAISE EXCEPTION 'Unexpected public table inventory';
   END IF;
   IF (SELECT count(*) FROM pg_policies WHERE schemaname = 'public') <> 46
@@ -47,7 +47,7 @@ BEGIN
            AND NOT c.relforcerowsecurity) <> 19 THEN
     RAISE EXCEPTION 'BF080 changed the approved RLS/policy baseline';
   END IF;
-  RAISE NOTICE 'BF080 passed: exact deterministic demo business, 15 unrelated empty tables, 46 policies and 19 RLS tables/FORCE off; OWNER/services validated by BF081/BF082';
+  RAISE NOTICE 'BF080 passed: exact deterministic demo business, 14 unrelated empty tables, 46 policies and 19 RLS tables/FORCE off; OWNER/services/categories validated by BF081/BF082/BF083';
 END;
 $$;
 

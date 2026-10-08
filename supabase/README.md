@@ -164,7 +164,7 @@ Después del reset, ejecutar la comprobación de contenido:
 Get-Content -Raw supabase/tests/bf080_seed_data.sql | docker exec -i supabase_db_barberflow psql -U postgres -d postgres -v ON_ERROR_STOP=1
 ```
 
-La prueba conserva todos los campos del negocio y las 15 tablas ajenas a BF-080/BF-081/BF-082 vacías.
+La prueba conserva todos los campos del negocio y las 14 tablas ajenas a BF-080/BF-081/BF-082/BF-083 vacías.
 BF-081 valida exactamente Auth, profile y membership; sustituye la expectativa histórica de
 ausencia de usuarios. Las suites DB usan fixtures que se revierten y preservan el seed.
 Las referencias a BF-050/BF-070 de arriba describen sus baselines históricas.
@@ -236,6 +236,33 @@ productos, clientes, citas ni operaciones transaccionales, ni cambia schema, RLS
 Get-Content -Raw supabase/tests/bf082_services.sql | docker exec -i supabase_db_barberflow psql -U postgres -d postgres -v ON_ERROR_STOP=1
 ```
 
-BF-082 comprueba exactamente las tres filas completas, su tenant y las 15 tablas ajenas vacías;
+BF-082 comprueba exactamente las tres filas completas, su tenant y las 14 tablas ajenas vacías;
+BF-083 valida las categorías de productos;
 BF-080/BF-081 mantienen las assertions completas del negocio y OWNER. Dos resets de entrega
 comparan los datos completos de servicios y de las entidades previas antes de ejecutar tests.
+
+## BF-083: categorías de productos demo
+
+BF-083 corresponde exclusivamente a `public.product_categories`. El reset local añade
+estas tres categorías a BarberFlow Demo (`00000000-0000-4000-8000-000000000080`):
+
+| UUID                                 | Nombre     |
+| ------------------------------------ | ---------- |
+| 00000000-0000-4000-8000-000000000831 | Cabello    |
+| 00000000-0000-4000-8000-000000000832 | Barba      |
+| 00000000-0000-4000-8000-000000000833 | Accesorios |
+
+Todas tienen `is_active=true` y `created_at`/`updated_at` fijos en
+`2026-01-01T00:00:00Z`. La tabla no tiene `description`; no se agrega ese campo.
+No crea productos, categorías de gastos, gastos ni ninguna otra entidad. Conserva intactos
+Business, Demo Owner, Auth, membership y los tres servicios BF-082, además del schema,
+helpers, 46 policies y 19 tablas con RLS habilitado y FORCE RLS desactivado.
+
+```powershell
+Get-Content -Raw -Encoding utf8 supabase/tests/bf083_product_categories.sql | docker exec -i supabase_db_barberflow psql -U postgres -d postgres -v ON_ERROR_STOP=1
+```
+
+La prueba consume las filas del seed y comprueba cantidad, seis campos completos, UUIDs,
+tenant, estados y fechas, además de las 14 tablas ajenas vacías. BF-080/BF-081/BF-082 conservan
+sus validaciones exactas; dos resets de entrega comparan las categorías y todas las entidades
+previas. Se mantiene el flujo normal `migrations → seed.sql`, sin upsert ni scripts especiales.

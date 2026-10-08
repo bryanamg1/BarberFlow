@@ -91,3 +91,26 @@ INSERT INTO public.services (
     'Corte + barba', NULL, 14000.00, 45, true,
     '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z'
   );
+
+-- BF-083: approved product categories only; no products or expense categories.
+INSERT INTO public.product_categories (
+  id, business_id, name, is_active, created_at, updated_at
+) VALUES
+  (
+    '00000000-0000-4000-8000-000000000831',
+    '00000000-0000-4000-8000-000000000080',
+    'Cabello', true,
+    '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z'
+  ),
+  (
+    '00000000-0000-4000-8000-000000000832',
+    '00000000-0000-4000-8000-000000000080',
+    'Barba', true,
+    '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z'
+  ),
+  (
+    '00000000-0000-4000-8000-000000000833',
+    '00000000-0000-4000-8000-000000000080',
+    'Accesorios', true,
+    '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z'
+  );
