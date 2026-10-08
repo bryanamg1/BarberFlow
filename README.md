@@ -462,3 +462,20 @@ This is client-side visibility control, not server authorization; Supabase/RLS r
 BF-096 tests mock the public `useAuth` boundary, exercise the installed router's protected-screen
 filter and navigation router, and render the shared feedback with React/Web. These checks do not
 perform remote Auth requests or certify native device behavior.
+
+## Logout action (BF-097)
+
+`LogoutButton` in `src/features/auth/components/LogoutButton.tsx` is mounted in the existing private
+Settings route. It calls `authService.signOut()`, reusing the repository's approved `local` scope.
+The shared Button shows loading and blocks interaction; a synchronous in-flight guard also prevents
+duplicate presses before React renders. Normalized errors are announced locally and the same control
+allows retry. Unexpected exceptions use a safe generic message; late completions after unmount are
+ignored.
+
+The action does not navigate, change AuthContext, clear storage, or manage business data. Supabase's
+session event updates BF-095, and BF-096 owns the transition to the public/login flow. The provider
+and routing contracts are unchanged. No global session revocation or recovery is added.
+
+Run `node --test tests/bf097-logout.test.cjs` for action behavior, duplicate prevention, retry,
+unmount tolerance and real React/Web shared-control rendering with the service boundary mocked.
+Existing BF-095/BF-096 tests cover session-loss routing; these checks make no remote Auth requests.
