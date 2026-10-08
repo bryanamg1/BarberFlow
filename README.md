@@ -402,3 +402,39 @@ Run `node --test tests/bf094-login-screen.test.cjs` for composition, platform la
 real React/Web rendering with the existing form. Native hosts/safe-area measurement are controlled
 in automated tests; no requests are made to Supabase. Device keyboard and screen-reader behavior
 require native verification.
+
+## Auth bootstrap (BF-095)
+
+`src/features/auth/context/AuthContext.tsx` exports `AuthProvider`, `useAuth(): AuthState` and the
+discriminated `AuthState` type. The provider wraps the root Stack inside `QueryProvider` after the
+existing font gate. Its children remain rendered in every Auth state; it adds no redirects or
+visual gate. Calling `useAuth()` outside the provider throws a configuration error.
+
+The public value contains exactly `status`, `session`, `user` and `error`:
+
+| Status            | Session     | User           | Error                         |
+| ----------------- | ----------- | -------------- | ----------------------------- |
+| `initializing`    | `null`      | `null`         | `null`                        |
+| `authenticated`   | SDK session | `session.user` | `null`                        |
+| `unauthenticated` | `null`      | `null`         | `null`                        |
+| `error`           | `null`      | `null`         | Normalized `AuthServiceError` |
+
+Only the session snapshot is stored; user is derived on render. The effect subscribes through
+`authService.onAuthStateChange` before calling `authService.getSession`. Every event applies its
+received session synchronously and clears the error. An event during initialization takes priority
+over any late initial result, including an error. Each effect execution owns its subscription and
+discard flag; cleanup unsubscribes and ignores late callbacks/results, including development effect
+replay.
+
+A failed initial read remains `error`, distinct from confirmed absence of a session. Unexpected
+exceptions expose only the generic `UNKNOWN_ERROR` message. There are no retries or custom timeouts;
+a read that never settles and receives no event remains initializing. Supabase retains ownership of
+storage and refresh. The context exposes no setters, login/logout methods or separate token fields;
+session data is for in-memory Auth consumers and must not be logged, rendered or separately persisted.
+This local session snapshot does not establish server authorization. No business/membership/role
+queries or routing decisions are introduced.
+
+Run `node --test tests/bf095-auth-bootstrap.test.cjs`. Tests exercise the actual provider against a
+controlled React lifecycle and the mocked service boundary, plus real React Context/SSR. They cover
+initial states/errors, event updates, stale-read races, cleanup, effect replay and root composition;
+they make no real Auth requests and do not prove device persistence or live token refresh.

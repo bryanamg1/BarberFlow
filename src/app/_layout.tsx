@@ -7,6 +7,7 @@ import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 
+import { AuthProvider } from '@/features/auth/context/AuthContext';
 import { QueryProvider } from '@/lib/query';
 import { fontFamilies } from '@/theme/typography';
 
@@ -46,10 +47,12 @@ export default function RootLayout() {
 
   return (
     <QueryProvider>
-      <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="(app)" />
-        <Stack.Screen name="(auth)" />
-      </Stack>
+      <AuthProvider>
+        <Stack screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="(app)" />
+          <Stack.Screen name="(auth)" />
+        </Stack>
+      </AuthProvider>
     </QueryProvider>
   );
 }
