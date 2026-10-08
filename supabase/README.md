@@ -164,7 +164,7 @@ Después del reset, ejecutar la comprobación de contenido:
 Get-Content -Raw supabase/tests/bf080_seed_data.sql | docker exec -i supabase_db_barberflow psql -U postgres -d postgres -v ON_ERROR_STOP=1
 ```
 
-La prueba conserva todos los campos del negocio y las 16 tablas ajenas a BF-080/BF-081 vacías.
+La prueba conserva todos los campos del negocio y las 15 tablas ajenas a BF-080/BF-081/BF-082 vacías.
 BF-081 valida exactamente Auth, profile y membership; sustituye la expectativa histórica de
 ausencia de usuarios. Las suites DB usan fixtures que se revierten y preservan el seed.
 Las referencias a BF-050/BF-070 de arriba describen sus baselines históricas.
@@ -173,7 +173,8 @@ Las referencias a BF-050/BF-070 de arriba describen sus baselines históricas.
 
 El reset local mantiene el mismo negocio BF-080 y añade exactamente un usuario Auth, una
 identidad email, su profile y una membership OWNER activa. No crea otro negocio, BARBER,
-settings, horarios, catálogos ni operaciones transaccionales. Sigue usando únicamente
+settings, horarios, catálogos ni operaciones transaccionales en BF-081; BF-082 añade los servicios
+descritos abajo. Sigue usando únicamente
 `migrations → seed.sql`; no es el bootstrap productivo ni un flujo de registro de clientes.
 
 Credenciales públicas de fixture **LOCAL DEVELOPMENT ONLY**:
@@ -214,3 +215,27 @@ extra y acceso RLS activo/inactivo/reactivado/anon. Sus cambios se revierten. La
 de entrega también usa el endpoint local normal de password y el JWT real para leer profile,
 business y membership; no guarda tokens. Un login genera sesiones y timestamps operativos:
 el determinismo se compara inmediatamente después de cada reset, antes de esas acciones.
+
+## BF-082: servicios demo
+
+El seed añade exactamente este catálogo ficticio al business BF-080
+`00000000-0000-4000-8000-000000000080`, cuya moneda es ARS:
+
+| UUID                                 | Nombre        | Precio ARS | Duración (min) |
+| ------------------------------------ | ------------- | ---------- | -------------- |
+| 00000000-0000-4000-8000-000000000821 | Corte clásico | 10000.00   | 30             |
+| 00000000-0000-4000-8000-000000000822 | Barba         | 5000.00    | 15             |
+| 00000000-0000-4000-8000-000000000823 | Corte + barba | 14000.00   | 45             |
+
+Los tres tienen `is_active=true`, `description=NULL` y ambos timestamps fijos
+`2026-01-01T00:00:00Z`. Usa el reset local normal; no sobrescribe datos existentes.
+El business y todas las filas/credenciales BF-081 se conservan intactos. No agrega categorías,
+productos, clientes, citas ni operaciones transaccionales, ni cambia schema, RLS o helpers.
+
+```powershell
+Get-Content -Raw supabase/tests/bf082_services.sql | docker exec -i supabase_db_barberflow psql -U postgres -d postgres -v ON_ERROR_STOP=1
+```
+
+BF-082 comprueba exactamente las tres filas completas, su tenant y las 15 tablas ajenas vacías;
+BF-080/BF-081 mantienen las assertions completas del negocio y OWNER. Dos resets de entrega
+comparan los datos completos de servicios y de las entidades previas antes de ejecutar tests.

@@ -66,3 +66,28 @@ INSERT INTO public.business_members (
   'OWNER', true,
   '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z'
 );
+
+-- BF-082: approved fictional service catalog for the existing demo business only.
+-- Prices use the business currency (ARS); no appointment/sale snapshots are seeded.
+INSERT INTO public.services (
+  id, business_id, name, description, price, duration_minutes, is_active,
+  created_at, updated_at
+) VALUES
+  (
+    '00000000-0000-4000-8000-000000000821',
+    '00000000-0000-4000-8000-000000000080',
+    'Corte clásico', NULL, 10000.00, 30, true,
+    '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z'
+  ),
+  (
+    '00000000-0000-4000-8000-000000000822',
+    '00000000-0000-4000-8000-000000000080',
+    'Barba', NULL, 5000.00, 15, true,
+    '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z'
+  ),
+  (
+    '00000000-0000-4000-8000-000000000823',
+    '00000000-0000-4000-8000-000000000080',
+    'Corte + barba', NULL, 14000.00, 45, true,
+    '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z'
+  );
