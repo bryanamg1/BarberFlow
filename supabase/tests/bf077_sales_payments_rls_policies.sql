@@ -8,12 +8,12 @@ DECLARE
   actual record;
   helper record;
 BEGIN
-  IF (SELECT count(*) FROM pg_policies WHERE schemaname = 'public') <> 38
+  IF (SELECT count(*) FROM pg_policies WHERE schemaname = 'public') <> 40
      OR (SELECT array_agg(tablename || '.' || policyname ORDER BY tablename,policyname)
          FROM pg_policies WHERE schemaname = 'public' AND tablename IN ('sales','sale_items','payments'))
         IS DISTINCT FROM ARRAY['payments.payments_select_authorized',
           'sale_items.sale_items_select_authorized','sales.sales_select_authorized']::text[] THEN
-    RAISE EXCEPTION 'Expected exactly 38 public policies and three BF-077 SELECT identities';
+    RAISE EXCEPTION 'Expected exactly 40 public policies and three BF-077 SELECT identities';
   END IF;
   FOR expected IN SELECT * FROM (VALUES
     ('sales','sales_select_authorized',$policy$(public.has_business_role(business_id, ARRAY['OWNER'::text]) OR (public.has_business_role(business_id, ARRAY['BARBER'::text]) AND (created_by = ( SELECT auth.uid() AS uid))))$policy$),
@@ -71,10 +71,10 @@ BEGIN
                 WHERE n.nspname = 'public' AND c.relkind IN ('r','p')
                   AND (NOT c.relrowsecurity OR c.relforcerowsecurity))
      OR EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public'
-                AND tablename IN ('purchases','purchase_items','expense_categories','expenses')) THEN
+                AND tablename IN ('expense_categories','expenses')) THEN
     RAISE EXCEPTION 'RLS/FORCE/future domain boundary changed';
   END IF;
-  RAISE NOTICE 'BF-077 metadata passed: 38 public policies, three exact authenticated SELECT policies, one private boolean STABLE definer, authenticated-only EXECUTE, 19 RLS tables/FORCE off, four future tables closed';
+  RAISE NOTICE 'BF-077 metadata passed: 40 public policies, three exact authenticated SELECT policies, one private boolean STABLE definer, authenticated-only EXECUTE, 19 RLS tables/FORCE off, two future tables closed';
 END;
 $$;
 
@@ -262,9 +262,9 @@ BEGIN
       EXCEPTION WHEN insufficient_privilege THEN NULL; END;
       RESET ROLE;
     END IF;
-    -- Four unimplemented domains remain closed to every ordinary identity.
+    -- Two unimplemented domains remain closed to every ordinary identity.
     EXECUTE format('SET LOCAL ROLE %I',person.database_role);
-    FOREACH table_name IN ARRAY ARRAY['purchases','purchase_items','expense_categories','expenses'] LOOP
+    FOREACH table_name IN ARRAY ARRAY['expense_categories','expenses'] LOOP
       EXECUTE format('SELECT count(*) FROM public.%I',table_name) INTO actual_count;
       IF actual_count <> 0 THEN RAISE EXCEPTION 'Future SELECT opened'; END IF;
       EXECUTE format('UPDATE public.%I SET created_at = created_at',table_name);
@@ -337,7 +337,7 @@ BEGIN
     EXECUTE format('SELECT jsonb_agg(to_jsonb(t) ORDER BY id) FROM public.%I t',table_name) INTO rows;
     IF rows IS DISTINCT FROM baseline -> table_name THEN RAISE EXCEPTION 'Financial fixtures modified: %',table_name; END IF;
   END LOOP;
-  IF checks <> 2360 OR helper_checks <> 220 OR revocation_checks <> 301 OR future_checks <> 120 THEN
+  IF checks <> 2360 OR helper_checks <> 220 OR revocation_checks <> 301 OR future_checks <> 60 THEN
     RAISE EXCEPTION 'Incomplete BF-077 checks: CRUD %, helper %, revocation %, future %',checks,helper_checks,revocation_checks,future_checks;
   END IF;
   RAISE NOTICE 'BF-077 passed: % effective-role CRUD checks, % direct helper checks, % membership revocation/reactivation, % future-table denials; OWNER/BARBER A/B/AB, own payment with hidden parent, four inconsistent payments, all sale statuses/payment methods, both line types, anon/nonmember/inactive, hostile search_path, no client writes and unchanged financial fixtures',checks,helper_checks,revocation_checks,future_checks;

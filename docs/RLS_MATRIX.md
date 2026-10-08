@@ -99,6 +99,17 @@ Approved scope: exactly `sales`, `sale_items` and `payments`. Add three SELECT p
 
 Keep both BF-072 helpers and the four public functions unchanged; BF-077 adds exactly one private function (three SECURITY DEFINER functions across public/private in total). No table/column/index/trigger changes, FORCE RLS, existing service_role/table grant changes, global grant hardening or policies outside scope. The inherited TRUNCATE/REFERENCES/TRIGGER/MAINTAIN debt remains separate; RLS does not protect TRUNCATE. The helper reads a statement snapshot and does not cache authorization across statements. Its bypass of parent RLS is limited to deciding whether the caller can read that payment; it does not return sale data.
 
+### BF-078 — Purchases RLS Policies
+
+Approved scope: exactly `purchases` and `purchase_items`. Add two SELECT policies TO authenticated, for exactly 40 public policies; the previous 38 policies remain unchanged. `expense_categories` and `expenses` still have no policies. BF-079 remains undefined; earlier sections describe their historical ticket baselines.
+
+- `purchases_select_owners`: active OWNER reads purchases of their OWNER businesses via `public.has_business_role(business_id, ARRAY['OWNER'])`. BARBER cannot read purchases, including records they created, regardless of generic membership, product access or known IDs. Supplier, costs and acquisition history remain OWNER-only.
+- `purchase_items_select_owners`: require a parent purchase whose ID matches `purchase_id` and explicitly require active OWNER of that parent's business. Product business/visibility never grants access to a purchase line; no redundant business_id or new cross-business write validation is added.
+- No INSERT, UPDATE or DELETE policies for either table, including OWNER and all DRAFT/COMPLETED/VOIDED records. Supplier, totals, operation_id, creator, status, timestamps and historical line snapshots cannot be edited directly by clients. Future transactional completion/correction workflows own writes; no complete_purchase, stock movement, generated expense or product cost update is implemented here.
+- OWNER A/B are isolated; OWNER AB may read both authorized businesses but cannot write directly. Inactive membership removes access on subsequent statements; reactivation restores only current OWNER scope. BARBER, users without membership and anon have no access. Status does not change RLS authorization.
+
+Reuse BF-072 helpers and `private.can_read_payment(uuid)` unchanged. Preserve idempotency UNIQUE(business_id, operation_id), all schema/FKs/indexes/triggers, service_role and existing grants. No new helper, SECURITY DEFINER, FORCE RLS or future-domain policy. The inherited TRUNCATE/REFERENCES/TRIGGER/MAINTAIN debt remains separate; RLS does not protect TRUNCATE.
+
 Every business-owned table enables RLS. Frontend filters are not authorization. INSERT/UPDATE must validate membership with WITH CHECK. Global finance/purchase/expense operations require OWNER. Critical RPCs verify auth and role independently. The service-role key never reaches Expo/Web clients.
 
 Prefer restricting direct writes that could bypass critical invariants such as completed sale creation, checkout stock movements and purchase-generated expenses.

@@ -8,8 +8,8 @@ DECLARE
   actual record;
   col record;
 BEGIN
-  IF (SELECT count(*) FROM pg_policies WHERE schemaname = 'public') <> 38 THEN
-    RAISE EXCEPTION 'Expected exactly 38 BF-073/BF-074/BF-075/BF-076/BF-077 policies';
+  IF (SELECT count(*) FROM pg_policies WHERE schemaname = 'public') <> 40 THEN
+    RAISE EXCEPTION 'Expected exactly 40 BF-073/BF-074/BF-075/BF-076/BF-077/BF-078 policies';
   END IF;
   IF (SELECT array_agg(tablename || '.' || policyname ORDER BY tablename, policyname)
       FROM pg_policies WHERE schemaname = 'public'
@@ -41,6 +41,12 @@ BEGIN
      ARRAY['payments.payments_select_authorized','sale_items.sale_items_select_authorized',
            'sales.sales_select_authorized']::text[] THEN
     RAISE EXCEPTION 'Expected exactly the three approved BF-077 policy identities';
+  END IF;
+  IF (SELECT array_agg(tablename || '.' || policyname ORDER BY tablename,policyname)
+      FROM pg_policies WHERE schemaname = 'public'
+        AND tablename IN ('purchases','purchase_items')) IS DISTINCT FROM
+     ARRAY['purchase_items.purchase_items_select_owners','purchases.purchases_select_owners']::text[] THEN
+    RAISE EXCEPTION 'Expected exactly the two BF-078 policy identities';
   END IF;
   FOR expected IN
     SELECT * FROM (VALUES
@@ -87,7 +93,7 @@ BEGIN
       RAISE EXCEPTION 'Incorrect scoped UPDATE grant on % column %', col.oid::regclass, col.attname;
     END IF;
   END LOOP;
-  RAISE NOTICE 'BF-073 metadata passed: 15 original policies plus exactly six BF-074, seven BF-075, seven BF-076 and three BF-077 policies, authenticated only, exact USING/WITH CHECK, immutable tenant columns';
+  RAISE NOTICE 'BF-073 metadata passed: 15 original policies plus exactly six BF-074, seven BF-075, seven BF-076, three BF-077 and two BF-078 policies, authenticated only, exact USING/WITH CHECK, immutable tenant columns';
 END;
 $$;
 
@@ -132,7 +138,6 @@ BEGIN
     INSERT INTO public.business_settings (business_id) VALUES (biz[idx]);
     INSERT INTO public.business_hours (id, business_id, day_of_week, open_time, close_time)
       VALUES (hour_ids[idx], biz[idx], 0, '09:00', '18:00');
-    INSERT INTO public.purchases (business_id, operation_id, supplier, total, created_by) VALUES (biz[idx], gen_random_uuid(), 'Closed supplier', 10, users[1]);
     INSERT INTO public.expense_categories (business_id, name) VALUES (biz[idx], 'Closed expense category');
     INSERT INTO public.expenses (business_id, category_id, source_type, description, amount, payment_method, expense_date, created_by)
       SELECT biz[idx], id, 'MANUAL', 'Closed expense', 10, 'CASH', DATE '2030-01-07', users[1]
@@ -245,7 +250,6 @@ BEGIN
     PERFORM set_config('request.jwt.claim.sub', coalesce(person.user_id::text, ''), true);
     FOR outside IN
       SELECT * FROM (VALUES
-        ('purchases', format('INSERT INTO public.purchases (business_id, operation_id, supplier, total, created_by) VALUES (%L, gen_random_uuid(), ''Denied supplier'', 10, %L)', biz[1], users[1])),
         ('expense_categories', format('INSERT INTO public.expense_categories (business_id, name) VALUES (%L, ''Denied'')', biz[1])),
         ('expenses', format('INSERT INTO public.expenses (business_id, category_id, source_type, description, amount, payment_method, expense_date, created_by) VALUES (%L, %L, ''MANUAL'', ''Denied'', 10, ''CASH'', DATE ''2030-01-07'', %L)', biz[1], closed_category, users[1]))
       ) AS domains(table_name, insert_statement)

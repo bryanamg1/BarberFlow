@@ -24,7 +24,7 @@ BF-050 extensions; 051 profiles; 052 businesses; 053 members; 054 settings; 055 
 BF-060 product_categories; 061 products; 062 sales; 063 sale_items; 064 payments; 065 purchases; 066 purchase_items; 067 stock_movements; 068 expense_categories; 069 expenses.
 
 ## Epic 6 Security
-BF-070 indexes; 071 enable RLS; 072 membership helpers; BF-073 Business & Membership RLS Policies; BF-074 Clients & Services RLS Policies; BF-075 Appointments RLS Policies; BF-076 Inventory RLS Policies; BF-077 Sales & Payments RLS Policies; 078-079 policies by domain (individual scopes remain to be defined).
+BF-070 indexes; 071 enable RLS; 072 membership helpers; BF-073 Business & Membership RLS Policies; BF-074 Clients & Services RLS Policies; BF-075 Appointments RLS Policies; BF-076 Inventory RLS Policies; BF-077 Sales & Payments RLS Policies; BF-078 Purchases RLS Policies; BF-079 scope remains to be defined.
 
 BF-073 includes exactly `profiles`, `businesses`, `business_members`, `business_settings` and `business_hours`. Apply the explicit BF-073 contract in `RLS_MATRIX.md`; no policies on other tables, no business/first-OWNER bootstrap, no new helpers or SECURITY DEFINER functions, and no global grant hardening.
 
@@ -35,6 +35,8 @@ BF-075 includes exactly `appointments` and `appointment_services`. Apply the exp
 BF-076 includes exactly `product_categories`, `products` and `stock_movements`. Apply the explicit BF-076 contract in `RLS_MATRIX.md`: seven new authenticated policies; OWNER administers the catalog, BARBER reads, and both read the ledger without direct writes. Archived categories/products remain visible, nullable product categories must be tenant-consistent when present, and catalog `business_id` is immutable to authenticated callers. No new helpers, triggers, stored stock, RPC, future-domain policies or global grant hardening.
 
 BF-077 includes exactly `sales`, `sale_items` and `payments`. Apply the explicit BF-077 contract in `RLS_MATRIX.md`: three authenticated SELECT policies, OWNER business visibility, BARBER own-created sales/payments, parent-derived sale-item authorization, and no direct writes in any sale status. Approved exception: one unexposed `private` schema and one boolean SECURITY DEFINER `private.can_read_payment(uuid)`, executable only by authenticated, validate payment authorization and payment/sale tenant consistency independently of parent-sale visibility. Existing BF-072 helpers, table schema/grants, service_role and FORCE RLS remain unchanged. No checkout, business RPC or future-domain policies.
+
+BF-078 includes exactly `purchases` and `purchase_items`. Apply the explicit BF-078 contract in `RLS_MATRIX.md`: two authenticated SELECT policies for active OWNER only; parent-derived OWNER authorization for lines; no direct writes in any status. BARBER cannot read purchase costs/history, even for own-created records. Completion/correction remains a future transactional workflow. No schema, helper, grant or SECURITY DEFINER changes; expense_categories/expenses remain closed and BF-079 is not defined.
 
 ## Epic 7 Seed
 BF-080 demo business; 081 owner linkage; 082 services; 083 categories; 084 products; 085 clients.

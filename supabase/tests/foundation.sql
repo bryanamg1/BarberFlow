@@ -43,7 +43,9 @@ DECLARE
     'stock_movements.stock_movements_select_members',
     'sales.sales_select_authorized',
     'sale_items.sale_items_select_authorized',
-    'payments.payments_select_authorized'
+    'payments.payments_select_authorized',
+    'purchases.purchases_select_owners',
+    'purchase_items.purchase_items_select_owners'
   ];
   foundation_tables constant text[] := ARRAY[
     'business_hours', 'business_members', 'business_settings', 'businesses', 'profiles'
@@ -76,7 +78,7 @@ BEGIN
   IF (SELECT array_agg(tablename || '.' || policyname ORDER BY tablename, policyname)
       FROM pg_policies WHERE schemaname = 'public')
      IS DISTINCT FROM (SELECT array_agg(p ORDER BY p) FROM unnest(v_policy_names) AS names(p)) THEN
-    RAISE EXCEPTION 'Expected exactly the 38 approved BF-073/BF-074/BF-075/BF-076/BF-077 policies and no others';
+    RAISE EXCEPTION 'Expected exactly the 40 approved BF-073/BF-074/BF-075/BF-076/BF-077/BF-078 policies and no others';
   END IF;
 
   FOREACH target_table IN ARRAY foundation_tables LOOP

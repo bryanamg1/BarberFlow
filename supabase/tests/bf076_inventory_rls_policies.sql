@@ -42,7 +42,9 @@ DECLARE
     'stock_movements.stock_movements_select_members',
     'sales.sales_select_authorized',
     'sale_items.sale_items_select_authorized',
-    'payments.payments_select_authorized'
+    'payments.payments_select_authorized',
+    'purchases.purchases_select_owners',
+    'purchase_items.purchase_items_select_owners'
   ];
   expected record;
   actual record;
@@ -51,7 +53,7 @@ BEGIN
   IF (SELECT array_agg(tablename || '.' || policyname ORDER BY tablename, policyname)
       FROM pg_policies WHERE schemaname = 'public')
      IS DISTINCT FROM (SELECT array_agg(p ORDER BY p) FROM unnest(policy_names) AS names(p)) THEN
-    RAISE EXCEPTION 'Expected exactly the 38 approved public policy identities';
+    RAISE EXCEPTION 'Expected exactly the 40 approved public policy identities';
   END IF;
   -- Literal expressions are the independent metadata oracle; only whitespace
   -- is normalized, retaining every operator, cast and tenant correlation.
@@ -90,7 +92,7 @@ BEGIN
     END IF;
   END LOOP;
   IF EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename IN
-      ('purchases','purchase_items','expense_categories','expenses')) THEN
+      ('expense_categories','expenses')) THEN
     RAISE EXCEPTION 'Future domain policy opened';
   END IF;
   IF (SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
@@ -114,7 +116,7 @@ BEGIN
      OR (SELECT count(*) FROM pg_trigger WHERE tgrelid = 'public.stock_movements'::regclass AND NOT tgisinternal) <> 1 THEN
     RAISE EXCEPTION 'Append-only trigger changed';
   END IF;
-  RAISE NOTICE 'BF-076 metadata passed: exactly 38 identities, seven exact inventory policies, authenticated only, catalog business_id excluded, 19 RLS tables, FORCE off, four future tables closed, four public functions/two approved definers, existing ledger trigger';
+  RAISE NOTICE 'BF-076 metadata passed: exactly 40 identities, seven exact inventory policies, authenticated only, catalog business_id excluded, 19 RLS tables, FORCE off, two future tables closed, four public functions/two approved definers, existing ledger trigger';
 END;
 $$;
 

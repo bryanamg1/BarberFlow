@@ -95,8 +95,10 @@ BEGIN
     END IF;
   END LOOP;
   IF NOT (SELECT relrowsecurity FROM pg_class WHERE oid = 'public.purchase_items'::regclass)
-     OR EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'purchase_items') THEN
-    RAISE EXCEPTION 'Purchase items must have RLS enabled without policies';
+     OR (SELECT array_agg(policyname::text ORDER BY policyname) FROM pg_policies
+         WHERE schemaname = 'public' AND tablename = 'purchase_items')
+        IS DISTINCT FROM ARRAY['purchase_items_select_owners']::text[] THEN
+    RAISE EXCEPTION 'Purchase items must have RLS enabled with exactly its BF-078 SELECT policy';
   END IF;
   IF EXISTS (SELECT 1 FROM pg_trigger WHERE tgrelid = 'public.purchase_items'::regclass AND NOT tgisinternal) THEN
     RAISE EXCEPTION 'No snapshot, stock, product cost, purchase total or timestamp trigger is approved';

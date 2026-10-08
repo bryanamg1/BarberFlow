@@ -93,8 +93,10 @@ BEGIN
     RAISE EXCEPTION 'Expected PK, operation uniqueness and one business history index';
   END IF;
   IF NOT (SELECT relrowsecurity FROM pg_class WHERE oid = 'public.purchases'::regclass)
-     OR EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'purchases') THEN
-    RAISE EXCEPTION 'Purchases must have RLS enabled without policies';
+     OR (SELECT array_agg(policyname::text ORDER BY policyname) FROM pg_policies
+         WHERE schemaname = 'public' AND tablename = 'purchases')
+        IS DISTINCT FROM ARRAY['purchases_select_owners']::text[] THEN
+    RAISE EXCEPTION 'Purchases must have RLS enabled with exactly its BF-078 SELECT policy';
   END IF;
   IF (SELECT count(*) FROM pg_trigger WHERE tgrelid = 'public.purchases'::regclass AND NOT tgisinternal) <> 1
      OR NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgrelid = 'public.purchases'::regclass

@@ -8,8 +8,8 @@ DECLARE
   actual record;
   col record;
 BEGIN
-  IF (SELECT count(*) FROM pg_policies WHERE schemaname = 'public') <> 38 THEN
-    RAISE EXCEPTION 'Expected exactly 38 BF-073/BF-074/BF-075/BF-076/BF-077 policies';
+  IF (SELECT count(*) FROM pg_policies WHERE schemaname = 'public') <> 40 THEN
+    RAISE EXCEPTION 'Expected exactly 40 BF-073/BF-074/BF-075/BF-076/BF-077/BF-078 policies';
   END IF;
   IF (SELECT array_agg(tablename || '.' || policyname ORDER BY tablename, policyname)
       FROM pg_policies WHERE schemaname = 'public'
@@ -41,6 +41,12 @@ BEGIN
      ARRAY['payments.payments_select_authorized','sale_items.sale_items_select_authorized',
            'sales.sales_select_authorized']::text[] THEN
     RAISE EXCEPTION 'Expected exactly the three approved BF-077 policy identities';
+  END IF;
+  IF (SELECT array_agg(tablename || '.' || policyname ORDER BY tablename,policyname)
+      FROM pg_policies WHERE schemaname = 'public'
+        AND tablename IN ('purchases','purchase_items')) IS DISTINCT FROM
+     ARRAY['purchase_items.purchase_items_select_owners','purchases.purchases_select_owners']::text[] THEN
+    RAISE EXCEPTION 'Expected exactly the two BF-078 policy identities';
   END IF;
   FOR expected IN
     SELECT * FROM (VALUES
@@ -95,11 +101,10 @@ BEGIN
     RAISE EXCEPTION 'Expected exactly 19 RLS tables with FORCE off';
   END IF;
   IF EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = ANY(ARRAY[
-      'purchases', 'purchase_items',
       'expense_categories', 'expenses'])) THEN
     RAISE EXCEPTION 'A future domain received a policy';
   END IF;
-  RAISE NOTICE 'BF-074 metadata passed: exactly 38 known policies including six clients/services and seven appointment and seven inventory and three finance policies, authenticated only, exact USING/WITH CHECK, immutable tenant columns, 4 future tables without policies, 19 RLS tables with FORCE off';
+  RAISE NOTICE 'BF-074 metadata passed: exactly 40 known policies including six clients/services and seven appointment and seven inventory and three finance and two purchase policies, authenticated only, exact USING/WITH CHECK, immutable tenant columns, 2 future tables without policies, 19 RLS tables with FORCE off';
 END;
 $$;
 
@@ -112,7 +117,6 @@ DECLARE
   client_ids uuid[] := ARRAY[gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), gen_random_uuid()];
   service_ids uuid[] := ARRAY[gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), gen_random_uuid()];
   future_tables constant text[] := ARRAY[
-    'purchases', 'purchase_items',
     'expense_categories', 'expenses'
   ];
   person record;
