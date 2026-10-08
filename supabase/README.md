@@ -151,8 +151,8 @@ y `is_active=true`. Los timestamps sintéticos son `2026-01-01T00:00:00Z`; telé
 dirección y logo quedan NULL. No contiene datos reales, claves ni credenciales.
 
 El alcance específico del BACKLOG es «demo business». No se crean usuarios Auth, profiles,
-memberships, settings, horarios, catálogos ni operaciones transaccionales. El negocio no tiene
-OWNER todavía; la vinculación pertenece a BF-081. Este seed es exclusivamente local/dev,
+memberships, settings, horarios, catálogos ni operaciones transaccionales en BF-080. BF-081 añade
+la vinculación OWNER descrita abajo. Este seed es exclusivamente local/dev,
 no un bootstrap de producción ni un flujo de Auth. No cambia las 46 policies ni sus helpers.
 
 El flujo soportado es reset limpio; ejecutar el INSERT de nuevo sobre una base poblada produce
@@ -164,7 +164,53 @@ Después del reset, ejecutar la comprobación de contenido:
 Get-Content -Raw supabase/tests/bf080_seed_data.sql | docker exec -i supabase_db_barberflow psql -U postgres -d postgres -v ON_ERROR_STOP=1
 ```
 
-La prueba verifica todos los campos del negocio, las 18 tablas públicas restantes vacías y
-la ausencia de usuarios/identidades Auth. Las 25 suites DB previas siguen usando fixtures que
-se revierten; después de ejecutarlas, volver a comprobar BF-080 permite detectar cualquier
-alteración del seed. Las referencias a BF-050/BF-070 de arriba describen sus baselines históricas.
+La prueba conserva todos los campos del negocio y las 16 tablas ajenas a BF-080/BF-081 vacías.
+BF-081 valida exactamente Auth, profile y membership; sustituye la expectativa histórica de
+ausencia de usuarios. Las suites DB usan fixtures que se revierten y preservan el seed.
+Las referencias a BF-050/BF-070 de arriba describen sus baselines históricas.
+
+## BF-081: OWNER demo — LOCAL DEVELOPMENT ONLY
+
+El reset local mantiene el mismo negocio BF-080 y añade exactamente un usuario Auth, una
+identidad email, su profile y una membership OWNER activa. No crea otro negocio, BARBER,
+settings, horarios, catálogos ni operaciones transaccionales. Sigue usando únicamente
+`migrations → seed.sql`; no es el bootstrap productivo ni un flujo de registro de clientes.
+
+Credenciales públicas de fixture **LOCAL DEVELOPMENT ONLY**:
+
+- Email: `owner@barberflow.local`
+- Password: `BarberFlow-Local-Only-081!`
+- Auth user / profile: `00000000-0000-4000-8000-000000000081`
+- Email identity: `00000000-0000-4000-8000-000000000182`
+- Membership: `00000000-0000-4000-8000-000000000181`
+
+No reutilizar estas credenciales ni ejecutar este seed en producción o en un proyecto remoto.
+No contiene claves API, service-role keys, tokens, PII ni secretos reales. El profile es
+`Demo Owner`, sin teléfono ni avatar. Las filas tienen timestamps sintéticos fijos
+`2026-01-01T00:00:00Z`; los IDs, relaciones y hash también son deterministas entre resets.
+
+La fixture se verificó contra GoTrue local `v2.197.0`: `auth.users` con audience/role
+`authenticated`, email confirmado y hash bcrypt de costo 10, más su fila `auth.identities`
+con provider `email` y provider_id igual al UUID del usuario. El hash se generó una vez con
+pgcrypto ya disponible y se conserva como literal para reproducibilidad; no se almacena
+password en texto plano en `encrypted_password`. El hash/salt fijo pertenece exclusivamente
+a esta fixture pública, no define la estrategia de contraseñas de usuarios reales.
+La [documentación de identidades de Supabase](https://supabase.com/docs/guides/auth/identities)
+describe ese vínculo; una fila Auth mínima que solo satisface una FK no prueba autenticación.
+
+No se cambian Auth config, schema, triggers, helpers, permisos ni las 46 policies. OWNER se
+resuelve por membership, sin rol privilegiado en el JWT ni policy de autoasignación. El seed
+se aplica con los privilegios del CLI; un cliente `anon` no puede realizar este bootstrap.
+
+Después de un reset limpio y antes de iniciar sesión, ejecutar:
+
+```powershell
+Get-Content -Raw supabase/tests/bf080_seed_data.sql | docker exec -i supabase_db_barberflow psql -U postgres -d postgres -v ON_ERROR_STOP=1
+Get-Content -Raw supabase/tests/bf081_demo_owner.sql | docker exec -i supabase_db_barberflow psql -U postgres -d postgres -v ON_ERROR_STOP=1
+```
+
+BF-081 valida Auth/hash/confirmación, identidad, profile, relación OWNER, ausencia de datos
+extra y acceso RLS activo/inactivo/reactivado/anon. Sus cambios se revierten. La validación
+de entrega también usa el endpoint local normal de password y el JWT real para leer profile,
+business y membership; no guarda tokens. Un login genera sesiones y timestamps operativos:
+el determinismo se compara inmediatamente después de cada reset, antes de esas acciones.

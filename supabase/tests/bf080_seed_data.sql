@@ -27,7 +27,8 @@ BEGIN
     RAISE EXCEPTION 'BF080 demo business contents differ from the local seed contract';
   END IF;
   FOR table_name IN SELECT tablename FROM pg_tables
-    WHERE schemaname = 'public' AND tablename <> 'businesses' ORDER BY tablename
+    WHERE schemaname = 'public'
+      AND tablename NOT IN ('businesses', 'profiles', 'business_members') ORDER BY tablename
   LOOP
     EXECUTE format('SELECT count(*) FROM public.%I', table_name) INTO row_count;
     IF row_count <> 0 THEN
@@ -35,9 +36,10 @@ BEGIN
     END IF;
     checked_tables := checked_tables + 1;
   END LOOP;
-  IF checked_tables <> 18 OR (SELECT count(*) FROM auth.users) <> 0
-     OR (SELECT count(*) FROM auth.identities) <> 0 THEN
-    RAISE EXCEPTION 'Unexpected public table inventory or Auth seed';
+  -- BF-081 owns the exact Auth/profile/OWNER linkage assertions. Preserve the
+  -- complete BF-080 business oracle and every unrelated empty-table assertion.
+  IF checked_tables <> 16 THEN
+    RAISE EXCEPTION 'Unexpected public table inventory';
   END IF;
   IF (SELECT count(*) FROM pg_policies WHERE schemaname = 'public') <> 46
      OR (SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
@@ -45,7 +47,7 @@ BEGIN
            AND NOT c.relforcerowsecurity) <> 19 THEN
     RAISE EXCEPTION 'BF080 changed the approved RLS/policy baseline';
   END IF;
-  RAISE NOTICE 'BF080 passed: one exact deterministic demo business, 18 empty public tables, no Auth users/identities, 46 policies and 19 RLS tables/FORCE off';
+  RAISE NOTICE 'BF080 passed: exact deterministic demo business, 16 unrelated empty tables, 46 policies and 19 RLS tables/FORCE off; OWNER seed validated by BF081';
 END;
 $$;
 
