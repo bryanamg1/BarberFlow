@@ -283,6 +283,34 @@ Run the BF-078 local security suite after applying local migrations:
 Get-Content supabase/tests/bf078_purchases_rls_policies.sql | docker exec -i supabase_db_barberflow psql -U postgres -d postgres -v ON_ERROR_STOP=1
 ```
 
+## Auth repository (BF-090)
+
+`src/features/auth/repositories/authRepository.ts` reuses the shared Supabase client and exposes:
+
+- `signInWithPassword({ email, password })`: email/password credentials only.
+- `getSession()`: local session state, including a successful `null` session when signed out.
+- `getUser()`: the current identity, retrieved through Supabase Auth; accepts no custom JWT or user ID.
+- `signOut()`: explicitly uses `scope: 'local'` for the current session.
+- `onAuthStateChange(callback)`: returns the SDK subscription; the consumer must call
+  `subscription.unsubscribe()` when finished. Keep callbacks synchronous and schedule any work that
+  could refresh a token outside the callback.
+
+Promise results and SDK errors pass through unchanged. This data layer does not validate forms,
+translate errors, authorize business access, log credentials or tokens, or start subscriptions on
+import. `getSession()` is not proof of server-side authorization; database access remains subject to
+the existing RLS policies. This repository does not implement UI, registration, recovery, bootstrap,
+profile/membership/business reads, or the logout flow.
+
+Run `node --test tests/bf090-auth-repository.test.cjs`. Tests use synthetic SDK responses plus an
+in-memory instance of the installed SDK, without remote Auth or database requests. They do not prove
+live login or device persistence.
+
+References: Supabase [password sign-in](https://supabase.com/docs/reference/javascript/auth-signinwithpassword),
+[session retrieval](https://supabase.com/docs/reference/javascript/auth-getsession),
+[current user](https://supabase.com/docs/reference/javascript/auth-getuser),
+[sign-out scopes](https://supabase.com/docs/guides/auth/signout), and
+[Auth events](https://supabase.com/docs/reference/javascript/auth-onauthstatechange).
+
 BF-079 expense authorization test (local Supabase running):
 
 ```powershell
