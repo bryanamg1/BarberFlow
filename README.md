@@ -363,3 +363,24 @@ BF-079 expense authorization test (local Supabase running):
 ```powershell
 Get-Content -Raw supabase/tests/bf079_expenses_rls_policies.sql | docker exec -i supabase_db_barberflow psql -U postgres -d postgres -v ON_ERROR_STOP=1
 ```
+
+## Login form (BF-093)
+
+`src/features/auth/components/LoginForm.tsx` exports the reusable `LoginForm` with an optional
+`onSuccess(): void` callback. It composes shared `Input`, `PasswordInput` and `Button` controls with
+React Hook Form and `zodResolver(loginSchema)`, then submits only validated credentials to
+`authService.signInWithPassword`. Fields start empty; email normalization and password preservation
+remain exclusively defined by BF-092. Callback arguments never contain credentials or session data.
+
+Submission disables controls and blocks duplicate button/keyboard events throughout validation and
+the request. Field errors come from the schema; service messages are announced as alerts. Unexpected
+rejections display a generic safe message. Recoverable failures preserve edits and permit retry;
+late responses after unmount do not notify the consumer. The component performs no navigation,
+session bootstrap or direct Supabase access and is not mounted on a screen until BF-094.
+
+Run `node --test tests/bf093-login-form.test.cjs`. Interaction tests execute the installed RHF hooks,
+Controller, resolver and schema with a controlled hook lifecycle and a mocked service boundary.
+An additional real React/React Native Web server render checks the shared controls. These checks do
+not establish live authentication, browser keyboard behavior or device behavior. Resolver 5.2.2 is
+compatible with the existing Zod 4/RHF versions and avoids unrelated optional validation peers;
+all previously locked package versions remain unchanged.
