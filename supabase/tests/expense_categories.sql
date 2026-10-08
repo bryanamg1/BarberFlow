@@ -67,8 +67,8 @@ BEGIN
     RAISE EXCEPTION 'Expected PK and one business/active index';
   END IF;
   IF NOT (SELECT relrowsecurity FROM pg_class WHERE oid = 'public.expense_categories'::regclass)
-     OR EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'expense_categories') THEN
-    RAISE EXCEPTION 'Expense categories must have RLS enabled without policies';
+     OR (SELECT array_agg(policyname::text ORDER BY policyname) FROM pg_policies WHERE schemaname = 'public' AND tablename = 'expense_categories') IS DISTINCT FROM ARRAY['expense_categories_insert_owners','expense_categories_select_owners','expense_categories_update_owners']::text[] THEN
+    RAISE EXCEPTION 'Expense categories must have RLS enabled with exact BF079 policies';
   END IF;
   IF (SELECT count(*) FROM pg_trigger WHERE tgrelid = 'public.expense_categories'::regclass AND NOT tgisinternal) <> 1
      OR NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgrelid = 'public.expense_categories'::regclass

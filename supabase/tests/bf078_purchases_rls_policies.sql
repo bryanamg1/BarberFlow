@@ -44,7 +44,13 @@ DECLARE
     'sale_items.sale_items_select_authorized',
     'payments.payments_select_authorized',
     'purchases.purchases_select_owners',
-    'purchase_items.purchase_items_select_owners'
+    'purchase_items.purchase_items_select_owners',
+    'expense_categories.expense_categories_select_owners',
+    'expense_categories.expense_categories_insert_owners',
+    'expense_categories.expense_categories_update_owners',
+    'expenses.expenses_select_owners',
+    'expenses.expenses_insert_manual_owners',
+    'expenses.expenses_update_manual_owners'
   ];
   actual record;
   expected record;
@@ -52,7 +58,7 @@ BEGIN
   IF (SELECT array_agg(tablename || '.' || policyname ORDER BY tablename,policyname)
       FROM pg_policies WHERE schemaname = 'public') IS DISTINCT FROM
      (SELECT array_agg(p ORDER BY p) FROM unnest(policy_names) names(p)) THEN
-    RAISE EXCEPTION 'Expected exactly the 40 approved policy identities';
+    RAISE EXCEPTION 'Expected exactly the 46 approved policy identities';
   END IF;
   FOR expected IN SELECT * FROM (VALUES
     ('purchases','purchases_select_owners','public.has_business_role(business_id, ARRAY[''OWNER''::text])'),
@@ -73,9 +79,7 @@ BEGIN
       WHERE n.nspname = 'public' AND c.relkind IN ('r','p')) <> 19
      OR EXISTS (SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
                 WHERE n.nspname = 'public' AND c.relkind IN ('r','p')
-                  AND (NOT c.relrowsecurity OR c.relforcerowsecurity))
-     OR EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public'
-                AND tablename IN ('expense_categories','expenses')) THEN
+                  AND (NOT c.relrowsecurity OR c.relforcerowsecurity)) THEN
     RAISE EXCEPTION 'RLS/FORCE/future table baseline changed';
   END IF;
   IF (SELECT array_agg(n.nspname || '.' || p.proname ORDER BY n.nspname,p.proname)
@@ -87,7 +91,7 @@ BEGIN
          WHERE n.nspname IN ('public','private') AND p.prosecdef) <> 3 THEN
     RAISE EXCEPTION 'Unexpected function/definer change';
   END IF;
-  RAISE NOTICE 'BF-078 metadata passed: exact 40 policy identities, two authenticated SELECT-only OWNER policies, 19 RLS tables/FORCE off, two expense tables closed, existing five functions/three definers';
+  RAISE NOTICE 'BF-078 metadata passed: exact 46 policy identities, two authenticated SELECT-only OWNER policies, 19 RLS tables/FORCE off, all 19 tables covered, existing five functions/three definers';
 END;
 $$;
 
@@ -207,32 +211,7 @@ BEGIN
       END LOOP;
     END LOOP;
 
-    PERFORM set_config('request.jwt.claims',jsonb_build_object('sub',person.user_id,'role',person.database_role)::text,true);
-    PERFORM set_config('request.jwt.claim.sub',coalesce(person.user_id::text,''),true);
-    EXECUTE format('SET LOCAL ROLE %I',person.database_role);
-    FOREACH table_name IN ARRAY ARRAY['expense_categories','expenses'] LOOP
-      EXECUTE format('SELECT count(*) FROM public.%I',table_name) INTO actual_count;
-      IF actual_count <> 0 THEN RAISE EXCEPTION 'Future expense SELECT opened'; END IF;
-      EXECUTE format('UPDATE public.%I SET created_at = created_at',table_name);
-      GET DIAGNOSTICS affected = ROW_COUNT;
-      IF affected <> 0 THEN RAISE EXCEPTION 'Future expense UPDATE opened'; END IF;
-      EXECUTE format('DELETE FROM public.%I',table_name);
-      GET DIAGNOSTICS affected = ROW_COUNT;
-      IF affected <> 0 THEN RAISE EXCEPTION 'Future expense DELETE opened'; END IF;
-      BEGIN
-        IF table_name = 'expense_categories' THEN
-          INSERT INTO public.expense_categories (business_id,name) VALUES (biz[1],'Denied');
-        ELSE
-          INSERT INTO public.expenses (business_id,category_id,source_type,description,amount,payment_method,expense_date,created_by)
-            VALUES (biz[1],category_ids[1],'MANUAL','Denied',10,'CASH',DATE '2030-01-07',users[1]);
-        END IF;
-        RAISE EXCEPTION 'Future expense INSERT opened';
-      EXCEPTION WHEN insufficient_privilege THEN
-        IF SQLERRM NOT LIKE '%row-level security%' THEN RAISE; END IF;
-      END;
-      future_checks := future_checks + 4;
-    END LOOP;
-    RESET ROLE;
+    -- BF079 replaces the formerly closed expense-domain checks.
   END LOOP;
 
   -- Membership changes are privileged fixture actions. Each subsequent query
@@ -279,7 +258,7 @@ BEGIN
     EXECUTE format('SELECT coalesce(jsonb_agg(to_jsonb(t) ORDER BY id), ''[]''::jsonb) FROM public.%I t',table_name) INTO rows;
     IF rows IS DISTINCT FROM baseline -> table_name THEN RAISE EXCEPTION 'Fixture/side effect changed: %',table_name; END IF;
   END LOOP;
-  IF checks <> 576 OR future_checks <> 64 OR lifecycle_checks <> 18 THEN RAISE EXCEPTION 'Incomplete BF078 checks'; END IF;
+  IF checks <> 576 OR future_checks <> 0 OR lifecycle_checks <> 18 THEN RAISE EXCEPTION 'Incomplete BF078 checks'; END IF;
   RAISE NOTICE 'BF-078 passed: % role/parent/status CRUD checks, % future expense denials, % OWNER revoke/reactivate/downgrade checks; OWNER A/B/AB isolation, BARBER own-created purchases hidden, all statuses, product-independent parent authorization, service_role and unchanged fixtures',checks,future_checks,lifecycle_checks;
 END;
 $$;

@@ -44,7 +44,13 @@ DECLARE
     'sale_items.sale_items_select_authorized',
     'payments.payments_select_authorized',
     'purchases.purchases_select_owners',
-    'purchase_items.purchase_items_select_owners'
+    'purchase_items.purchase_items_select_owners',
+    'expense_categories.expense_categories_select_owners',
+    'expense_categories.expense_categories_insert_owners',
+    'expense_categories.expense_categories_update_owners',
+    'expenses.expenses_select_owners',
+    'expenses.expenses_insert_manual_owners',
+    'expenses.expenses_update_manual_owners'
   ];
   expected record;
   actual record;
@@ -53,7 +59,7 @@ BEGIN
   IF (SELECT array_agg(tablename || '.' || policyname ORDER BY tablename, policyname)
       FROM pg_policies WHERE schemaname = 'public')
      IS DISTINCT FROM (SELECT array_agg(p ORDER BY p) FROM unnest(policy_names) AS names(p)) THEN
-    RAISE EXCEPTION 'Expected exactly the 40 approved public policy identities';
+    RAISE EXCEPTION 'Expected exactly the 46 approved public policy identities';
   END IF;
   -- Literal expressions are the independent metadata oracle; only whitespace
   -- is normalized, retaining every operator, cast and tenant correlation.
@@ -91,10 +97,6 @@ BEGIN
       RAISE EXCEPTION 'Incorrect catalog column grant: %.%',col.relname,col.attname;
     END IF;
   END LOOP;
-  IF EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename IN
-      ('expense_categories','expenses')) THEN
-    RAISE EXCEPTION 'Future domain policy opened';
-  END IF;
   IF (SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
       WHERE n.nspname = 'public' AND c.relkind IN ('r','p')) <> 19
      OR EXISTS (SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
@@ -116,7 +118,7 @@ BEGIN
      OR (SELECT count(*) FROM pg_trigger WHERE tgrelid = 'public.stock_movements'::regclass AND NOT tgisinternal) <> 1 THEN
     RAISE EXCEPTION 'Append-only trigger changed';
   END IF;
-  RAISE NOTICE 'BF-076 metadata passed: exactly 40 identities, seven exact inventory policies, authenticated only, catalog business_id excluded, 19 RLS tables, FORCE off, two future tables closed, four public functions/two approved definers, existing ledger trigger';
+  RAISE NOTICE 'BF-076 metadata passed: exactly 46 identities, seven exact inventory policies, authenticated only, catalog business_id excluded, 19 RLS tables, FORCE off, all 19 tables covered, four public functions/two approved definers, existing ledger trigger';
 END;
 $$;
 

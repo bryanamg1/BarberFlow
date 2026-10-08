@@ -98,8 +98,8 @@ BEGIN
     RAISE EXCEPTION 'Required PK, purchase uniqueness or business/date index missing';
   END IF;
   IF NOT (SELECT relrowsecurity FROM pg_class WHERE oid = 'public.expenses'::regclass)
-     OR EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = 'expenses') THEN
-    RAISE EXCEPTION 'Expenses must have RLS enabled without policies';
+     OR (SELECT array_agg(policyname::text ORDER BY policyname) FROM pg_policies WHERE schemaname = 'public' AND tablename = 'expenses') IS DISTINCT FROM ARRAY['expenses_insert_manual_owners','expenses_select_owners','expenses_update_manual_owners']::text[] THEN
+    RAISE EXCEPTION 'Expenses must have RLS enabled with exact BF079 policies';
   END IF;
   IF (SELECT count(*) FROM pg_trigger WHERE tgrelid = 'public.expenses'::regclass AND NOT tgisinternal) <> 1
      OR NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgrelid = 'public.expenses'::regclass

@@ -124,3 +124,16 @@ These limits apply in addition to role permissions; OWNER access does not bypass
 - COMPLETED purchases permit Read, NO direct UPDATE and NO direct DELETE. Corrections require an explicit void/adjustment workflow that preserves history and handles related stock and generated expenses consistently.
 - `stock_movements` is append-only: once created, NO UPDATE and NO DELETE. Corrections create compensating movements. Direct inserts must not bypass the authorized checkout, purchase or stock adjustment workflows.
 - Purchase-generated expenses cannot be independently edited/deleted to bypass the related purchase correction workflow. Completed financial records must not be rewritten through their child records or related workflows.
+
+### BF-079 — Expenses RLS Policies
+
+Approved scope: exactly `expense_categories` and `expenses`. Six policies TO authenticated, for exactly 46 public policies. The previous 40 policies remain unchanged; all 19 public tables now have policies. Earlier sections retain their historical ticket baselines.
+
+- `expense_categories_select_owners`, `expense_categories_insert_owners`, `expense_categories_update_owners`: active OWNER only via `public.has_business_role(business_id, ARRAY['OWNER'])`; INSERT WITH CHECK, UPDATE USING and WITH CHECK. Archived categories remain visible/editable. No DELETE; archive through `is_active`. Authenticated cannot UPDATE `business_id`, even OWNER AB; preserve every other existing category column's UPDATE privilege.
+- `expenses_select_owners`: active OWNER only, and category must belong to the expense business. PURCHASE also requires its referenced purchase to belong to that same business. Privileged/legacy inconsistent references are hidden even from OWNER AB. Category activity and expense creator do not restrict OWNER reads.
+- `expenses_insert_manual_owners`: active OWNER, `source_type = 'MANUAL'`, `purchase_id IS NULL`, same-business category (including archived) and `created_by = auth.uid()`.
+- `expenses_update_manual_owners`: any active OWNER of the expense business can edit MANUAL expenses, independently of original creator. USING and WITH CHECK require OWNER/MANUAL/NULL purchase; WITH CHECK additionally requires the same-business category. Exactly seven fields are directly editable: `category_id`, `description`, `amount`, `payment_method`, `expense_date`, `receipt_path`, `notes`.
+- Direct authenticated UPDATE cannot change `id`, `business_id`, `source_type`, `purchase_id`, `created_by`, `created_at` or `updated_at`, enforced with column grants. The existing timestamp trigger continues managing `updated_at`. No PURCHASE INSERT/UPDATE, and no expense DELETE.
+- BARBER has no access, even for own-created expenses. Inactive membership, nonmember and anon are blocked. Revocation removes access on subsequent statements and reactivation restores current OWNER scope.
+
+Reuse BF-072 helpers and `private.can_read_payment` unchanged; no new SECURITY DEFINER, helper, schema/CHECK/index/trigger change, purchase completion, automatic expense, Storage policy, frontend change or dependency upgrade. FORCE remains off in all 19 tables. Preserve service_role and all unrelated grants, including inherited TRUNCATE/REFERENCES/TRIGGER/MAINTAIN debt; RLS does not protect TRUNCATE.

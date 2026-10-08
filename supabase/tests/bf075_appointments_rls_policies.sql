@@ -46,7 +46,13 @@ DECLARE
     'sale_items.sale_items_select_authorized',
     'payments.payments_select_authorized',
     'purchases.purchases_select_owners',
-    'purchase_items.purchase_items_select_owners'
+    'purchase_items.purchase_items_select_owners',
+    'expense_categories.expense_categories_select_owners',
+    'expense_categories.expense_categories_insert_owners',
+    'expense_categories.expense_categories_update_owners',
+    'expenses.expenses_select_owners',
+    'expenses.expenses_insert_manual_owners',
+    'expenses.expenses_update_manual_owners'
   ];
   expected record;
   actual record;
@@ -55,7 +61,7 @@ BEGIN
   IF (SELECT array_agg(tablename || '.' || policyname ORDER BY tablename, policyname)
       FROM pg_policies WHERE schemaname = 'public')
      IS DISTINCT FROM (SELECT array_agg(p ORDER BY p) FROM unnest(policy_names) AS names(p)) THEN
-    RAISE EXCEPTION 'Expected exactly the 40 approved public policy identities';
+    RAISE EXCEPTION 'Expected exactly the 46 approved public policy identities';
   END IF;
   FOR expected IN SELECT * FROM (VALUES
     ('appointment_services', 'appointment_services_delete_authorized', 'DELETE', $policy$(EXISTS ( SELECT 1
@@ -134,11 +140,7 @@ BEGIN
                   AND (NOT c.relrowsecurity OR c.relforcerowsecurity)) THEN
     RAISE EXCEPTION 'Expected 19 RLS tables without FORCE';
   END IF;
-  IF EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = ANY(ARRAY[
-      'expense_categories','expenses'])) THEN
-    RAISE EXCEPTION 'A future domain received a policy';
-  END IF;
-  RAISE NOTICE 'BF-075 metadata passed: exactly 40 known policies, seven exact appointment policies, authenticated only, three immutable columns, other UPDATE columns and service_role unchanged, two future domains closed, 19 RLS tables without FORCE';
+  RAISE NOTICE 'BF-075 metadata passed: exactly 46 known policies, seven exact appointment policies, authenticated only, three immutable columns, other UPDATE columns and service_role unchanged, all 19 tables covered, 19 RLS tables without FORCE';
 END;
 $$;
 
@@ -155,8 +157,6 @@ DECLARE
                         gen_random_uuid(), gen_random_uuid(), gen_random_uuid()];
   lines uuid[] := ARRAY[gen_random_uuid(), gen_random_uuid(), gen_random_uuid(),
                        gen_random_uuid(), gen_random_uuid(), gen_random_uuid()];
-  future_tables constant text[] := ARRAY[
-    'expense_categories','expenses'];
   person record;
   scenario record;
   table_name text;
@@ -281,21 +281,7 @@ BEGIN
       END LOOP;
     END LOOP;
 
-    PERFORM set_config('request.jwt.claims', jsonb_build_object('sub',person.user_id,'role',person.database_role)::text, true);
-    PERFORM set_config('request.jwt.claim.sub', coalesce(person.user_id::text,''), true);
-    EXECUTE format('SET LOCAL ROLE %I', person.database_role);
-    FOREACH table_name IN ARRAY future_tables LOOP
-      EXECUTE format('SELECT count(*) FROM public.%I', table_name) INTO actual_count;
-      IF actual_count <> 0 THEN RAISE EXCEPTION 'Future SELECT opened on %', table_name; END IF;
-      EXECUTE format('UPDATE public.%I SET created_at = created_at', table_name);
-      GET DIAGNOSTICS affected = ROW_COUNT;
-      IF affected <> 0 THEN RAISE EXCEPTION 'Future UPDATE opened on %', table_name; END IF;
-      EXECUTE format('DELETE FROM public.%I', table_name);
-      GET DIAGNOSTICS affected = ROW_COUNT;
-      IF affected <> 0 THEN RAISE EXCEPTION 'Future DELETE opened on %', table_name; END IF;
-      future_checks := future_checks + 3;
-    END LOOP;
-    RESET ROLE;
+    -- BF079 covers the last formerly closed domain.
   END LOOP;
 
   -- Insert/update boundaries must still hold for OWNER AB, who can see both

@@ -2,7 +2,7 @@
 BEGIN;
 
 -- BF-071 table baseline plus the two explicitly approved BF-072 definers:
--- 19 known tables, exactly BF-073/BF-074/BF-075/BF-076/BF-077/BF-078 policies, no FORCE RLS and two invoker triggers.
+-- 19 known tables, exactly BF-073/BF-074/BF-075/BF-076/BF-077/BF-078/BF-079 policies, no FORCE RLS and two invoker triggers.
 -- This suite creates no helper, function or policy.
 -- All fixtures, role changes and positive controls are rolled back.
 DO $$
@@ -47,7 +47,13 @@ DECLARE
     'sale_items.sale_items_select_authorized',
     'payments.payments_select_authorized',
     'purchases.purchases_select_owners',
-    'purchase_items.purchase_items_select_owners'
+    'purchase_items.purchase_items_select_owners',
+    'expense_categories.expense_categories_select_owners',
+    'expense_categories.expense_categories_insert_owners',
+    'expense_categories.expense_categories_update_owners',
+    'expenses.expenses_select_owners',
+    'expenses.expenses_insert_manual_owners',
+    'expenses.expenses_update_manual_owners'
   ];
   v_tables constant text[] := ARRAY[
     'profiles', 'businesses', 'business_members', 'business_settings', 'business_hours',
@@ -104,13 +110,17 @@ BEGIN
       FOREACH v_privilege IN ARRAY ARRAY['SELECT', 'INSERT', 'UPDATE', 'DELETE'] LOOP
         IF NOT (has_table_privilege(v_role, v_metadata.oid, v_privilege)
                 OR (v_role = 'authenticated' AND v_privilege = 'UPDATE'
-                    AND v_table = ANY(ARRAY['business_members', 'business_settings', 'business_hours', 'clients', 'services', 'appointments', 'product_categories', 'products'])
+                    AND v_table = ANY(ARRAY['business_members', 'business_settings', 'business_hours', 'clients', 'services', 'appointments', 'product_categories', 'products', 'expense_categories'])
                     AND has_column_privilege(v_role, v_metadata.oid, 'created_at', 'UPDATE')
                     AND NOT has_column_privilege(v_role, v_metadata.oid, 'business_id', 'UPDATE')
                     AND (v_table <> 'appointments' OR NOT has_column_privilege(v_role, v_metadata.oid, 'created_by', 'UPDATE')))
                 OR (v_role = 'authenticated' AND v_privilege = 'UPDATE' AND v_table = 'appointment_services'
                     AND has_column_privilege(v_role, v_metadata.oid, 'created_at', 'UPDATE')
-                    AND NOT has_column_privilege(v_role, v_metadata.oid, 'appointment_id', 'UPDATE'))) THEN
+                    AND NOT has_column_privilege(v_role, v_metadata.oid, 'appointment_id', 'UPDATE'))
+                OR (v_role = 'authenticated' AND v_privilege = 'UPDATE' AND v_table = 'expenses'
+                    AND has_column_privilege(v_role, v_metadata.oid, 'amount', 'UPDATE')
+                    AND NOT has_column_privilege(v_role, v_metadata.oid, 'business_id', 'UPDATE')
+                    AND NOT has_column_privilege(v_role, v_metadata.oid, 'created_at', 'UPDATE'))) THEN
           RAISE EXCEPTION 'Missing % grant on % for %; test must exercise RLS',
             v_privilege, v_table, v_role;
         END IF;
@@ -134,7 +144,7 @@ BEGIN
   IF (SELECT array_agg(tablename || '.' || policyname ORDER BY tablename, policyname)
       FROM pg_policies WHERE schemaname = 'public')
      IS DISTINCT FROM (SELECT array_agg(p ORDER BY p) FROM unnest(v_policy_names) AS names(p)) THEN
-    RAISE EXCEPTION 'Expected exactly the 40 approved BF-073/BF-074/BF-075/BF-076/BF-077/BF-078 policies and no others';
+    RAISE EXCEPTION 'Expected exactly the 46 approved BF-073/BF-074/BF-075/BF-076/BF-077/BF-078/BF-079 policies and no others';
   END IF;
   IF (SELECT array_agg(p.proname::text ORDER BY p.proname)
       FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace WHERE n.nspname = 'public')
@@ -252,7 +262,11 @@ BEGIN
       END IF;
       EXECUTE format('SELECT count(*) FROM public.%I', v_table) INTO v_count;
       IF v_count <> 0 THEN RAISE EXCEPTION '% can read %', v_role, v_table; END IF;
-      EXECUTE format('UPDATE public.%I SET created_at = created_at', v_table);
+      IF v_table = 'expenses' THEN
+        EXECUTE 'UPDATE public.expenses SET amount = amount';
+      ELSE
+        EXECUTE format('UPDATE public.%I SET created_at = created_at', v_table);
+      END IF;
       GET DIAGNOSTICS v_affected = ROW_COUNT;
       IF v_affected <> 0 THEN RAISE EXCEPTION '% can update %', v_role, v_table; END IF;
       EXECUTE format('DELETE FROM public.%I', v_table);
@@ -292,7 +306,7 @@ BEGIN
       RAISE EXCEPTION 'Denied DML changed rows on %', v_table;
     END IF;
   END LOOP;
-  RAISE NOTICE 'BF-071 passed: 19 RLS tables, 40 approved policies, zero FORCE/unexpected functions, % denied DML checks, 19 service_role reads and unchanged fixtures', v_checks;
+  RAISE NOTICE 'BF-071 passed: 19 RLS tables, 46 approved policies, zero FORCE/unexpected functions, % denied DML checks, 19 service_role reads and unchanged fixtures', v_checks;
 END;
 $$;
 

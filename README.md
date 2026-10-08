@@ -282,3 +282,9 @@ Run the BF-078 local security suite after applying local migrations:
 ```powershell
 Get-Content supabase/tests/bf078_purchases_rls_policies.sql | docker exec -i supabase_db_barberflow psql -U postgres -d postgres -v ON_ERROR_STOP=1
 ```
+
+BF-079 expense authorization test (local Supabase running):
+
+```powershell
+Get-Content -Raw supabase/tests/bf079_expenses_rls_policies.sql | docker exec -i supabase_db_barberflow psql -U postgres -d postgres -v ON_ERROR_STOP=1
+```

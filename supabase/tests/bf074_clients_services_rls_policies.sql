@@ -8,8 +8,8 @@ DECLARE
   actual record;
   col record;
 BEGIN
-  IF (SELECT count(*) FROM pg_policies WHERE schemaname = 'public') <> 40 THEN
-    RAISE EXCEPTION 'Expected exactly 40 BF-073/BF-074/BF-075/BF-076/BF-077/BF-078 policies';
+  IF (SELECT count(*) FROM pg_policies WHERE schemaname = 'public') <> 46 THEN
+    RAISE EXCEPTION 'Expected exactly 46 BF-073/BF-074/BF-075/BF-076/BF-077/BF-078/BF-079 policies';
   END IF;
   IF (SELECT array_agg(tablename || '.' || policyname ORDER BY tablename, policyname)
       FROM pg_policies WHERE schemaname = 'public'
@@ -47,6 +47,16 @@ BEGIN
         AND tablename IN ('purchases','purchase_items')) IS DISTINCT FROM
      ARRAY['purchase_items.purchase_items_select_owners','purchases.purchases_select_owners']::text[] THEN
     RAISE EXCEPTION 'Expected exactly the two BF-078 policy identities';
+  END IF;
+  IF (SELECT array_agg(tablename || '.' || policyname ORDER BY tablename,policyname)
+      FROM pg_policies WHERE schemaname = 'public'
+        AND tablename IN ('expense_categories','expenses')) IS DISTINCT FROM
+     ARRAY['expense_categories.expense_categories_insert_owners',
+           'expense_categories.expense_categories_select_owners',
+           'expense_categories.expense_categories_update_owners',
+           'expenses.expenses_insert_manual_owners','expenses.expenses_select_owners',
+           'expenses.expenses_update_manual_owners']::text[] THEN
+    RAISE EXCEPTION 'Expected exactly the six BF-079 policy identities';
   END IF;
   FOR expected IN
     SELECT * FROM (VALUES
@@ -100,11 +110,7 @@ BEGIN
                   AND (NOT c.relrowsecurity OR c.relforcerowsecurity)) THEN
     RAISE EXCEPTION 'Expected exactly 19 RLS tables with FORCE off';
   END IF;
-  IF EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = ANY(ARRAY[
-      'expense_categories', 'expenses'])) THEN
-    RAISE EXCEPTION 'A future domain received a policy';
-  END IF;
-  RAISE NOTICE 'BF-074 metadata passed: exactly 40 known policies including six clients/services and seven appointment and seven inventory and three finance and two purchase policies, authenticated only, exact USING/WITH CHECK, immutable tenant columns, 2 future tables without policies, 19 RLS tables with FORCE off';
+  RAISE NOTICE 'BF-074 metadata passed: exactly 46 known policies including six clients/services and seven appointment and seven inventory and three finance two purchase and six expense policies, authenticated only, exact USING/WITH CHECK, immutable tenant columns, all 19 tables covered, 19 RLS tables with FORCE off';
 END;
 $$;
 
@@ -116,9 +122,6 @@ DECLARE
   member_ids uuid[] := ARRAY[gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), gen_random_uuid()];
   client_ids uuid[] := ARRAY[gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), gen_random_uuid()];
   service_ids uuid[] := ARRAY[gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), gen_random_uuid()];
-  future_tables constant text[] := ARRAY[
-    'expense_categories', 'expenses'
-  ];
   person record;
   table_name text;
   operation text;
@@ -239,21 +242,7 @@ BEGIN
       END LOOP;
     END LOOP;
 
-    PERFORM set_config('request.jwt.claims', jsonb_build_object('sub', person.user_id, 'role', person.database_role)::text, true);
-    PERFORM set_config('request.jwt.claim.sub', coalesce(person.user_id::text, ''), true);
-    EXECUTE format('SET LOCAL ROLE %I', person.database_role);
-    FOREACH table_name IN ARRAY future_tables LOOP
-      EXECUTE format('SELECT count(*) FROM public.%I', table_name) INTO actual_count;
-      IF actual_count <> 0 THEN RAISE EXCEPTION 'Future SELECT opened: %', table_name; END IF;
-      EXECUTE format('UPDATE public.%I SET created_at = created_at', table_name);
-      GET DIAGNOSTICS affected = ROW_COUNT;
-      IF affected <> 0 THEN RAISE EXCEPTION 'Future UPDATE opened: %', table_name; END IF;
-      EXECUTE format('DELETE FROM public.%I', table_name);
-      GET DIAGNOSTICS affected = ROW_COUNT;
-      IF affected <> 0 THEN RAISE EXCEPTION 'Future DELETE opened: %', table_name; END IF;
-      future_checks := future_checks + 3;
-    END LOOP;
-    RESET ROLE;
+    -- BF079 covers the last formerly closed domain.
   END LOOP;
 
   -- Both OWNER AB and BARBER AB can read the source and satisfy both membership
