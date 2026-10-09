@@ -32,3 +32,26 @@ export const env = Object.freeze({
 });
 
 export type Env = typeof env;
+
+// Optional for the app itself, required explicitly when requesting recovery on Web.
+const webRecoveryRedirect = process.env.EXPO_PUBLIC_AUTH_RECOVERY_REDIRECT_URL;
+
+export function getWebRecoveryRedirectUrl(): string {
+  const parsed = z
+    .url({ protocol: /^https?$/ })
+    .refine((value) => {
+      const url = new URL(value);
+      return (
+        url.pathname === '/auth/recovery' &&
+        !url.search &&
+        !url.hash &&
+        !url.username &&
+        !url.password
+      );
+    })
+    .safeParse(webRecoveryRedirect);
+  if (!parsed.success) {
+    throw new Error('Missing or invalid EXPO_PUBLIC_AUTH_RECOVERY_REDIRECT_URL.');
+  }
+  return parsed.data;
+}

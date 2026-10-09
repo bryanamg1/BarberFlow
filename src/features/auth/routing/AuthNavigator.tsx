@@ -1,4 +1,4 @@
-import { Stack } from 'expo-router';
+import { Stack, usePathname } from 'expo-router';
 import { StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -8,6 +8,7 @@ import { theme } from '@/theme';
 
 export function AuthNavigator() {
   const auth = useAuth();
+  const callbackActive = usePathname() === '/auth/recovery';
 
   // Neither route group mounts until the bootstrap has a settled session result.
   if (auth.status === 'initializing' || auth.status === 'error') {
@@ -24,11 +25,17 @@ export function AuthNavigator() {
 
   return (
     <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Protected guard={auth.status === 'authenticated'}>
+      <Stack.Protected guard={auth.status === 'authenticated' && !callbackActive}>
         <Stack.Screen name="(app)" />
       </Stack.Protected>
       <Stack.Protected guard={auth.status === 'unauthenticated'}>
         <Stack.Screen name="(auth)" />
+      </Stack.Protected>
+      <Stack.Protected guard={auth.status === 'recovering'}>
+        <Stack.Screen name="reset-password" />
+      </Stack.Protected>
+      <Stack.Protected guard={auth.status !== 'recovering'}>
+        <Stack.Screen name="auth/recovery" />
       </Stack.Protected>
     </Stack>
   );

@@ -75,6 +75,7 @@ function installedRouting() {
 
 function boundary(start = initial, realFeedback = false) {
   let auth = start;
+  let pathname = '/';
   const routing = installedRouting();
   const cache = new Map();
   const native = realFeedback
@@ -86,7 +87,7 @@ function boundary(start = initial, realFeedback = false) {
   function load(filename) {
     if (cache.has(filename)) return cache.get(filename);
     const loaded = compile(filename, (name) => {
-      if (name === 'expo-router') return { Stack: routing.Stack };
+      if (name === 'expo-router') return { Stack: routing.Stack, usePathname: () => pathname };
       if (name === '@/features/auth/context/AuthContext') return { useAuth: () => auth };
       if (name === 'react-native') return native;
       if (name === 'react-native-safe-area-context')
@@ -125,6 +126,9 @@ function boundary(start = initial, realFeedback = false) {
       auth = next;
     },
     tree: () => AuthNavigator(),
+    setPath: (value) => {
+      pathname = value;
+    },
   };
 }
 
@@ -162,9 +166,9 @@ for (const [state, allowed, denied] of [
     const filtered = guard.filter(tree);
     assert.deepEqual(
       filtered.screens.map((screen) => screen.name),
-      [allowed],
+      [allowed, 'auth/recovery'],
     );
-    assert.deepEqual([...filtered.protectedScreens], [denied]);
+    assert.deepEqual([...filtered.protectedScreens], [denied, 'reset-password']);
     assert.equal(filtered.children.length, 0);
     const nav = guard.router.getInitialState(options([allowed]));
     assert.equal(nav.routes[nav.index].name, allowed);
@@ -263,7 +267,7 @@ test('BF-096: an Auth error hides a previously authenticated navigator and later
   guard.setAuth(absent);
   assert.deepEqual(
     guard.filter(guard.tree()).screens.map((screen) => screen.name),
-    ['(auth)'],
+    ['(auth)', 'auth/recovery'],
   );
 });
 
@@ -285,6 +289,43 @@ test('BF-096: real React/Web feedback exposes loading and safe error, without lo
   }
 });
 
+test('BF-098: recovering permits only reset and denies private, public login and callback history', () => {
+  const guard = boundary({ ...present, status: 'recovering' });
+  const filtered = guard.filter(guard.tree());
+  assert.deepEqual(
+    filtered.screens.map((screen) => screen.name),
+    ['reset-password'],
+  );
+  const names = options(['reset-password']);
+  const nav = guard.router.getInitialState(names);
+  for (const denied of ['(app)', '(auth)', 'auth/recovery']) {
+    assert.equal(
+      guard.router.getStateForAction(nav, { type: 'NAVIGATE', payload: { name: denied } }, names),
+      null,
+    );
+  }
+  guard.setAuth(absent);
+  const next = guard.router.getStateForRouteNamesChange(
+    nav,
+    options(guard.filter(guard.tree()).screens.map((screen) => screen.name)),
+  );
+  assert.equal(
+    next.routes[next.index].name,
+    '(auth)',
+    'Logout chooses login through existing guards',
+  );
+  assert(!next.routes.some((route) => route.name === 'reset-password'));
+});
+
+test('BF-098: unverified callback keeps a normal session outside private routes without enabling reset', () => {
+  const guard = boundary(present);
+  guard.setPath('/auth/recovery');
+  assert.deepEqual(
+    guard.filter(guard.tree()).screens.map((screen) => screen.name),
+    ['auth/recovery'],
+  );
+});
+
 test('BF-096: existing group initial routes prove /login and / Inicio destinations', () => {
   const read = (file) => fs.readFileSync(path.join(root, file), 'utf8');
   assert.match(read('src/app/(auth)/_layout.tsx'), /initialRouteName: 'login'/);
@@ -301,7 +342,7 @@ test('BF-096: login presentation and service do not own a competing navigation m
     'src/features/auth/services/authService.ts',
   ]) {
     const source = fs.readFileSync(path.join(root, file), 'utf8');
-    assert(!source.includes('expo-router'));
+    if (!file.includes('/screens/')) assert(!source.includes('expo-router'));
     assert(!/router\.(replace|push|navigate)/.test(source));
   }
 });

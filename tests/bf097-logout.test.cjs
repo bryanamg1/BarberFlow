@@ -10,7 +10,7 @@ const ts = require('typescript');
 
 const root = path.resolve(__dirname, '..');
 const componentFile = path.join(root, 'src/features/auth/components/LogoutButton.tsx');
-const routeFile = path.join(root, 'src/app/(app)/settings/index.tsx');
+const routeFile = path.join(root, 'src/app/(app)/(tabs)/settings/index.tsx');
 const success = { data: null, error: null };
 const failure = {
   data: null,

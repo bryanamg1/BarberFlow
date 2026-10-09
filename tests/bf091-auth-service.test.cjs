@@ -11,6 +11,12 @@ const root = path.resolve(__dirname, '..');
 
 // Exercise service code; replace only its repository boundary unless testing both layers.
 function loadService(repository, client) {
+  const items = new Map();
+  const storage = {
+    getItem: (key) => items.get(key) ?? null,
+    setItem: (key, value) => items.set(key, value),
+    removeItem: (key) => items.delete(key),
+  };
   function load(relative) {
     const filename = path.resolve(root, relative);
     const module = { exports: {} };
@@ -18,6 +24,10 @@ function loadService(repository, client) {
       compilerOptions: { module: ts.ModuleKind.CommonJS },
     }).outputText;
     const localRequire = (name) => {
+      if (name === './recoveryRedirect')
+        return { recoveryRedirectUrl: () => 'barberflow://auth/recovery' };
+      if (name === './recoveryIntent') return load('src/features/auth/services/recoveryIntent.ts');
+      if (name === '@/lib/supabase/storage') return { authStorage: storage };
       if (name === '@supabase/supabase-js') return sdk;
       if (name === '../repositories/authRepository') {
         return repository
@@ -156,7 +166,6 @@ test('Subscription callback, events and cancellation remain owned by the consume
     },
   });
   assert.equal(service.onAuthStateChange(callback), subscription);
-  assert.equal(listener, callback);
   listener('SIGNED_IN', session);
   listener('SIGNED_OUT', null);
   assert.deepEqual(callbackEvents, [

@@ -1,9 +1,13 @@
-import { Text, View } from 'react-native';
+import { RecoveryLayout } from '@/features/auth/components/RecoveryLayout';
+import { RecoveryRequestForm } from '@/features/auth/components/RecoveryRequestForm';
 
-export default function ForgotPasswordScreen() {
+export default function ForgotPasswordRoute() {
   return (
-    <View>
-      <Text>Recuperar contraseña</Text>
-    </View>
+    <RecoveryLayout
+      title="Recuperar contraseña"
+      description="Ingresa tu correo y te enviaremos instrucciones para continuar."
+    >
+      <RecoveryRequestForm />
+    </RecoveryLayout>
   );
 }

@@ -39,8 +39,12 @@ function loadScreen(platform = 'web', integration = false) {
         };
       }
       if (name === 'expo-router') {
-        assert(!integration, 'Screen has no router dependency');
-        return { Stack: Object.assign('Stack', { Screen: 'StackScreen' }) };
+        return {
+          Stack: Object.assign('Stack', { Screen: 'StackScreen' }),
+          Link: integration
+            ? ({ href, children }) => React.createElement('a', { href }, children)
+            : 'Link',
+        };
       }
       if (name.includes('supabase') || name.includes('authRepository')) {
         assert.fail('Screen must not access Supabase or the repository');
@@ -164,5 +168,5 @@ test('BF-094: real React/Web screen and existing form render empty secure fields
   assert(!html.includes('BarberFlow-Local-Only-081!'));
   assert(!html.includes('access_token'));
   assert(!html.includes('refresh_token'));
-  assert(!html.includes('<a '));
+  assert.match(html, /href="\/forgot-password"/);
 });

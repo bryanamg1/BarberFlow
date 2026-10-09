@@ -41,11 +41,16 @@ function compile(filename, localRequire) {
 }
 
 function boundary() {
+  let recoveryPending = false;
   const reads = [];
   const subscriptions = [];
   const order = [];
   const active = new Set();
   const service = {
+    isRecoveryPending(value) {
+      if (!value) recoveryPending = false;
+      return !!value && recoveryPending;
+    },
     getSession() {
       order.push('getSession');
       let resolve;
@@ -60,7 +65,10 @@ function boundary() {
     onAuthStateChange(callback) {
       order.push('subscribe');
       const subscription = {
-        callback,
+        callback(event, value) {
+          if (event === 'PASSWORD_RECOVERY' && value) recoveryPending = true;
+          callback(event, value);
+        },
         unsubscribes: 0,
         unsubscribe() {
           this.unsubscribes++;
@@ -72,7 +80,16 @@ function boundary() {
       return subscription;
     },
   };
-  return { service, reads, subscriptions, order, active };
+  return {
+    service,
+    reads,
+    subscriptions,
+    order,
+    active,
+    setRecoveryPending: (value) => {
+      recoveryPending = value;
+    },
+  };
 }
 
 // Exercise the actual provider effect and state transitions, controlling only React lifecycle
@@ -236,7 +253,7 @@ for (const event of [
     const updated = { ...session, access_token: 'REPLACED', user: { id: 'updated-user' } };
     assert.equal(auth.subscriptions[0].callback(event, updated), undefined);
     const state = auth.read();
-    assert.equal(state.status, 'authenticated');
+    assert.equal(state.status, event === 'PASSWORD_RECOVERY' ? 'recovering' : 'authenticated');
     assert.equal(state.session, updated);
     assert.equal(state.user, updated.user);
     assert.equal(state.error, null);
@@ -330,6 +347,53 @@ test('BF-095: Strict Mode setup/cleanup/setup has independent controls and no pe
   assert.equal(second.unsubscribes, 1);
   assert.equal(first.unsubscribes, 1);
   assert.equal(auth.active.size, 0);
+});
+
+test('BF-098: bootstrap restores recovery only with both a session and verified marker', async () => {
+  for (const [value, marker, expected] of [
+    [session, true, 'recovering'],
+    [session, false, 'authenticated'],
+    [null, true, 'unauthenticated'],
+  ]) {
+    const auth = harness();
+    auth.setRecoveryPending(marker);
+    auth.mount();
+    auth.reads[0].resolve(result(value));
+    await flush();
+    assert.equal(auth.read().status, expected);
+    auth.unmount();
+  }
+});
+
+test('BF-098: recovery survives refresh/update and logout clears its context', async () => {
+  const auth = harness();
+  auth.mount();
+  auth.reads[0].resolve(result(null));
+  await flush();
+  auth.subscriptions[0].callback('PASSWORD_RECOVERY', session);
+  assert.equal(auth.read().status, 'recovering');
+  for (const event of ['TOKEN_REFRESHED', 'USER_UPDATED']) {
+    auth.subscriptions[0].callback(event, session);
+    assert.equal(auth.read().status, 'recovering');
+    assert.equal(auth.read().user, session.user);
+  }
+  auth.subscriptions[0].callback('SIGNED_OUT', null);
+  assert.equal(auth.read().status, 'unauthenticated');
+  auth.unmount();
+});
+
+test('BF-098: marker storage failure blocks private Auth rather than losing recovery purpose', async () => {
+  const auth = harness();
+  auth.service.isRecoveryPending = () => {
+    throw new Error('Synthetic failure');
+  };
+  auth.mount();
+  auth.subscriptions[0].callback('PASSWORD_RECOVERY', session);
+  assert.equal(auth.read().status, 'error');
+  auth.reads[0].resolve(result(session));
+  await flush();
+  assert.equal(auth.read().status, 'error');
+  auth.unmount();
 });
 
 test('BF-095: real React Context preserves children and exposes initializing during SSR without Auth reads', () => {

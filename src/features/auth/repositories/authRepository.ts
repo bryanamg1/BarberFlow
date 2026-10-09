@@ -10,6 +10,18 @@ export type SignInCredentials = {
 export type AuthStateChangeCallback = (event: AuthChangeEvent, session: Session | null) => void;
 
 export const authRepository = {
+  requestPasswordRecovery({ email, redirectTo }: { email: string; redirectTo: string }) {
+    return supabase.auth.resetPasswordForEmail(email, { redirectTo });
+  },
+
+  completePasswordRecovery({ code }: { code: string }) {
+    return supabase.auth.exchangeCodeForSession(code);
+  },
+
+  updatePassword({ password }: { password: string }) {
+    return supabase.auth.updateUser({ password });
+  },
+
   signInWithPassword({ email, password }: SignInCredentials) {
     return supabase.auth.signInWithPassword({ email, password });
   },

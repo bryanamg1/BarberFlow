@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "BarberFlow",
-    "slug": "BarberFlow",
+    "slug": "barberflow",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -38,6 +38,13 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "31a7609f-3eaa-4cb3-8de6-214d3e128e90"
+      }
+    },
+    "owner": "bryanmarquezs-team"
   }
 }

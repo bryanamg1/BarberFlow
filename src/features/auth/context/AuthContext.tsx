@@ -7,18 +7,20 @@ import type { AuthServiceError } from '../types/auth.types';
 type AuthSnapshot =
   | { status: 'initializing'; session: null; error: null }
   | { status: 'authenticated'; session: Session; error: null }
+  | { status: 'recovering'; session: Session; error: null }
   | { status: 'unauthenticated'; session: null; error: null }
   | { status: 'error'; session: null; error: AuthServiceError };
 
 export type AuthState =
-  | Readonly<Extract<AuthSnapshot, { status: 'authenticated' }> & { user: User }>
-  | Readonly<Exclude<AuthSnapshot, { status: 'authenticated' }> & { user: null }>;
+  | Readonly<Extract<AuthSnapshot, { session: Session }> & { user: User }>
+  | Readonly<Exclude<AuthSnapshot, { session: Session }> & { user: null }>;
 
 const AuthContext = createContext<AuthState | undefined>(undefined);
 
 function sessionSnapshot(session: Session | null): AuthSnapshot {
+  const recovering = authService.isRecoveryPending(session);
   return session
-    ? { status: 'authenticated', session, error: null }
+    ? { status: recovering ? 'recovering' : 'authenticated', session, error: null }
     : { status: 'unauthenticated', session: null, error: null };
 }
 
@@ -39,7 +41,18 @@ export function AuthProvider({ children }: PropsWithChildren) {
         subscription = authService.onAuthStateChange((_event, session) => {
           if (disposed) return;
           eventReceived = true;
-          setSnapshot(sessionSnapshot(session));
+          try {
+            setSnapshot(sessionSnapshot(session));
+          } catch {
+            setSnapshot({
+              status: 'error',
+              session: null,
+              error: {
+                code: 'UNKNOWN_ERROR',
+                message: 'No se pudo verificar la sesión. Inténtalo nuevamente.',
+              },
+            });
+          }
         });
 
         const result = await authService.getSession();
@@ -79,7 +92,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
   // User is derived on render, never stored or updated separately from the session.
   const state: AuthState =
-    snapshot.status === 'authenticated'
+    snapshot.session !== null
       ? { ...snapshot, user: snapshot.session.user }
       : { ...snapshot, user: null };
 

@@ -83,18 +83,42 @@ Keep `extends: "expo/tsconfig.base"` and `strict: true`. `baseUrl` is omitted be
 
 ## Public environment configuration
 
-Copy `.env.example` to `.env.local` and fill in the two approved variables:
+Use the ignored root `.env` for local configuration, or copy `.env.example` to create it.
+An optional ignored `.env.local` overrides `.env` for this machine; keep the chosen Supabase
+URL and client key from the same project. Configure these three application variables:
 
-| Variable                        | Requirement                                                               |
-| ------------------------------- | ------------------------------------------------------------------------- |
-| `EXPO_PUBLIC_SUPABASE_URL`      | A valid HTTP or HTTPS URL; localhost is supported for local development   |
-| `EXPO_PUBLIC_SUPABASE_ANON_KEY` | The project's public anon key, with at least one non-whitespace character |
+| Variable                                 | Classification | Requirement                                                                                                                                     |
+| ---------------------------------------- | -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `EXPO_PUBLIC_SUPABASE_URL`               | Public         | Required on all platforms; valid HTTP(S) URL of the chosen Supabase API.                                                                        |
+| `EXPO_PUBLIC_SUPABASE_ANON_KEY`          | Public         | Required on all platforms; anon JWT or publishable client key from the same project. Never use service-role/secret keys.                        |
+| `EXPO_PUBLIC_AUTH_RECOVERY_REDIRECT_URL` | Public         | Required only when requesting Web recovery; exact full HTTP(S) callback URL ending in `/auth/recovery`, without credentials, query or fragment. |
+
+The local Supabase API address can be derived from the API port and Studio API host already
+defined in `supabase/config.toml`. This is a backend development address, not a Web recovery
+callback or a deployed frontend URL. Supply the public client key for the chosen project locally;
+the tracked example intentionally contains no Supabase credentials. The approved production Web
+callback is `https://barberflow.expo.app/auth/recovery`; other environments need their own explicit
+approved URL and matching Supabase allowlist entry, without inferred preview-domain fallbacks.
+On a physical device, the Supabase API must be reachable from that device; a computer's
+loopback address is not a device-accessible backend address.
+
+No secret environment variable is currently required by application code. Optional Studio AI,
+disabled Twilio/Apple providers and experimental S3 entries in the Supabase CLI template are
+separate tooling configuration, not frontend requirements. Do not add their secrets or a
+service-role key to the Expo client. No optional service is enabled by this environment setup.
 
 [Expo loads and inlines public variables natively](https://docs.expo.dev/guides/environment-variables/). Local `.env` files are ignored by Git; `.env.example` contains no credentials and is tracked. Never put private or service-role keys in `EXPO_PUBLIC_*` variables: these values are visible in the compiled app.
 
 Application code must import `env` from `@/lib/env` rather than reading these variables directly. `src/lib/env.ts` uses static `process.env.EXPO_PUBLIC_*` property access and Zod validation. Importing the module validates both values, trims surrounding whitespace and exports a typed, read-only object with `env.supabaseUrl` and `env.supabaseAnonKey`. Missing or invalid values cause a configuration error that lists only variable names, never values.
 
-The Supabase client consumes this validated configuration when imported. The current placeholder screens can still run without local Supabase configuration because they do not import the client yet. After editing `.env.local`, fully reload the app through Expo to pick up the updated values. This validation checks configuration syntax; it does not verify that a project or key exists or make network requests.
+The Supabase client consumes this validated configuration when imported; Auth bootstrap now
+imports it, so both Supabase values must be supplied before running the application. After editing
+the local environment file, fully reload the app through Expo. Validation checks configuration
+syntax; it does not verify that a project or key exists or make network requests.
+Web recovery validates its callback lazily when used and returns a controlled configuration
+error if it is missing or invalid; this does not make the Web variable globally required on Native.
+Native retains the approved `barberflow://auth/recovery` callback. See BF-098 below for allowlist
+requirements and the deferred real recovery validation.
 
 ## Shared Supabase client
 
@@ -466,7 +490,8 @@ perform remote Auth requests or certify native device behavior.
 ## Logout action (BF-097)
 
 `LogoutButton` in `src/features/auth/components/LogoutButton.tsx` is mounted in the existing private
-Settings route. It calls `authService.signOut()`, reusing the repository's approved `local` scope.
+Settings route, reachable through the Configuración tab at `/settings`. It calls
+`authService.signOut()`, reusing the repository's approved `local` scope.
 The shared Button shows loading and blocks interaction; a synchronous in-flight guard also prevents
 duplicate presses before React renders. Normalized errors are announced locally and the same control
 allows retry. Unexpected exceptions use a safe generic message; late completions after unmount are
@@ -479,3 +504,57 @@ and routing contracts are unchanged. No global session revocation or recovery is
 Run `node --test tests/bf097-logout.test.cjs` for action behavior, duplicate prevention, retry,
 unmount tolerance and real React/Web shared-control rendering with the service boundary mocked.
 Existing BF-095/BF-096 tests cover session-loss routing; these checks make no remote Auth requests.
+
+# Password recovery (BF-098)
+
+Recovery uses the existing Supabase client with PKCE and `detectSessionInUrl: false`.
+The request, callback and password update pass through `authService` and `authRepository`.
+Complete the link in the same browser/device that requested it, using the SDK-managed verifier.
+
+- Request: `/forgot-password`, also linked from login.
+- Callback: `/auth/recovery`.
+- Reset: `/reset-password`, available exclusively in the `recovering` Auth state.
+- iOS/Android callback: `barberflow://auth/recovery`, requiring a build with the configured scheme.
+- Production Web origin: `https://barberflow.expo.app`.
+- Production Web callback: `https://barberflow.expo.app/auth/recovery`, configured through
+  `EXPO_PUBLIC_AUTH_RECOVERY_REDIRECT_URL` for the current environment.
+  It must be a full HTTP(S) URL with path `/auth/recovery`, without credentials, query or fragment.
+  Missing/invalid configuration produces a safe error when requesting recovery; there is no fallback.
+
+The project owner confirmed the existing EAS production deployment and both the production Web
+callback and native callback in Supabase Auth's Redirect URLs allowlist. Preview deployment URLs
+are not the production contract. Other environments require an explicit approved URL and matching
+allowlist entry. Test-only URLs are fixtures, never deployment configuration.
+
+BF-098 is **IMPLEMENTED + LOCALLY/REMOTELY VALIDATED WITH DEFERRED RECOVERY E2E VALIDATION**.
+Human-reported remote validation confirmed real login, session persistence after reload and logout.
+The linked Supabase database is up to date with synchronized migrations, 19/19 tables with RLS,
+FORCE RLS off, 46 policies and three existing SECURITY DEFINER helpers; this ticket changes no DB
+objects. Configuración is reachable from the tabs and retains the `/settings` URL.
+
+The real recovery request reached Supabase but returned HTTP 429, code
+`over_email_send_rate_limit`, message `email rate limit exceeded`. The built-in email provider's
+observed limit is two emails/hour. The full real recovery E2E remains deferred by this external
+temporary limit; this is not a confirmed implementation failure. No SMTP or alternate provider is
+required for this closure, and no workaround changes the recovery architecture.
+
+When the sending limit resets, perform one clean test in the same browser/profile that requested
+recovery: request email → open email → PKCE callback → `recovering` → `/reset-password` → update
+password → local logout → `/login` → login with the new password. This real flow has not yet passed;
+automated tests do not substitute for it. Native email/deep-link/device verification remains part
+of real platform validation.
+
+Only a verified SDK recovery event/exchange creates the non-sensitive purpose marker in existing
+cross-platform storage. It contains only `1`, never credentials, codes, emails or session data.
+Bootstrap requires both a Supabase-managed session and that marker to restore `recovering`.
+A marker without a session is cleared. Normal sessions and URL parameters do not grant recovery.
+Private routes stay blocked throughout recovery, including after reload and a failed local logout.
+
+Passwords require at least six characters and exact confirmation, preserving whitespace and Unicode.
+After a successful change the form clears its values and requests local sign-out. Auth events and
+the existing guards choose login. If sign-out fails, success remains visible and the retry performs
+only sign-out; the marker remains until logout completes. No cache/token persistence is added.
+Remote password-policy discrepancies must be reported rather than changing frontend rules silently.
+
+Focused tests: `node --test tests/bf098-recovery-auth.test.cjs tests/bf098-recovery-ui.test.cjs`.
+Bootstrap/routing recovery regressions are also covered in the BF-095 and BF-096 test files.

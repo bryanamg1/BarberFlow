@@ -19,7 +19,6 @@ export default function AppLayout() {
       <Stack.Screen name="expenses/new" options={{ title: 'Nuevo gasto' }} />
       <Stack.Screen name="sales/new" options={{ title: 'Nueva venta' }} />
       <Stack.Screen name="sales/[id]" options={{ title: 'Detalle de venta' }} />
-      <Stack.Screen name="settings/index" options={{ title: 'Configuración' }} />
     </Stack>
   );
 }

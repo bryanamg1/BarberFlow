@@ -1,3 +1,4 @@
+import { Link } from 'expo-router';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -30,6 +31,9 @@ export function LoginScreen() {
             <Card>
               <LoginForm />
             </Card>
+            <Link href="/forgot-password" style={styles.link}>
+              Olvidé mi contraseña
+            </Link>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -51,4 +55,9 @@ const styles = StyleSheet.create({
   header: { gap: theme.spacing[8] },
   title: { ...theme.typography.display, color: theme.colors.textPrimary },
   subtitle: { ...theme.typography.bodyLg, color: theme.colors.textSecondary },
+  link: {
+    ...theme.typography.body,
+    color: theme.colors.primary,
+    minHeight: theme.sizing.touchTargetMin,
+  },
 });

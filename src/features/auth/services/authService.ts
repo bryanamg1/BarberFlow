@@ -10,6 +10,8 @@ import {
   type SignInCredentials,
 } from '../repositories/authRepository';
 import type { AuthErrorCode, AuthResult, AuthServiceError } from '../types/auth.types';
+import { recoveryIntent } from './recoveryIntent';
+import { recoveryRedirectUrl } from './recoveryRedirect';
 
 const errorMessages: Record<AuthErrorCode, string> = {
   AUTH_INVALID_CREDENTIALS: 'El correo o la contraseña son incorrectos.',
@@ -59,7 +61,75 @@ async function runAuthOperation<T extends { data: unknown; error: unknown }>(
   }
 }
 
+let recoveryExchange: ReturnType<typeof exchangeRecovery> | undefined;
+function exchangeRecovery(code: string) {
+  return runAuthOperation(async () => {
+    if (!code) throw new Error('Invalid recovery callback.');
+    const result = await authRepository.completePasswordRecovery({ code });
+    if (result.error) return result;
+    // The installed SDK supplies this property at runtime; fail closed if it is absent.
+    // It originates in the SDK-owned verifier, never in a user-controlled URL parameter.
+    if (
+      !('redirectType' in result.data) ||
+      result.data.redirectType !== 'recovery' ||
+      !result.data.session
+    ) {
+      throw new Error('Invalid recovery callback.');
+    }
+    recoveryIntent.activate();
+    recoveryIntent.isPending();
+    return result;
+  });
+}
+
 export const authService = {
+  async requestPasswordRecovery({ email }: { email: string }) {
+    let redirectTo: string;
+    try {
+      redirectTo = recoveryRedirectUrl();
+    } catch {
+      return {
+        data: null,
+        error: {
+          code: 'UNKNOWN_ERROR' as const,
+          message:
+            'La recuperación no está configurada para este entorno. Contacta al administrador.',
+        },
+      };
+    }
+    return runAuthOperation(() => authRepository.requestPasswordRecovery({ email, redirectTo }));
+  },
+
+  completePasswordRecovery({ code }: { code: string }) {
+    // A callback's one-use code must not be exchanged twice by Strict Mode effect replay.
+    recoveryExchange ??= exchangeRecovery(code).finally(() => {
+      recoveryExchange = undefined;
+    });
+    return recoveryExchange;
+  },
+
+  updatePassword({ password }: { password: string }) {
+    return runAuthOperation(async () => {
+      if (!recoveryIntent.isPending()) throw new Error('Recovery required.');
+      const current = await authRepository.getSession();
+      if (current.error) return { data: { user: null }, error: current.error };
+      if (!current.data.session) {
+        recoveryIntent.clear();
+        throw new Error('Recovery required.');
+      }
+      if (!recoveryIntent.isPending()) throw new Error('Recovery required.');
+      return authRepository.updatePassword({ password });
+    });
+  },
+
+  isRecoveryPending(session: Parameters<AuthStateChangeCallback>[1]) {
+    if (!session) {
+      recoveryIntent.clear();
+      return false;
+    }
+    return recoveryIntent.isPending();
+  },
+
   signInWithPassword(credentials: SignInCredentials) {
     return runAuthOperation(() => authRepository.signInWithPassword(credentials));
   },
@@ -76,11 +146,16 @@ export const authService = {
   signOut() {
     return runAuthOperation(async () => {
       const { error } = await authRepository.signOut();
+      if (!error) recoveryIntent.clear();
       return { data: null, error };
     });
   },
 
   onAuthStateChange(callback: AuthStateChangeCallback) {
-    return authRepository.onAuthStateChange(callback);
+    return authRepository.onAuthStateChange((event, session) => {
+      if (event === 'PASSWORD_RECOVERY' && session) recoveryIntent.activate();
+      // Keep the SDK callback synchronous: no Auth requests or awaited SDK locks here.
+      callback(event, session);
+    });
   },
 };
