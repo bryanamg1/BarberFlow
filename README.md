@@ -580,3 +580,28 @@ the approved local projection without modifying the shared client.
 Run `node --test tests/bf100-business-repository.test.cjs`. Tests exercise the actual repository,
 the installed SDK with intercepted synthetic responses and the public TypeScript contract;
 they make no remote requests and do not certify live RLS enforcement.
+
+## Current business service (BF-101)
+
+`src/features/business/services/currentBusinessService.ts` exports only
+`currentBusinessService.getCurrentBusiness(userId: string): Promise<CurrentBusinessResult>`.
+Its public types live in `src/features/business/types/business.types.ts`.
+It calls the existing repository exactly once; `userId` remains a filter, not authorization.
+
+Resolution order: SDK error/rejection first; null data without error → `UNKNOWN_ERROR`;
+zero memberships → `NO_ACTIVE_MEMBERSHIP`; multiple memberships → `AMBIGUOUS_CURRENT_BUSINESS`;
+one null business → `BUSINESS_NOT_RESOLVABLE`; one inactive business → `BUSINESS_INACTIVE`;
+one active business → `{ data: { membershipId, role, business }, error: null }`.
+Ambiguity is evaluated before business eligibility, with no row filtering, ordering or fallback.
+The original role and business projection are preserved without interpreting permissions.
+
+Failures return only `{ data: null, error: { code, message } }`, with safe Spanish messages.
+An SDK error response with `status: 0` maps to `NETWORK_ERROR`: the installed SDK types and supplies
+this status on the response for failed requests, not on the error object. HTTP 401/403 or PostgreSQL
+code `42501` maps to `BUSINESS_ACCESS_DENIED`; other SDK errors and unexpected exceptions/rejections
+map to `UNKNOWN_ERROR`. No message parsing, raw errors, causes or metadata are exposed.
+
+No direct Supabase, Auth, hooks, context/store, cache, navigation, persistence or settings/hours.
+BF-100 remains unchanged, including nullable/inactive business results.
+Run `node --test tests/bf101-current-business-service.test.cjs` for resolution priority, structured
+error mapping, safe failures and the public TypeScript contract, mocking only the repository.
