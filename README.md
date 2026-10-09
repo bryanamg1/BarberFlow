@@ -558,3 +558,25 @@ Remote password-policy discrepancies must be reported rather than changing front
 
 Focused tests: `node --test tests/bf098-recovery-auth.test.cjs tests/bf098-recovery-ui.test.cjs`.
 Bootstrap/routing recovery regressions are also covered in the BF-095 and BF-096 test files.
+
+## Business repository (BF-100)
+
+`src/features/business/repositories/businessRepository.ts` exports `businessRepository` with only
+`getActiveMembershipsByUserId(userId: string)`, plus the `BusinessMembership` projection type.
+It reuses the shared Supabase client for one [relational select](https://supabase.com/docs/reference/javascript/select)
+on `business_members`, filtering `user_id = userId` and membership `is_active = true`.
+
+Selected membership fields: `id`, `user_id`, `business_id`, `role`, `is_active`.
+The nullable `business` relation selects only `id`, `name`, `currency_code`, `timezone`, `is_active`.
+All returned memberships and `OWNER`/`BARBER` roles are preserved, including `business: null` and
+inactive businesses. No business activity filter, ordering, limit or current-business selection.
+
+The SDK result/error passes through unchanged; successful absence is `data: []`, `error: null`.
+Unexpected rejections propagate. The supplied user ID is a query filter, never authorization;
+the caller's existing session and RLS govern visibility. No Auth, settings/hours, service, hooks,
+state or cache are added. Without generated DB types, the installed SDK's `overrideTypes` supplies
+the approved local projection without modifying the shared client.
+
+Run `node --test tests/bf100-business-repository.test.cjs`. Tests exercise the actual repository,
+the installed SDK with intercepted synthetic responses and the public TypeScript contract;
+they make no remote requests and do not certify live RLS enforcement.
