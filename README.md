@@ -660,3 +660,22 @@ No Zustand store or additional dependency is needed.
 Run `node --test tests/bf103-business-context.test.cjs`. Tests mock only the BF-102 hook for Context
 behavior, use real React Context/SSR, and verify the root's required provider scopes with a focused
 composition harness. They do not certify native/browser mounted lifecycle or live Auth/RLS access.
+
+## Business settings repository (BF-104)
+
+`src/features/business/repositories/businessSettingsRepository.ts` exports
+`businessSettingsRepository.getByBusinessId(businessId: string)` and `BusinessSettings`.
+The read-only query selects only `business_id`, `appointment_interval_minutes`,
+`default_service_buffer_minutes`, `allow_overlapping_appointments` and `low_stock_notifications`.
+Audit timestamps are excluded. It filters by the exact supplied business ID and uses `maybeSingle()`;
+the existing primary key guarantees zero or one settings row per business.
+
+The SDK response and errors pass through unchanged, including unexpected rejected operations.
+No visible row returns `data: null, error: null`, without defaults or a second query. This does not
+distinguish a missing row from one hidden by RLS. The existing normal client and RLS authorize
+access; `businessId` is only a filter. No Auth/Context, current-business resolution, hours, writes,
+domain error mapping or cache are added.
+
+Run `node --test tests/bf104-business-settings-repository.test.cjs`. Tests mock the query boundary,
+intercept installed SDK transport with synthetic responses and check the public TypeScript contract.
+They make no remote requests and do not certify deployed RLS enforcement.
