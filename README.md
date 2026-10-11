@@ -769,3 +769,32 @@ There are no user/session/contact values, list/search/stats/mutation keys, impor
 invalidation, hooks or React state. Future filters and cache behavior remain undefined.
 Run `node --test tests/bf113-clients-query-keys.test.cjs` for exact tuple, scope, nullable identity,
 hierarchy, tenant separation and readonly TypeScript checks.
+
+## Clients hooks (BF-114)
+
+`src/features/clients/hooks/` exposes `useClientDetail(clientId: string | null)`,
+`useCreateClient()` and `useUpdateClient()`. Business identity comes exclusively from
+`useBusiness()` in success with a nonblank ID. IDs are checked with trim but passed unchanged.
+`UseClientDetailResult` exposes only status, data, error and isFetching; disabled detail is idle
+with null data/error, using skipToken and the nullable BF-113 detail key. The query preserves
+ClientRow and ClientServiceError from BF-112. Refresh retains valid data while fetching, but a
+failed refresh hides it. Business changes never use previous-business placeholder data.
+
+Create accepts `CreateClientInput`; update accepts `UpdateClientVariables` with clientId and input.
+Both return `ClientMutationResult<TInput>`: coherent idle/pending/success/error state plus
+`mutateAsync(input): Promise<ClientRow>` and `reset()`. Errors from BF-112 are thrown unchanged.
+Missing business rejects within the mutation lifecycle with CLIENT_ACCESS_DENIED and
+"No hay un negocio disponible para realizar esta operación."; invalid update clientId similarly
+rejects with CLIENT_NOT_FOUND and the existing safe message. No schema revalidation or input copy.
+
+Each mutation captures businessId in its internal variables. Success awaits invalidation of only
+`clientsKeys.byBusiness(capturedBusinessId)`. A late A response cannot invalidate B or appear as B's
+operational state; business loss hides previous business results. A local validation error from an
+attempt started without business remains observable. Reset affects only the mutation observer.
+All three hooks explicitly disable retry; detail inherits the global 60-second staleTime and other
+query defaults. There is no setQueryData, optimistic update, local server-state copy, new key,
+list/search/stats, role authorization, direct repository/Supabase access, navigation or form logic.
+
+Run `node --test tests/bf114-clients-hooks.test.cjs`. Tests mock only service/Business boundaries,
+use isolated real QueryClient/query and mutation observers, and render the actual TanStack hooks
+with React SSR. They do not perform remote writes or certify mounted browser/native flows or RLS.
