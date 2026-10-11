@@ -756,3 +756,16 @@ The service uses only the repository; no direct Supabase, Auth/Business context,
 delete/archive/restore, hooks, query keys, cache, UI or navigation.
 Run `node --test tests/bf112-clients-service.test.cjs`. Tests replace only the repository boundary
 and check delegation, safe error priority, null semantics, preservation and public TypeScript types.
+
+## Clients query keys (BF-113)
+
+`src/features/clients/constants/clientsKeys.ts` exports only `clientsKeys`:
+`all` is `['clients']`, `byBusiness(businessId)` is `['clients', businessId]`, and
+`detail(businessId, clientId)` is `['clients', businessId, 'detail', clientId]`.
+The hierarchy derives from the root and business prefix, isolating detail keys by business and client.
+IDs accept `string | null` and remain unchanged. Null identifies a missing ID; future hooks own
+`enabled`/`skipToken`. Tuples are readonly through `as const`, without runtime freezing.
+There are no user/session/contact values, list/search/stats/mutation keys, imports, query execution,
+invalidation, hooks or React state. Future filters and cache behavior remain undefined.
+Run `node --test tests/bf113-clients-query-keys.test.cjs` for exact tuple, scope, nullable identity,
+hierarchy, tenant separation and readonly TypeScript checks.
