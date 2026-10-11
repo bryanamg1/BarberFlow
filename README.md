@@ -717,3 +717,24 @@ There is no coercion, input normalization, authorization, data access, search/fi
 
 Run `node --test tests/bf110-client-schemas.test.cjs`. Tests use actual Zod and check inferred types,
 calendar boundaries, preservation, allowlists and partial-update behavior without SDK/network calls.
+
+## Clients repository (BF-111)
+
+`src/features/clients/repositories/clientsRepository.ts` exports `clientsRepository` with only
+`getById(businessId, clientId)`, `create(businessId, input)` and `update(businessId, clientId, input)`,
+plus `ClientRow` with the 13 explicit `clients` columns. Dates and timestamps remain strings.
+Reads/updates filter both IDs without an active-only filter; `maybeSingle()` preserves successful
+`data: null` for zero visible rows, without distinguishing missing records from RLS visibility.
+Create inserts only the eight BF-110 fields plus the business argument, selects the same projection
+and uses `single()`. DB identity, active-state and audit defaults remain in charge.
+
+Writes reuse `CreateClientInput` / `UpdateClientInput` as already validated contracts without running
+Zod again. Explicit payloads exclude runtime identity, tenant and timestamp extras. Update permits
+`is_active`, omits undefined fields and preserves null, false, empty strings and whitespace. There is
+no normalization, empty-patch fallback or domain error mapping; SDK responses/errors/rejections pass
+through. The normal client and RLS authorize access; IDs are only filters. No list/search/stats,
+delete/archive/restore operation, joins, ordering, pagination, service, hooks, cache or UI are added.
+
+Run `node --test tests/bf111-clients-repository.test.cjs`. Tests cover query/payload boundaries,
+installed SDK with intercepted synthetic responses and inferred public types, without remote
+requests. They do not certify deployed RLS enforcement.
