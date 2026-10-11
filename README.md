@@ -605,3 +605,35 @@ No direct Supabase, Auth, hooks, context/store, cache, navigation, persistence o
 BF-100 remains unchanged, including nullable/inactive business results.
 Run `node --test tests/bf101-current-business-service.test.cjs` for resolution priority, structured
 error mapping, safe failures and the public TypeScript contract, mocking only the repository.
+
+## Current business hook (BF-102)
+
+`src/features/business/hooks/useCurrentBusiness.ts` exports only `useCurrentBusiness()` and
+`UseCurrentBusinessResult`. It derives the original user ID from `useAuth()` only in the
+`authenticated` state, validating that the ID is a nonblank string without transforming it.
+All other Auth states, including `recovering`, and invalid IDs return
+`{ status: 'idle', data: null, error: null, isFetching: false }` without calling the service.
+
+The existing QueryProvider supplies the client. Feature keys are centralized in
+`businessKeys.current(userId)`: `['business', 'current', userId]`, with `null` for disabled queries.
+The query uses `skipToken` when disabled and calls only BF-101's currentBusinessService when enabled.
+It returns successful CurrentBusiness data unchanged and throws the same safe service error,
+preserving all seven domain codes and messages without inspecting SDK errors or domain rules.
+
+The public result is a discriminated `idle | pending | success | error` union with only
+`status`, `data`, `error` and `isFetching`. Pending may have `isFetching: false` while offline.
+A background refetch retains success while fetching; a failed refetch exposes error with null
+public data even if the query cache still retains previous data. No raw query options or manual
+refetch are exposed.
+
+This query overrides only `retry: false`; stale time (60 seconds), garbage collection (five minutes),
+network mode and mount/focus/reconnect behavior remain inherited from the global client.
+There is no polling, previous-user placeholder or global cache removal. Logout/recovery immediately
+hide operational data; user changes use separate keys, including when an old request finishes late.
+Cache freshness is not authorization: existing RLS remains the access boundary.
+
+No repository/Supabase calls, Business Context/store, UI, navigation, settings/hours or persistence.
+Run `node --test tests/bf102-current-business-hook.test.cjs`. Tests mock the currentBusinessService
+boundary and Auth input, use real QueryClient/QueryObserver behavior with controlled hook scheduling,
+and also exercise real React/useQuery/QueryClientProvider server rendering. They do not certify
+mounted browser/native behavior or live RLS/Auth/network access.
