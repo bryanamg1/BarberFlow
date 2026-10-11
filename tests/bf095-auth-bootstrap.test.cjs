@@ -435,6 +435,8 @@ test('BF-095: root keeps AuthProvider inside QueryProvider around Auth routing a
     if (name === 'react') return { useEffect: () => {} };
     if (name === '@/features/auth/context/AuthContext') return { AuthProvider: 'AuthProvider' };
     if (name === '@/features/auth/routing/AuthNavigator') return { AuthNavigator };
+    if (name === '@/features/business/context/BusinessContext')
+      return { BusinessProvider: 'BusinessProvider' };
     if (name === '@/lib/query') return { QueryProvider: 'QueryProvider' };
     if (name === '@/theme/typography')
       return {
@@ -446,7 +448,8 @@ test('BF-095: root keeps AuthProvider inside QueryProvider around Auth routing a
   const tree = exports.default();
   assert.equal(tree.type, 'QueryProvider');
   assert.equal(tree.props.children.type, 'AuthProvider');
-  assert.equal(tree.props.children.props.children.type, AuthNavigator);
+  assert.equal(tree.props.children.props.children.type, 'BusinessProvider');
+  assert.equal(tree.props.children.props.children.props.children.type, AuthNavigator);
   assert.deepEqual(exports.unstable_settings, { initialRouteName: '(app)' });
   fontsLoaded = false;
   assert.equal(exports.default(), null);

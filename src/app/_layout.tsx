@@ -8,6 +8,7 @@ import { useEffect } from 'react';
 
 import { AuthProvider } from '@/features/auth/context/AuthContext';
 import { AuthNavigator } from '@/features/auth/routing/AuthNavigator';
+import { BusinessProvider } from '@/features/business/context/BusinessContext';
 import { QueryProvider } from '@/lib/query';
 import { fontFamilies } from '@/theme/typography';
 
@@ -48,7 +49,9 @@ export default function RootLayout() {
   return (
     <QueryProvider>
       <AuthProvider>
-        <AuthNavigator />
+        <BusinessProvider>
+          <AuthNavigator />
+        </BusinessProvider>
       </AuthProvider>
     </QueryProvider>
   );

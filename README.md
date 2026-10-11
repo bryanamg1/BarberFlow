@@ -637,3 +637,26 @@ Run `node --test tests/bf102-current-business-hook.test.cjs`. Tests mock the cur
 boundary and Auth input, use real QueryClient/QueryObserver behavior with controlled hook scheduling,
 and also exercise real React/useQuery/QueryClientProvider server rendering. They do not certify
 mounted browser/native behavior or live RLS/Auth/network access.
+
+## Business context (BF-103)
+
+`src/features/business/context/BusinessContext.tsx` exports `BusinessProvider`, `useBusiness()`
+and `BusinessContextValue`, an exact alias of BF-102's `UseCurrentBusinessResult`.
+The Context itself stays internal, matching the Auth Context convention.
+
+The Provider calls `useCurrentBusiness()` once per render and distributes that exact result.
+Consumers receive unchanged `idle`, `pending`, `success`, `error`, `isFetching`, current data and
+safe domain errors. Access successful fields through `data.membershipId`, `data.role` and
+`data.business`; no duplicate convenience fields, local state, effects, setters or cache are added.
+Calling `useBusiness()` outside the Provider throws the developer error
+`useBusiness debe usarse dentro de BusinessProvider.`
+
+The root composition is `QueryProvider → AuthProvider → BusinessProvider → AuthNavigator`.
+The existing font gate and Auth routing remain in place. Logout, recovery and user changes propagate
+BF-102's latest result directly, with no fallback to an earlier business. This distribution boundary
+adds no navigation, permissions, selection, settings/hours, persistence or direct service/data access.
+No Zustand store or additional dependency is needed.
+
+Run `node --test tests/bf103-business-context.test.cjs`. Tests mock only the BF-102 hook for Context
+behavior, use real React Context/SSR, and verify the root's required provider scopes with a focused
+composition harness. They do not certify native/browser mounted lifecycle or live Auth/RLS access.
