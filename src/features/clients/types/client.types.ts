@@ -19,6 +19,8 @@ export type ClientListParams = {
   status?: ClientListStatus;
 };
 
+export type ClientSearchParams = ClientListParams & { term: string };
+
 export type ClientListPage = {
   items: ClientRow[];
   page: number;

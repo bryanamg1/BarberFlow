@@ -56,6 +56,17 @@ function loadRepository(client) {
   vm.runInThisContext(`(function(require,module,exports){${compiled}\n})`, { filename })(
     (name) => {
       // Type-only schema imports must disappear; no Zod/Auth/Context/alternate client at runtime.
+      if (name === './clientSearchFilter') {
+        const helperFile = path.join(path.dirname(filename), 'clientSearchFilter.ts');
+        const helper = { exports: {} };
+        const code = ts.transpileModule(fs.readFileSync(helperFile, 'utf8'), {
+          compilerOptions: { module: ts.ModuleKind.CommonJS },
+        }).outputText;
+        vm.runInThisContext(`(function(require,module,exports){${code}\n})`, {
+          filename: helperFile,
+        })(() => assert.fail('Pure filter'), helper, helper.exports);
+        return helper.exports;
+      }
       assert.equal(name, '@/lib/supabase/client');
       return { supabase: client };
     },
@@ -68,6 +79,7 @@ function loadRepository(client) {
     'create',
     'update',
     'listByBusiness',
+    'searchByBusiness',
   ]);
   return module.exports.clientsRepository;
 }
@@ -390,16 +402,16 @@ test('BF-111: public types expose exact ClientRow, BF-110 inputs and nullable SD
       phone:string|null; email:string|null; instagram:string|null; birth_date:string|null; notes:string|null;
       preferences:string|null; is_active:boolean; created_at:string; updated_at:string };
     export type Shape = Assert<Equal<ClientRow, Expected>>;
-    export type API = Assert<Equal<keyof typeof clientsRepository, 'getById'|'create'|'update'|'listByBusiness'>>;
+    export type API = Assert<Equal<keyof typeof clientsRepository, 'getById'|'create'|'update'|'listByBusiness'|'searchByBusiness'>>;
     export type GetInput = Assert<Equal<Parameters<typeof clientsRepository.getById>, [businessId:string,clientId:string]>>;
     export type CreateInput = Assert<Equal<Parameters<typeof clientsRepository.create>, [businessId:string,input:CreateClientInput]>>;
     export type UpdateInput = Assert<Equal<Parameters<typeof clientsRepository.update>, [businessId:string,clientId:string,input:UpdateClientInput]>>;
     type Results = { [K in keyof typeof clientsRepository]: Awaited<ReturnType<typeof clientsRepository[K]>> };
     export type Data = Assert<Equal<{ [K in keyof Results]: Results[K]['data'] }, {
-      getById:ClientRow|null; create:ClientRow|null; update:ClientRow|null; listByBusiness:ClientRow[]|null
+      getById:ClientRow|null; create:ClientRow|null; update:ClientRow|null; listByBusiness:ClientRow[]|null; searchByBusiness:ClientRow[]|null
     }>>;
     export type Errors = Assert<Equal<{ [K in keyof Results]: Results[K]['error'] }, {
-      getById:PostgrestError|null; create:PostgrestError|null; update:PostgrestError|null; listByBusiness:PostgrestError|null
+      getById:PostgrestError|null; create:PostgrestError|null; update:PostgrestError|null; listByBusiness:PostgrestError|null; searchByBusiness:PostgrestError|null
     }>>;
     // @ts-expect-error Civil date stays string, not Date.
     const birth: ClientRow['birth_date'] = new Date();

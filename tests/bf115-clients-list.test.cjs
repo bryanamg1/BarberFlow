@@ -80,6 +80,7 @@ const columns =
 
 function repository(client) {
   return compile('repositories/clientsRepository.ts', (name) => {
+    if (name === './clientSearchFilter') return pure('repositories/clientSearchFilter.ts');
     assert.equal(name, '@/lib/supabase/client');
     return { supabase: client };
   }).clientsRepository;
@@ -177,6 +178,11 @@ test('BF-115: repository preserves SDK error/result identity and unexpected reje
 function serviceHarness(operation) {
   const calls = [];
   const { clientsService } = compile('services/clientsService.ts', (name) => {
+    if (name === '../utils/clientSearchParams')
+      return compile('utils/clientSearchParams.ts', (dependency) => {
+        assert.equal(dependency, './clientListParams');
+        return { normalizeClientListParams };
+      });
     if (name === '../utils/clientErrors') return { clientError };
     if (name === '../utils/clientListParams') return { normalizeClientListParams };
     assert.equal(name, '../repositories/clientsRepository');

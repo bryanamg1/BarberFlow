@@ -2,8 +2,10 @@ import type {
   CreateClientInput,
   UpdateClientInput,
 } from '@/features/clients/schemas/client.schema';
-import type { ClientListParams } from '@/features/clients/types/client.types';
+import type { ClientListParams, ClientSearchParams } from '@/features/clients/types/client.types';
 import { supabase } from '@/lib/supabase/client';
+
+import { clientSearchFilter } from './clientSearchFilter';
 
 export type ClientRow = {
   id: string;
@@ -83,6 +85,20 @@ export const clientsRepository = {
     if (params.status !== 'all') query = query.eq('is_active', params.status === 'active');
 
     return query
+      .order('first_name', { ascending: true })
+      .order('last_name', { ascending: true, nullsFirst: false })
+      .order('id', { ascending: true })
+      .range(from, from + params.pageSize)
+      .overrideTypes<ClientRow[], { merge: false }>();
+  },
+
+  searchByBusiness(businessId: string, params: Required<ClientSearchParams>) {
+    const from = (params.page - 1) * params.pageSize;
+    let query = supabase.from('clients').select(columns).eq('business_id', businessId);
+    if (params.status !== 'all') query = query.eq('is_active', params.status === 'active');
+
+    return query
+      .or(clientSearchFilter(params.term))
       .order('first_name', { ascending: true })
       .order('last_name', { ascending: true, nullsFirst: false })
       .order('id', { ascending: true })

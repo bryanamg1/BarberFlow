@@ -831,3 +831,36 @@ Run `node --test tests/bf115-clients-list.test.cjs`. Tests exercise query constr
 SDK with intercepted synthetic responses, service validation/results/errors, keys, real QueryClient
 observers, React SSR and public TypeScript contracts without remote requests. No search, screen,
 forms, stats, navigation, dependencies, DB/RLS or privileged client changes are included.
+
+## Clients search (BF-116)
+
+BF-116 adds `clientsRepository.searchByBusiness(businessId, normalizedParams)`,
+`clientsService.search(businessId, params)`, `clientsKeys.search(businessId, normalizedParams)`
+and `useClientSearch(params): UseClientSearchResult`. `ClientSearchParams` extends the list params
+with a required term; the hook result reuses `UseClientsResult`. Only outer whitespace is trimmed;
+case and internal whitespace are preserved. Defaults, validation, status filters, ordering, the
+13-column projection and one-extra-row pagination reuse BF-115. The original business ID is an
+exact query filter; RLS remains the authorization boundary.
+
+One server query searches literal, case-insensitive substrings in first_name, last_name, phone,
+email and instagram. Each PostgREST OR value is quoted, with backslashes and quotes escaped before
+the installed SDK URL-encodes it. `imatch` maps to PostgreSQL `~*`; the `***=` director makes all
+following characters literal, including %, _, *, regex syntax and structural filter characters.
+This avoids the documented ILIKE star alias changing user input into wildcards. See the official
+[PostgREST quoted-value grammar](https://docs.postgrest.org/en/stable/references/api/url_grammar.html),
+[filter operators](https://docs.postgrest.org/en/stable/references/api/tables_views.html) and
+[PostgreSQL literal regex director](https://www.postgresql.org/docs/17/functions-matching.html#POSIX-METASYNTAX).
+No full-name concatenation, relevance, count, joins, RPC or in-memory search is added.
+
+The key is `['clients', businessId, 'search', { term, page, pageSize, status }]`, using normalized
+fields under the existing scoped invalidation prefix. Missing business or a trimmed term shorter
+than two characters leaves the hook idle without calling the service. Invalid params disable the
+query and return safe UNKNOWN_ERROR. Direct service calls with a short term and valid pagination
+return a successful empty page. Valid queries preserve BF-112 safe error handling and BF-115 page
+metadata; no results are success, never CLIENT_NOT_FOUND. Retry is false, staleTime inherits 60s,
+and no placeholder data is carried across term, business, page, pageSize or status changes.
+
+Run `node --test tests/bf116-clients-search.test.cjs`. Tests cover literal/structural filter safety,
+real SDK requests intercepted locally, service boundaries, cache transitions, React SSR and public
+TypeScript contracts. They make no remote requests and do not certify deployed PostgREST/RLS or
+browser/native end-to-end behavior. No UI, debounce, navigation, DB, RLS or dependencies change.

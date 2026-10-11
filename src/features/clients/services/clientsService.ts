@@ -5,10 +5,12 @@ import type {
   ClientListParams,
   ClientListResult,
   ClientResult,
+  ClientSearchParams,
   ClientServiceError,
 } from '../types/client.types';
 import { clientError } from '../utils/clientErrors';
 import { normalizeClientListParams } from '../utils/clientListParams';
+import { normalizeClientSearchParams } from '../utils/clientSearchParams';
 
 function failure(code: ClientErrorCode): { data: null; error: ClientServiceError } {
   return { data: null, error: clientError(code) };
@@ -64,6 +66,37 @@ export const clientsService = {
     );
     if (result.error !== null) return result;
 
+    return {
+      data: {
+        items: result.data.slice(0, normalized.pageSize),
+        page: normalized.page,
+        pageSize: normalized.pageSize,
+        hasNextPage: result.data.length > normalized.pageSize,
+      },
+      error: null,
+    };
+  },
+
+  async search(businessId: string, params: ClientSearchParams): Promise<ClientListResult> {
+    const normalized = normalizeClientSearchParams(params);
+    if (normalized === null) return failure('UNKNOWN_ERROR');
+    if (normalized.term.length < 2) {
+      return {
+        data: {
+          items: [],
+          page: normalized.page,
+          pageSize: normalized.pageSize,
+          hasNextPage: false,
+        },
+        error: null,
+      };
+    }
+
+    const result = await runOperation(
+      () => clientsRepository.searchByBusiness(businessId, normalized),
+      'UNKNOWN_ERROR',
+    );
+    if (result.error !== null) return result;
     return {
       data: {
         items: result.data.slice(0, normalized.pageSize),

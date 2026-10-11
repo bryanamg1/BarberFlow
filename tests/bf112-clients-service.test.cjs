@@ -64,7 +64,13 @@ function loadService(operation) {
   vm.runInThisContext(`(function(require,module,exports){${compiled}\n})`, { filename })(
     (name) => {
       // Only repository and pure utilities: no Supabase, SDK, Zod, React or Context.
-      if (['../utils/clientErrors', '../utils/clientListParams'].includes(name)) {
+      if (
+        [
+          '../utils/clientErrors',
+          '../utils/clientListParams',
+          '../utils/clientSearchParams',
+        ].includes(name)
+      ) {
         const helperFile = path.resolve(path.dirname(filename), `${name}.ts`);
         const helper = { exports: {} };
         const code = ts.transpileModule(fs.readFileSync(helperFile, 'utf8'), {
@@ -73,7 +79,20 @@ function loadService(operation) {
         vm.runInThisContext(`(function(require,module,exports){${code}\n})`, {
           filename: helperFile,
         })(
-          () => assert.fail('Pure utility must have no runtime dependencies'),
+          (dependency) => {
+            assert.equal(dependency, './clientListParams');
+            const listFile = path.join(path.dirname(helperFile), 'clientListParams.ts');
+            const list = { exports: {} };
+            const listCode = ts.transpileModule(fs.readFileSync(listFile, 'utf8'), {
+              compilerOptions: { module: ts.ModuleKind.CommonJS },
+            }).outputText;
+            vm.runInThisContext(`(function(require,module,exports){${listCode}\n})`)(
+              () => assert.fail('Pure normalization'),
+              list,
+              list.exports,
+            );
+            return list.exports;
+          },
           helper,
           helper.exports,
         );
@@ -86,7 +105,7 @@ function loadService(operation) {
     module.exports,
   );
   assert.deepEqual(Object.keys(module.exports), ['clientsService']);
-  assert.deepEqual(Object.keys(module.exports.clientsService), [...operations, 'list']);
+  assert.deepEqual(Object.keys(module.exports.clientsService), [...operations, 'list', 'search']);
   assert.equal(calls.length, 0);
   return { service: module.exports.clientsService, calls };
 }
@@ -232,11 +251,11 @@ test('BF-112: exact public types, Promise results, BF-110 inputs and discriminat
     import type { CreateClientInput, UpdateClientInput } from '@/features/clients/schemas/client.schema';
     type Equal<A,B> = (<T>()=>T extends A?1:2) extends (<T>()=>T extends B?1:2)?true:false;
     type Assert<T extends true> = T;
-    export type API = Assert<Equal<keyof typeof clientsService,'getById'|'create'|'update'|'list'>>;
+    export type API = Assert<Equal<keyof typeof clientsService,'getById'|'create'|'update'|'list'|'search'>>;
     export type GetInput = Assert<Equal<Parameters<typeof clientsService.getById>,[businessId:string,clientId:string]>>;
     export type CreateInput = Assert<Equal<Parameters<typeof clientsService.create>,[businessId:string,input:CreateClientInput]>>;
     export type UpdateInput = Assert<Equal<Parameters<typeof clientsService.update>,[businessId:string,clientId:string,input:UpdateClientInput]>>;
-    export type Results = Assert<Equal<{[K in keyof typeof clientsService]:ReturnType<typeof clientsService[K]>},{getById:Promise<ClientResult>;create:Promise<ClientResult>;update:Promise<ClientResult>;list:Promise<ClientListResult>}>>;
+    export type Results = Assert<Equal<{[K in keyof typeof clientsService]:ReturnType<typeof clientsService[K]>},{getById:Promise<ClientResult>;create:Promise<ClientResult>;update:Promise<ClientResult>;list:Promise<ClientListResult>;search:Promise<ClientListResult>}>>;
     export type Codes = Assert<Equal<ClientErrorCode,'CLIENT_NOT_FOUND'|'NETWORK_ERROR'|'CLIENT_ACCESS_DENIED'|'UNKNOWN_ERROR'>>;
     export type Error = Assert<Equal<ClientServiceError,{code:ClientErrorCode;message:string}>>;
     export type Result = Assert<Equal<ClientResult,{data:ClientRow;error:null}|{data:null;error:ClientServiceError}>>;
