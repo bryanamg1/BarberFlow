@@ -698,3 +698,22 @@ Auth/Context, settings, joins, second query, writes or cache are added.
 Run `node --test tests/bf105-business-hours-repository.test.cjs`. Tests cover the query boundary,
 installed SDK with intercepted synthetic responses and public TypeScript contract. They make no
 remote requests and do not certify deployed RLS enforcement.
+
+## Client input schemas (BF-110)
+
+`src/features/clients/schemas/client.schema.ts` exports `createClientSchema`, `updateClientSchema`,
+and their inferred types `CreateClientInput` / `UpdateClientInput`.
+Create requires `first_name`; validation rejects whitespace-only names without changing the value.
+`last_name`, `phone`, `email`, `instagram`, `notes` and `preferences` are optional nullable strings,
+preserved exactly, including empty strings. Client contacts have no Auth email or phone format rules.
+Optional nullable `birth_date` accepts a real civil `YYYY-MM-DD` date, preserving the string without
+Date/timezone conversion, age limits or future-date restrictions.
+
+Update makes these fields optional and adds `is_active?: boolean`; at least one recognized field
+must have a defined value after unknown fields are stripped. Null, false and an allowed empty string
+count as defined; omission/undefined do not. Create excludes `is_active`, retaining the DB default.
+Both schemas strip `id`, `business_id`, `created_at`, `updated_at` and all other unknown fields.
+There is no coercion, input normalization, authorization, data access, search/filter schema or UI.
+
+Run `node --test tests/bf110-client-schemas.test.cjs`. Tests use actual Zod and check inferred types,
+calendar boundaries, preservation, allowlists and partial-update behavior without SDK/network calls.
