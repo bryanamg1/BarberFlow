@@ -679,3 +679,22 @@ domain error mapping or cache are added.
 Run `node --test tests/bf104-business-settings-repository.test.cjs`. Tests mock the query boundary,
 intercept installed SDK transport with synthetic responses and check the public TypeScript contract.
 They make no remote requests and do not certify deployed RLS enforcement.
+
+## Business hours repository (BF-105)
+
+`src/features/business/repositories/businessHoursRepository.ts` exports
+`businessHoursRepository.getByBusinessId(businessId: string)` and `BusinessHour`.
+The read-only query selects exactly `id`, `business_id`, `day_of_week`, `open_time`, `close_time`
+and `is_closed`, filters by the unmodified business ID and orders by `day_of_week ASC` in Supabase.
+The existing unique constraint permits at most one row per business/day, up to seven rows.
+
+Days remain numeric `0 | 1 | 2 | 3 | 4 | 5 | 6`, without weekday names. Times remain the original
+nonnullable strings, including for closed rows; no parsing, timezone conversion or availability
+interpretation is performed. Missing days are not completed; zero visible rows return `data: []`,
+`error: null`. SDK responses, errors and unexpected rejections pass through unchanged.
+
+The normal client and RLS authorize access; `businessId` is only a query filter. No audit timestamps,
+Auth/Context, settings, joins, second query, writes or cache are added.
+Run `node --test tests/bf105-business-hours-repository.test.cjs`. Tests cover the query boundary,
+installed SDK with intercepted synthetic responses and public TypeScript contract. They make no
+remote requests and do not certify deployed RLS enforcement.
