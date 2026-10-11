@@ -1,22 +1,27 @@
 import { clientsRepository } from '../repositories/clientsRepository';
 import type { CreateClientInput, UpdateClientInput } from '../schemas/client.schema';
-import type { ClientErrorCode, ClientResult } from '../types/client.types';
+import type {
+  ClientErrorCode,
+  ClientListParams,
+  ClientListResult,
+  ClientResult,
+  ClientServiceError,
+} from '../types/client.types';
+import { clientError } from '../utils/clientErrors';
+import { normalizeClientListParams } from '../utils/clientListParams';
 
-const errorMessages: Record<ClientErrorCode, string> = {
-  CLIENT_NOT_FOUND: 'No se encontró el cliente o no está disponible.',
-  NETWORK_ERROR: 'No se pudo conectar con el servicio. Inténtalo nuevamente.',
-  CLIENT_ACCESS_DENIED: 'No se pudo acceder al cliente.',
-  UNKNOWN_ERROR: 'No se pudo completar la operación del cliente. Inténtalo nuevamente.',
-};
-
-function failure(code: ClientErrorCode): ClientResult {
-  return { data: null, error: { code, message: errorMessages[code] } };
+function failure(code: ClientErrorCode): { data: null; error: ClientServiceError } {
+  return { data: null, error: clientError(code) };
 }
 
-async function runOperation(
-  operation: () => PromiseLike<Awaited<ReturnType<typeof clientsRepository.getById>>>,
+async function runOperation<T>(
+  operation: () => PromiseLike<{
+    data: T | null;
+    error: { code: string } | null;
+    status: number;
+  }>,
   nullCode: 'CLIENT_NOT_FOUND' | 'UNKNOWN_ERROR',
-): Promise<ClientResult> {
+): Promise<{ data: T; error: null } | { data: null; error: ClientServiceError }> {
   try {
     const result = await operation();
     if (result.error !== null) {
@@ -47,5 +52,26 @@ export const clientsService = {
       () => clientsRepository.update(businessId, clientId, input),
       'CLIENT_NOT_FOUND',
     );
+  },
+
+  async list(businessId: string, params?: ClientListParams): Promise<ClientListResult> {
+    const normalized = normalizeClientListParams(params);
+    if (normalized === null) return failure('UNKNOWN_ERROR');
+
+    const result = await runOperation(
+      () => clientsRepository.listByBusiness(businessId, normalized),
+      'UNKNOWN_ERROR',
+    );
+    if (result.error !== null) return result;
+
+    return {
+      data: {
+        items: result.data.slice(0, normalized.pageSize),
+        page: normalized.page,
+        pageSize: normalized.pageSize,
+        hasNextPage: result.data.length > normalized.pageSize,
+      },
+      error: null,
+    };
   },
 };

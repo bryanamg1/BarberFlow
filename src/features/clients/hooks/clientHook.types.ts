@@ -1,11 +1,17 @@
 import type { ClientRow } from '../repositories/clientsRepository';
 import type { UpdateClientInput } from '../schemas/client.schema';
-import type { ClientServiceError } from '../types/client.types';
+import type { ClientListPage, ClientServiceError } from '../types/client.types';
 
 export type UseClientDetailResult =
   | { status: 'idle'; data: null; error: null; isFetching: false }
   | { status: 'pending'; data: null; error: null; isFetching: boolean }
   | { status: 'success'; data: ClientRow; error: null; isFetching: boolean }
+  | { status: 'error'; data: null; error: ClientServiceError; isFetching: boolean };
+
+export type UseClientsResult =
+  | { status: 'idle'; data: null; error: null; isFetching: false }
+  | { status: 'pending'; data: null; error: null; isFetching: boolean }
+  | { status: 'success'; data: ClientListPage; error: null; isFetching: boolean }
   | { status: 'error'; data: null; error: ClientServiceError; isFetching: boolean };
 
 export type ClientMutationStatus = 'idle' | 'pending' | 'success' | 'error';

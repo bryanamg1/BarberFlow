@@ -19,9 +19,9 @@ vm.runInThisContext(`(function(require,module,exports){${compiled}\n})`, { filen
 );
 const { clientsKeys } = moduleUnderTest.exports;
 
-test('BF-113: only approved root/business/detail API without future query or mutation keys', () => {
+test('BF-113: root/business/detail API remains alongside BF-115 list', () => {
   assert.deepEqual(Object.keys(moduleUnderTest.exports), ['clientsKeys']);
-  assert.deepEqual(Object.keys(clientsKeys), ['all', 'byBusiness', 'detail']);
+  assert.deepEqual(Object.keys(clientsKeys), ['all', 'byBusiness', 'detail', 'list']);
   assert.deepEqual(clientsKeys.all, ['clients']);
   assert.equal(clientsKeys.byBusiness.length, 1);
   assert.equal(clientsKeys.detail.length, 2);
@@ -108,7 +108,7 @@ test('BF-113: TypeScript infers exact readonly tuples and nullable arguments wit
     import { clientsKeys } from '@/features/clients/constants/clientsKeys';
     type Equal<A,B> = (<T>()=>T extends A?1:2) extends (<T>()=>T extends B?1:2)?true:false;
     type Assert<T extends true> = T;
-    export type API = Assert<Equal<keyof typeof clientsKeys,'all'|'byBusiness'|'detail'>>;
+    export type API = Assert<Equal<keyof typeof clientsKeys,'all'|'byBusiness'|'detail'|'list'>>;
     export type Root = Assert<Equal<typeof clientsKeys.all,readonly ['clients']>>;
     export type Business = Assert<Equal<ReturnType<typeof clientsKeys.byBusiness>,readonly ['clients',string|null]>>;
     export type Detail = Assert<Equal<ReturnType<typeof clientsKeys.detail>,readonly ['clients',string|null,'detail',string|null]>>;
@@ -126,7 +126,7 @@ test('BF-113: TypeScript infers exact readonly tuples and nullable arguments wit
     clientsKeys.byBusiness(undefined);
     // @ts-expect-error Both detail arguments are required.
     clientsKeys.detail('business');
-    // @ts-expect-error No list contract yet.
+    // @ts-expect-error List requires business and normalized params.
     clientsKeys.list();
   `;
   const config = ts.readConfigFile(path.join(root, 'tsconfig.json'), ts.sys.readFile);

@@ -798,3 +798,36 @@ list/search/stats, role authorization, direct repository/Supabase access, naviga
 Run `node --test tests/bf114-clients-hooks.test.cjs`. Tests mock only service/Business boundaries,
 use isolated real QueryClient/query and mutation observers, and render the actual TanStack hooks
 with React SSR. They do not perform remote writes or certify mounted browser/native flows or RLS.
+
+## Clients list (BF-115)
+
+BF-115 extends the original BF-111–114 APIs above with a paginated data slice, without UI:
+`clientsRepository.listByBusiness(businessId, normalizedParams)`,
+`clientsService.list(businessId, params?)`, `clientsKeys.list(businessId, normalizedParams)` and
+`useClients(params?): UseClientsResult`. List params contain only page, pageSize and status.
+Defaults are page 1, pageSize 25 and status `active`; page must be an integer >= 1, pageSize an
+integer from 1 to 100, and status `active`, `inactive` or `all`. No coercion is performed; invalid
+values or an unrepresentable integer range produce the existing safe UNKNOWN_ERROR without a
+repository request. The small pure normalization boundary is shared by service and hook.
+
+One query selects the same 13 ClientRow columns and filters the exact business ID. Active/inactive
+filter is_active true/false; all omits that filter. Ordering is first_name ASC, last_name ASC with
+nulls last (the installed SDK's `nullsFirst: false`), then id ASC. Inclusive range starts at
+`(page - 1) * pageSize` and ends at `from + pageSize`, requesting one extra row. Service returns
+`{ items, page, pageSize, hasNextPage }`, retaining at most pageSize rows; hasNextPage reports the
+extra row. Empty rows are a successful empty page. There is no total, totalPages or count query.
+Repository SDK results pass through; service preserves BF-112 safe error priority and messages.
+
+The list key is `['clients', businessId, 'list', { page, pageSize, status }]`, under the existing
+business invalidation prefix. Only normalized fields enter the key. `useClients` derives business
+exclusively from a successful BusinessContext with a nonblank ID, preserving its original value.
+It exposes idle/pending/success/error, data, error and isFetching; no native query/refetch API.
+Unavailable business stays idle with no service call. Invalid params disable the query and return a
+safe error, masking cached data. Retry is false; the global 60-second staleTime and other defaults
+are inherited. No previous-data placeholder is used across business/page/status/size changes;
+failed refresh hides previous data. Existing scoped mutation invalidation also reaches lists.
+
+Run `node --test tests/bf115-clients-list.test.cjs`. Tests exercise query construction, the installed
+SDK with intercepted synthetic responses, service validation/results/errors, keys, real QueryClient
+observers, React SSR and public TypeScript contracts without remote requests. No search, screen,
+forms, stats, navigation, dependencies, DB/RLS or privileged client changes are included.

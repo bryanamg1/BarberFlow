@@ -63,7 +63,22 @@ function loadService(operation) {
   );
   vm.runInThisContext(`(function(require,module,exports){${compiled}\n})`, { filename })(
     (name) => {
-      // Only the repository may exist at runtime: no Supabase, SDK, Zod, React or Context.
+      // Only repository and pure utilities: no Supabase, SDK, Zod, React or Context.
+      if (['../utils/clientErrors', '../utils/clientListParams'].includes(name)) {
+        const helperFile = path.resolve(path.dirname(filename), `${name}.ts`);
+        const helper = { exports: {} };
+        const code = ts.transpileModule(fs.readFileSync(helperFile, 'utf8'), {
+          compilerOptions: { module: ts.ModuleKind.CommonJS },
+        }).outputText;
+        vm.runInThisContext(`(function(require,module,exports){${code}\n})`, {
+          filename: helperFile,
+        })(
+          () => assert.fail('Pure utility must have no runtime dependencies'),
+          helper,
+          helper.exports,
+        );
+        return helper.exports;
+      }
       assert.equal(name, '../repositories/clientsRepository');
       return { clientsRepository: repository };
     },
@@ -71,7 +86,7 @@ function loadService(operation) {
     module.exports,
   );
   assert.deepEqual(Object.keys(module.exports), ['clientsService']);
-  assert.deepEqual(Object.keys(module.exports.clientsService), operations);
+  assert.deepEqual(Object.keys(module.exports.clientsService), [...operations, 'list']);
   assert.equal(calls.length, 0);
   return { service: module.exports.clientsService, calls };
 }
@@ -93,7 +108,7 @@ function assertFailure(result, code) {
   assert(!JSON.stringify(result).includes(secret));
 }
 
-test('BF-112: import is inert and exposes only getById/create/update through repository boundary', () => {
+test('BF-112: import is inert and preserves getById/create/update through repository boundary', () => {
   loadService(() => assert.fail('No repository call during import'));
 });
 
@@ -212,16 +227,16 @@ test('BF-112: exact public types, Promise results, BF-110 inputs and discriminat
   const virtualFile = path.join(root, 'tests/__bf112_type_contract__.ts');
   const source = `
     import { clientsService } from '@/features/clients/services/clientsService';
-    import type { ClientErrorCode, ClientServiceError, ClientResult } from '@/features/clients/types/client.types';
+    import type { ClientErrorCode, ClientServiceError, ClientResult, ClientListResult } from '@/features/clients/types/client.types';
     import type { ClientRow } from '@/features/clients/repositories/clientsRepository';
     import type { CreateClientInput, UpdateClientInput } from '@/features/clients/schemas/client.schema';
     type Equal<A,B> = (<T>()=>T extends A?1:2) extends (<T>()=>T extends B?1:2)?true:false;
     type Assert<T extends true> = T;
-    export type API = Assert<Equal<keyof typeof clientsService,'getById'|'create'|'update'>>;
+    export type API = Assert<Equal<keyof typeof clientsService,'getById'|'create'|'update'|'list'>>;
     export type GetInput = Assert<Equal<Parameters<typeof clientsService.getById>,[businessId:string,clientId:string]>>;
     export type CreateInput = Assert<Equal<Parameters<typeof clientsService.create>,[businessId:string,input:CreateClientInput]>>;
     export type UpdateInput = Assert<Equal<Parameters<typeof clientsService.update>,[businessId:string,clientId:string,input:UpdateClientInput]>>;
-    export type Results = Assert<Equal<{[K in keyof typeof clientsService]:ReturnType<typeof clientsService[K]>},{getById:Promise<ClientResult>;create:Promise<ClientResult>;update:Promise<ClientResult>}>>;
+    export type Results = Assert<Equal<{[K in keyof typeof clientsService]:ReturnType<typeof clientsService[K]>},{getById:Promise<ClientResult>;create:Promise<ClientResult>;update:Promise<ClientResult>;list:Promise<ClientListResult>}>>;
     export type Codes = Assert<Equal<ClientErrorCode,'CLIENT_NOT_FOUND'|'NETWORK_ERROR'|'CLIENT_ACCESS_DENIED'|'UNKNOWN_ERROR'>>;
     export type Error = Assert<Equal<ClientServiceError,{code:ClientErrorCode;message:string}>>;
     export type Result = Assert<Equal<ClientResult,{data:ClientRow;error:null}|{data:null;error:ClientServiceError}>>;

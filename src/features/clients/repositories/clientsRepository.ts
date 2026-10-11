@@ -2,6 +2,7 @@ import type {
   CreateClientInput,
   UpdateClientInput,
 } from '@/features/clients/schemas/client.schema';
+import type { ClientListParams } from '@/features/clients/types/client.types';
 import { supabase } from '@/lib/supabase/client';
 
 export type ClientRow = {
@@ -74,5 +75,18 @@ export const clientsRepository = {
       .select(columns)
       .maybeSingle()
       .overrideTypes<ClientRow, { merge: false }>();
+  },
+
+  listByBusiness(businessId: string, params: Required<ClientListParams>) {
+    const from = (params.page - 1) * params.pageSize;
+    let query = supabase.from('clients').select(columns).eq('business_id', businessId);
+    if (params.status !== 'all') query = query.eq('is_active', params.status === 'active');
+
+    return query
+      .order('first_name', { ascending: true })
+      .order('last_name', { ascending: true, nullsFirst: false })
+      .order('id', { ascending: true })
+      .range(from, from + params.pageSize)
+      .overrideTypes<ClientRow[], { merge: false }>();
   },
 };

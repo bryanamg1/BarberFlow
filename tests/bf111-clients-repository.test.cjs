@@ -63,7 +63,12 @@ function loadRepository(client) {
     module.exports,
   );
   assert.deepEqual(Object.keys(module.exports), ['clientsRepository']);
-  assert.deepEqual(Object.keys(module.exports.clientsRepository), ['getById', 'create', 'update']);
+  assert.deepEqual(Object.keys(module.exports.clientsRepository), [
+    'getById',
+    'create',
+    'update',
+    'listByBusiness',
+  ]);
   return module.exports.clientsRepository;
 }
 
@@ -126,7 +131,7 @@ function response(data, error = null) {
   };
 }
 
-test('BF-111: inert import and exactly three operations, no Zod or Auth runtime dependency', () => {
+test('BF-111: inert import preserves original operations, no Zod or Auth runtime dependency', () => {
   loadRepository(new Proxy({}, { get: () => assert.fail('No client access during import') }));
 });
 
@@ -385,16 +390,16 @@ test('BF-111: public types expose exact ClientRow, BF-110 inputs and nullable SD
       phone:string|null; email:string|null; instagram:string|null; birth_date:string|null; notes:string|null;
       preferences:string|null; is_active:boolean; created_at:string; updated_at:string };
     export type Shape = Assert<Equal<ClientRow, Expected>>;
-    export type API = Assert<Equal<keyof typeof clientsRepository, 'getById'|'create'|'update'>>;
+    export type API = Assert<Equal<keyof typeof clientsRepository, 'getById'|'create'|'update'|'listByBusiness'>>;
     export type GetInput = Assert<Equal<Parameters<typeof clientsRepository.getById>, [businessId:string,clientId:string]>>;
     export type CreateInput = Assert<Equal<Parameters<typeof clientsRepository.create>, [businessId:string,input:CreateClientInput]>>;
     export type UpdateInput = Assert<Equal<Parameters<typeof clientsRepository.update>, [businessId:string,clientId:string,input:UpdateClientInput]>>;
     type Results = { [K in keyof typeof clientsRepository]: Awaited<ReturnType<typeof clientsRepository[K]>> };
     export type Data = Assert<Equal<{ [K in keyof Results]: Results[K]['data'] }, {
-      getById:ClientRow|null; create:ClientRow|null; update:ClientRow|null
+      getById:ClientRow|null; create:ClientRow|null; update:ClientRow|null; listByBusiness:ClientRow[]|null
     }>>;
     export type Errors = Assert<Equal<{ [K in keyof Results]: Results[K]['error'] }, {
-      getById:PostgrestError|null; create:PostgrestError|null; update:PostgrestError|null
+      getById:PostgrestError|null; create:PostgrestError|null; update:PostgrestError|null; listByBusiness:PostgrestError|null
     }>>;
     // @ts-expect-error Civil date stays string, not Date.
     const birth: ClientRow['birth_date'] = new Date();
