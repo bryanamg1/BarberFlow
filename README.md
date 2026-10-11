@@ -738,3 +738,21 @@ delete/archive/restore operation, joins, ordering, pagination, service, hooks, c
 Run `node --test tests/bf111-clients-repository.test.cjs`. Tests cover query/payload boundaries,
 installed SDK with intercepted synthetic responses and inferred public types, without remote
 requests. They do not certify deployed RLS enforcement.
+
+## Clients service (BF-112)
+
+`src/features/clients/services/clientsService.ts` exposes only `getById`, `create` and `update` with
+the BF-111 arguments. Each calls its repository method once, preserving exact IDs, input references
+and successful `ClientRow` values, including inactive clients. No Zod revalidation or normalization.
+`src/features/clients/types/client.types.ts` exports `ClientResult`, `ClientServiceError` and
+`ClientErrorCode`; results contain only `{ data, error }`, with safe `{ code, message }` errors.
+
+Errors take precedence over data: returned status 0 maps to `NETWORK_ERROR`, then status 401/403 or
+code `42501` to `CLIENT_ACCESS_DENIED`; other errors and unexpected exceptions/rejections map to
+`UNKNOWN_ERROR`. No message parsing or raw SDK metadata is exposed. Successful null from get/update
+maps to `CLIENT_NOT_FOUND` (no visible row, without inferring physical absence or RLS denial); null
+from create maps to `UNKNOWN_ERROR`. There is no second query or existence check.
+The service uses only the repository; no direct Supabase, Auth/Business context, list/search/stats,
+delete/archive/restore, hooks, query keys, cache, UI or navigation.
+Run `node --test tests/bf112-clients-service.test.cjs`. Tests replace only the repository boundary
+and check delegation, safe error priority, null semantics, preservation and public TypeScript types.
