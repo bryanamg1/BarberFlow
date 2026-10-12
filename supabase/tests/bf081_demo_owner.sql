@@ -136,10 +136,16 @@ SELECT set_config('request.jwt.claims', '{"role":"anon"}', true);
 SET LOCAL ROLE anon;
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM public.profiles) OR EXISTS (SELECT 1 FROM public.businesses)
-     OR EXISTS (SELECT 1 FROM public.business_members) THEN
-    RAISE EXCEPTION 'Anon can read the seeded OWNER/business';
-  END IF;
+  -- BF-116A denies each read at the SQL privilege boundary, before RLS.
+  BEGIN PERFORM 1 FROM public.profiles;
+    RAISE EXCEPTION 'Anon can query profiles';
+  EXCEPTION WHEN insufficient_privilege THEN NULL; END;
+  BEGIN PERFORM 1 FROM public.businesses;
+    RAISE EXCEPTION 'Anon can query businesses';
+  EXCEPTION WHEN insufficient_privilege THEN NULL; END;
+  BEGIN PERFORM 1 FROM public.business_members;
+    RAISE EXCEPTION 'Anon can query memberships';
+  EXCEPTION WHEN insufficient_privilege THEN NULL; END;
 END;
 $$;
 RESET ROLE;

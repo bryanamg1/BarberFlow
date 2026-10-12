@@ -253,14 +253,26 @@ BEGIN
   END IF;
   FOREACH v_role IN ARRAY ARRAY['anon', 'authenticated'] LOOP
     EXECUTE format('SET LOCAL ROLE %I', v_role);
-    SELECT count(*) INTO v_count FROM public.expenses;
-    IF v_count <> 0 THEN RAISE EXCEPTION '% can read expenses', v_role; END IF;
-    UPDATE public.expenses SET amount = 1;
-    GET DIAGNOSTICS v_affected = ROW_COUNT;
-    IF v_affected <> 0 THEN RAISE EXCEPTION '% can update expenses', v_role; END IF;
-    DELETE FROM public.expenses;
-    GET DIAGNOSTICS v_affected = ROW_COUNT;
-    IF v_affected <> 0 THEN RAISE EXCEPTION '% can delete expenses', v_role; END IF;
+    BEGIN
+      SELECT count(*) INTO v_count FROM public.expenses;
+      IF v_count <> 0 THEN RAISE EXCEPTION '% can read expenses', v_role; END IF;
+    EXCEPTION WHEN insufficient_privilege THEN
+      IF SQLERRM NOT LIKE 'permission denied for table %' THEN RAISE; END IF;
+    END;
+    BEGIN
+      UPDATE public.expenses SET amount = 1;
+      GET DIAGNOSTICS v_affected = ROW_COUNT;
+      IF v_affected <> 0 THEN RAISE EXCEPTION '% can update expenses', v_role; END IF;
+    EXCEPTION WHEN insufficient_privilege THEN
+      IF SQLERRM NOT LIKE 'permission denied for table %' THEN RAISE; END IF;
+    END;
+    BEGIN
+      DELETE FROM public.expenses;
+      GET DIAGNOSTICS v_affected = ROW_COUNT;
+      IF v_affected <> 0 THEN RAISE EXCEPTION '% can delete expenses', v_role; END IF;
+    EXCEPTION WHEN insufficient_privilege THEN
+      IF SQLERRM NOT LIKE 'permission denied for table %' THEN RAISE; END IF;
+    END;
     BEGIN
       INSERT INTO public.expenses (business_id, category_id, source_type, description, amount,
                                    payment_method, expense_date, created_by)

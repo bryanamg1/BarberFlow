@@ -149,14 +149,26 @@ BEGIN
 
   FOREACH v_role IN ARRAY ARRAY['anon', 'authenticated'] LOOP
     EXECUTE format('SET LOCAL ROLE %I', v_role);
-    SELECT count(*) INTO v_count FROM public.expense_categories;
-    IF v_count <> 0 THEN RAISE EXCEPTION '% can read expense categories', v_role; END IF;
-    UPDATE public.expense_categories SET name = 'Forbidden', is_active = true;
-    GET DIAGNOSTICS v_affected = ROW_COUNT;
-    IF v_affected <> 0 THEN RAISE EXCEPTION '% can update expense categories', v_role; END IF;
-    DELETE FROM public.expense_categories;
-    GET DIAGNOSTICS v_affected = ROW_COUNT;
-    IF v_affected <> 0 THEN RAISE EXCEPTION '% can delete expense categories', v_role; END IF;
+    BEGIN
+      SELECT count(*) INTO v_count FROM public.expense_categories;
+      IF v_count <> 0 THEN RAISE EXCEPTION '% can read expense categories', v_role; END IF;
+    EXCEPTION WHEN insufficient_privilege THEN
+      IF SQLERRM NOT LIKE 'permission denied for table %' THEN RAISE; END IF;
+    END;
+    BEGIN
+      UPDATE public.expense_categories SET name = 'Forbidden', is_active = true;
+      GET DIAGNOSTICS v_affected = ROW_COUNT;
+      IF v_affected <> 0 THEN RAISE EXCEPTION '% can update expense categories', v_role; END IF;
+    EXCEPTION WHEN insufficient_privilege THEN
+      IF SQLERRM NOT LIKE 'permission denied for table %' THEN RAISE; END IF;
+    END;
+    BEGIN
+      DELETE FROM public.expense_categories;
+      GET DIAGNOSTICS v_affected = ROW_COUNT;
+      IF v_affected <> 0 THEN RAISE EXCEPTION '% can delete expense categories', v_role; END IF;
+    EXCEPTION WHEN insufficient_privilege THEN
+      IF SQLERRM NOT LIKE 'permission denied for table %' THEN RAISE; END IF;
+    END;
     BEGIN
       INSERT INTO public.expense_categories (business_id, name) VALUES (v_business_id, 'Denied');
       RAISE EXCEPTION '% can insert expense categories', v_role;

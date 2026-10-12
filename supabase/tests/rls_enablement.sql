@@ -108,6 +108,17 @@ BEGIN
         RAISE EXCEPTION 'Schema USAGE missing for %', v_role;
       END IF;
       FOREACH v_privilege IN ARRAY ARRAY['SELECT', 'INSERT', 'UPDATE', 'DELETE'] LOOP
+        -- BF-116A removes SQL access where no client operation is approved.
+        -- Keep exercising RLS for every authorized operation/column allowlist.
+        IF v_role = 'anon' OR (v_role = 'authenticated' AND NOT EXISTS (
+          SELECT 1 FROM pg_policies WHERE schemaname='public'
+            AND tablename=v_table AND cmd=v_privilege AND roles=ARRAY['authenticated']::name[]
+        )) THEN
+          IF has_table_privilege(v_role,v_metadata.oid,v_privilege) THEN
+            RAISE EXCEPTION 'Unapproved % grant on % for %',v_privilege,v_table,v_role;
+          END IF;
+          CONTINUE;
+        END IF;
         IF NOT (has_table_privilege(v_role, v_metadata.oid, v_privilege)
                 OR (v_role = 'authenticated' AND v_privilege = 'UPDATE'
                     AND v_table = ANY(ARRAY['business_members', 'business_settings', 'business_hours', 'clients', 'services', 'appointments', 'product_categories', 'products', 'expense_categories'])
@@ -129,12 +140,10 @@ BEGIN
          AND pg_has_role(v_role, v_metadata.relowner, 'USAGE') THEN
         RAISE EXCEPTION '% inherits table ownership on %', v_role, v_table;
       END IF;
-      -- Audit rather than freeze unsafe default grants into a required baseline.
-      -- PostgreSQL RLS does not cover TRUNCATE/REFERENCES; these require separate
-      -- grant hardening approval. No destructive TRUNCATE is executed by this test.
+      -- BF-116A closes the inherited grants that bypass row-level DML checks.
       FOREACH v_privilege IN ARRAY ARRAY['TRUNCATE', 'REFERENCES', 'TRIGGER', 'MAINTAIN'] LOOP
-        IF has_table_privilege(v_role, v_metadata.oid, v_privilege) THEN
-          RAISE NOTICE 'Grant audit: % has % on public.% (outside row-level DML checks)',
+        IF v_role <> 'service_role' AND has_table_privilege(v_role, v_metadata.oid, v_privilege) THEN
+          RAISE EXCEPTION 'Unsafe grant: % has % on public.%',
             v_role, v_privilege, v_table;
         END IF;
       END LOOP;
@@ -260,26 +269,38 @@ BEGIN
       IF NOT row_security_active(format('public.%I', v_table)::regclass) THEN
         RAISE EXCEPTION 'RLS is not effective for % on %', v_role, v_table;
       END IF;
-      EXECUTE format('SELECT count(*) FROM public.%I', v_table) INTO v_count;
-      IF v_count <> 0 THEN RAISE EXCEPTION '% can read %', v_role, v_table; END IF;
-      IF v_table = 'expenses' THEN
-        EXECUTE 'UPDATE public.expenses SET amount = amount';
-      ELSE
-        EXECUTE format('UPDATE public.%I SET created_at = created_at', v_table);
-      END IF;
-      GET DIAGNOSTICS v_affected = ROW_COUNT;
-      IF v_affected <> 0 THEN RAISE EXCEPTION '% can update %', v_role, v_table; END IF;
-      EXECUTE format('DELETE FROM public.%I', v_table);
-      GET DIAGNOSTICS v_affected = ROW_COUNT;
-      IF v_affected <> 0 THEN RAISE EXCEPTION '% can delete %', v_role, v_table; END IF;
+      BEGIN
+        EXECUTE format('SELECT count(*) FROM public.%I', v_table) INTO v_count;
+        IF v_count <> 0 THEN RAISE EXCEPTION '% can read %', v_role, v_table; END IF;
+      EXCEPTION WHEN insufficient_privilege THEN
+        IF SQLERRM NOT LIKE 'permission denied for table %' THEN RAISE; END IF;
+      END;
+      BEGIN
+        IF v_table = 'expenses' THEN
+          EXECUTE 'UPDATE public.expenses SET amount = amount';
+        ELSE
+          EXECUTE format('UPDATE public.%I SET created_at = created_at', v_table);
+        END IF;
+        GET DIAGNOSTICS v_affected = ROW_COUNT;
+        IF v_affected <> 0 THEN RAISE EXCEPTION '% can update %', v_role, v_table; END IF;
+      EXCEPTION WHEN insufficient_privilege THEN
+        IF SQLERRM NOT LIKE 'permission denied for table %' THEN RAISE; END IF;
+      END;
+      BEGIN
+        EXECUTE format('DELETE FROM public.%I', v_table);
+        GET DIAGNOSTICS v_affected = ROW_COUNT;
+        IF v_affected <> 0 THEN RAISE EXCEPTION '% can delete %', v_role, v_table; END IF;
+      EXCEPTION WHEN insufficient_privilege THEN
+        IF SQLERRM NOT LIKE 'permission denied for table %' THEN RAISE; END IF;
+      END;
       BEGIN
         EXECUTE format('INSERT INTO public.%I SELECT (jsonb_populate_record(NULL::public.%I, $1)).*',
                        v_table, v_table) USING v_inserts -> v_table;
         RAISE EXCEPTION '% can insert into %', v_role, v_table;
       EXCEPTION WHEN insufficient_privilege THEN
         GET STACKED DIAGNOSTICS v_message = MESSAGE_TEXT;
-        IF v_message NOT LIKE '%row-level security%' THEN
-          RAISE EXCEPTION 'INSERT failed for a reason other than RLS: %', v_message;
+        IF v_message NOT LIKE '%row-level security%' AND v_message NOT LIKE 'permission denied for table %' THEN
+          RAISE EXCEPTION 'INSERT failed for a reason other than SQL/RLS authorization: %', v_message;
         END IF;
       END;
       v_checks := v_checks + 4;

@@ -215,20 +215,32 @@ BEGIN
   FOREACH client_role IN ARRAY ARRAY['anon', 'authenticated'] LOOP
     EXECUTE format('SET LOCAL ROLE %I', client_role);
     FOREACH target_table IN ARRAY foundation_tables LOOP
-      EXECUTE format('SELECT count(*) FROM public.%I', target_table) INTO row_count;
-      IF row_count <> 0 THEN
-        RAISE EXCEPTION '% can read rows in %', client_role, target_table;
-      END IF;
-      EXECUTE format('UPDATE public.%I SET updated_at = now()', target_table);
-      GET DIAGNOSTICS affected_rows = ROW_COUNT;
-      IF affected_rows <> 0 THEN
-        RAISE EXCEPTION '% can update rows in %', client_role, target_table;
-      END IF;
-      EXECUTE format('DELETE FROM public.%I', target_table);
-      GET DIAGNOSTICS affected_rows = ROW_COUNT;
-      IF affected_rows <> 0 THEN
-        RAISE EXCEPTION '% can delete rows in %', client_role, target_table;
-      END IF;
+      BEGIN
+        EXECUTE format('SELECT count(*) FROM public.%I', target_table) INTO row_count;
+        IF row_count <> 0 THEN
+          RAISE EXCEPTION '% can read rows in %', client_role, target_table;
+        END IF;
+      EXCEPTION WHEN insufficient_privilege THEN
+        IF SQLERRM NOT LIKE 'permission denied for table %' THEN RAISE; END IF;
+      END;
+      BEGIN
+        EXECUTE format('UPDATE public.%I SET updated_at = now()', target_table);
+        GET DIAGNOSTICS affected_rows = ROW_COUNT;
+        IF affected_rows <> 0 THEN
+          RAISE EXCEPTION '% can update rows in %', client_role, target_table;
+        END IF;
+      EXCEPTION WHEN insufficient_privilege THEN
+        IF SQLERRM NOT LIKE 'permission denied for table %' THEN RAISE; END IF;
+      END;
+      BEGIN
+        EXECUTE format('DELETE FROM public.%I', target_table);
+        GET DIAGNOSTICS affected_rows = ROW_COUNT;
+        IF affected_rows <> 0 THEN
+          RAISE EXCEPTION '% can delete rows in %', client_role, target_table;
+        END IF;
+      EXCEPTION WHEN insufficient_privilege THEN
+        IF SQLERRM NOT LIKE 'permission denied for table %' THEN RAISE; END IF;
+      END;
     END LOOP;
     FOR check_case IN
       SELECT * FROM (VALUES

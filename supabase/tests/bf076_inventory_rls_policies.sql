@@ -93,7 +93,7 @@ BEGIN
     IF has_table_privilege('authenticated',col.oid,'UPDATE')
        OR has_column_privilege('authenticated',col.oid,col.attname,'UPDATE') IS DISTINCT FROM (col.attname <> 'business_id')
        OR NOT has_column_privilege('service_role',col.oid,col.attname,'UPDATE')
-       OR NOT has_column_privilege('anon',col.oid,col.attname,'UPDATE') THEN
+       OR has_column_privilege('anon',col.oid,col.attname,'UPDATE') THEN
       RAISE EXCEPTION 'Incorrect catalog column grant: %.%',col.relname,col.attname;
     END IF;
   END LOOP;
@@ -231,7 +231,7 @@ BEGIN
                 IF affected <> expected_count THEN RAISE EXCEPTION 'Unexpected affected count'; END IF;
               END IF;
             EXCEPTION WHEN insufficient_privilege THEN
-              IF operation <> 'INSERT' OR allowed OR SQLERRM NOT LIKE '%row-level security%' THEN RAISE; END IF;
+              IF allowed OR (SQLERRM NOT LIKE '%row-level security%' AND SQLERRM NOT LIKE 'permission denied for table %') THEN RAISE; END IF;
             END;
             RESET ROLE;
             RAISE EXCEPTION 'Rollback matrix action' USING ERRCODE = 'ZB076';
@@ -247,9 +247,13 @@ BEGIN
     PERFORM set_config('request.jwt.claim.sub',coalesce(person.user_id::text,''),true);
     EXECUTE format('SET LOCAL ROLE %I',person.database_role);
     FOR side IN 1..2 LOOP
-      SELECT count(*),coalesce(sum(quantity_delta),0) INTO actual_count,affected FROM public.stock_movements WHERE business_id = biz[side];
-      expected_count := CASE WHEN biz[side] = ANY(person.active_businesses) THEN 5 ELSE 0 END;
-      IF actual_count <> expected_count OR affected <> expected_count * 2 THEN RAISE EXCEPTION 'Movement type/stock visibility failed'; END IF;
+      BEGIN
+        SELECT count(*),coalesce(sum(quantity_delta),0) INTO actual_count,affected FROM public.stock_movements WHERE business_id = biz[side];
+        expected_count := CASE WHEN biz[side] = ANY(person.active_businesses) THEN 5 ELSE 0 END;
+        IF actual_count <> expected_count OR affected <> expected_count * 2 THEN RAISE EXCEPTION 'Movement type/stock visibility failed'; END IF;
+      EXCEPTION WHEN insufficient_privilege THEN
+        IF person.database_role <> 'anon' OR SQLERRM NOT LIKE 'permission denied for table %' THEN RAISE; END IF;
+      END;
     END LOOP;
     RESET ROLE;
   END LOOP;
@@ -332,12 +336,20 @@ BEGIN
       FOREACH table_name IN ARRAY ARRAY['product_categories','products','stock_movements'] LOOP
         EXECUTE format('SELECT count(*) FROM public.%I',table_name) INTO actual_count;
         IF actual_count <> 0 THEN RAISE EXCEPTION 'Revoked SELECT persists'; END IF;
-        EXECUTE format('UPDATE public.%I SET created_at = created_at',table_name);
-        GET DIAGNOSTICS affected = ROW_COUNT;
-        IF affected <> 0 THEN RAISE EXCEPTION 'Revoked UPDATE persists'; END IF;
-        EXECUTE format('DELETE FROM public.%I',table_name);
-        GET DIAGNOSTICS affected = ROW_COUNT;
-        IF affected <> 0 THEN RAISE EXCEPTION 'Revoked DELETE persists'; END IF;
+        BEGIN
+          EXECUTE format('UPDATE public.%I SET created_at = created_at',table_name);
+          GET DIAGNOSTICS affected = ROW_COUNT;
+          IF affected <> 0 THEN RAISE EXCEPTION 'Revoked UPDATE persists'; END IF;
+        EXCEPTION WHEN insufficient_privilege THEN
+          IF SQLERRM NOT LIKE 'permission denied for table %' THEN RAISE; END IF;
+        END;
+        BEGIN
+          EXECUTE format('DELETE FROM public.%I',table_name);
+          GET DIAGNOSTICS affected = ROW_COUNT;
+          IF affected <> 0 THEN RAISE EXCEPTION 'Revoked DELETE persists'; END IF;
+        EXCEPTION WHEN insufficient_privilege THEN
+          IF SQLERRM NOT LIKE 'permission denied for table %' THEN RAISE; END IF;
+        END;
         BEGIN
           CASE table_name
             WHEN 'product_categories' THEN INSERT INTO public.product_categories (business_id,name) VALUES (biz[side],'Revoked');
@@ -346,7 +358,7 @@ BEGIN
           END CASE;
           RAISE EXCEPTION 'Revoked INSERT persists';
         EXCEPTION WHEN insufficient_privilege THEN
-          IF SQLERRM NOT LIKE '%row-level security%' THEN RAISE; END IF;
+          IF SQLERRM NOT LIKE '%row-level security%' AND SQLERRM NOT LIKE 'permission denied for table %' THEN RAISE; END IF;
         END;
         revocation_checks := revocation_checks + 4;
       END LOOP;

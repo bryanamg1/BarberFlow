@@ -274,14 +274,26 @@ BEGIN
   SELECT jsonb_agg(to_jsonb(m) ORDER BY id) INTO v_ledger_before FROM public.stock_movements m;
   FOREACH v_role IN ARRAY ARRAY['anon', 'authenticated'] LOOP
     EXECUTE format('SET LOCAL ROLE %I', v_role);
-    SELECT count(*) INTO v_count FROM public.stock_movements;
-    IF v_count <> 0 THEN RAISE EXCEPTION '% can read stock movements', v_role; END IF;
-    UPDATE public.stock_movements SET notes = 'Forbidden';
-    GET DIAGNOSTICS v_affected = ROW_COUNT;
-    IF v_affected <> 0 THEN RAISE EXCEPTION '% can update stock movements', v_role; END IF;
-    DELETE FROM public.stock_movements;
-    GET DIAGNOSTICS v_affected = ROW_COUNT;
-    IF v_affected <> 0 THEN RAISE EXCEPTION '% can delete stock movements', v_role; END IF;
+    BEGIN
+      SELECT count(*) INTO v_count FROM public.stock_movements;
+      IF v_count <> 0 THEN RAISE EXCEPTION '% can read stock movements', v_role; END IF;
+    EXCEPTION WHEN insufficient_privilege THEN
+      IF SQLERRM NOT LIKE 'permission denied for table %' THEN RAISE; END IF;
+    END;
+    BEGIN
+      UPDATE public.stock_movements SET notes = 'Forbidden';
+      GET DIAGNOSTICS v_affected = ROW_COUNT;
+      IF v_affected <> 0 THEN RAISE EXCEPTION '% can update stock movements', v_role; END IF;
+    EXCEPTION WHEN insufficient_privilege THEN
+      IF SQLERRM NOT LIKE 'permission denied for table %' THEN RAISE; END IF;
+    END;
+    BEGIN
+      DELETE FROM public.stock_movements;
+      GET DIAGNOSTICS v_affected = ROW_COUNT;
+      IF v_affected <> 0 THEN RAISE EXCEPTION '% can delete stock movements', v_role; END IF;
+    EXCEPTION WHEN insufficient_privilege THEN
+      IF SQLERRM NOT LIKE 'permission denied for table %' THEN RAISE; END IF;
+    END;
     BEGIN
       INSERT INTO public.stock_movements (business_id, product_id, type, quantity_delta, created_by)
       VALUES (v_business_id, v_product.id, 'ADJUSTMENT', 1, v_user_id);

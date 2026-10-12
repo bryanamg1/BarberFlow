@@ -219,14 +219,26 @@ BEGIN
 
   FOREACH v_role IN ARRAY ARRAY['anon', 'authenticated'] LOOP
     EXECUTE format('SET LOCAL ROLE %I', v_role);
-    SELECT count(*) INTO v_count FROM public.purchase_items;
-    IF v_count <> 0 THEN RAISE EXCEPTION '% can read purchase items', v_role; END IF;
-    UPDATE public.purchase_items SET product_name_snapshot = 'Forbidden';
-    GET DIAGNOSTICS v_affected = ROW_COUNT;
-    IF v_affected <> 0 THEN RAISE EXCEPTION '% can update purchase items', v_role; END IF;
-    DELETE FROM public.purchase_items;
-    GET DIAGNOSTICS v_affected = ROW_COUNT;
-    IF v_affected <> 0 THEN RAISE EXCEPTION '% can delete purchase items', v_role; END IF;
+    BEGIN
+      SELECT count(*) INTO v_count FROM public.purchase_items;
+      IF v_count <> 0 THEN RAISE EXCEPTION '% can read purchase items', v_role; END IF;
+    EXCEPTION WHEN insufficient_privilege THEN
+      IF SQLERRM NOT LIKE 'permission denied for table %' THEN RAISE; END IF;
+    END;
+    BEGIN
+      UPDATE public.purchase_items SET product_name_snapshot = 'Forbidden';
+      GET DIAGNOSTICS v_affected = ROW_COUNT;
+      IF v_affected <> 0 THEN RAISE EXCEPTION '% can update purchase items', v_role; END IF;
+    EXCEPTION WHEN insufficient_privilege THEN
+      IF SQLERRM NOT LIKE 'permission denied for table %' THEN RAISE; END IF;
+    END;
+    BEGIN
+      DELETE FROM public.purchase_items;
+      GET DIAGNOSTICS v_affected = ROW_COUNT;
+      IF v_affected <> 0 THEN RAISE EXCEPTION '% can delete purchase items', v_role; END IF;
+    EXCEPTION WHEN insufficient_privilege THEN
+      IF SQLERRM NOT LIKE 'permission denied for table %' THEN RAISE; END IF;
+    END;
     BEGIN
       INSERT INTO public.purchase_items (purchase_id, product_id, product_name_snapshot, quantity,
                                          unit_cost_snapshot, line_total)

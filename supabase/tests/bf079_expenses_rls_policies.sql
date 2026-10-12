@@ -94,7 +94,7 @@ BEGIN
     IF has_column_privilege('authenticated',col.oid,col.attname,'UPDATE') IS DISTINCT FROM
        (CASE col.relname WHEN 'expense_categories' THEN col.attname <> 'business_id'
          ELSE col.attname = ANY(ARRAY['category_id','description','amount','payment_method','expense_date','receipt_path','notes']) END)
-       OR NOT has_column_privilege('anon',col.oid,col.attname,'UPDATE')
+       OR has_column_privilege('anon',col.oid,col.attname,'UPDATE')
        OR NOT has_column_privilege('service_role',col.oid,col.attname,'UPDATE') THEN
       RAISE EXCEPTION 'Incorrect column privileges: %.%',col.relname,col.attname;
     END IF;
@@ -225,7 +225,7 @@ BEGIN
                 END IF;
               END IF;
             EXCEPTION WHEN insufficient_privilege THEN
-              IF operation<>'INSERT' OR allowed OR SQLERRM NOT LIKE '%row-level security%' THEN RAISE; END IF;
+              IF allowed OR (SQLERRM NOT LIKE '%row-level security%' AND SQLERRM NOT LIKE 'permission denied for table %') THEN RAISE; END IF;
             END;
             RESET ROLE;
             RAISE EXCEPTION 'Rollback action' USING ERRCODE='ZB079';

@@ -239,20 +239,32 @@ BEGIN
 
   FOREACH v_role IN ARRAY ARRAY['anon', 'authenticated'] LOOP
     EXECUTE format('SET LOCAL ROLE %I', v_role);
-    SELECT count(*) INTO v_count FROM public.appointment_services;
-    IF v_count <> 0 THEN
-      RAISE EXCEPTION '% can read appointment services', v_role;
-    END IF;
-    UPDATE public.appointment_services SET service_name_snapshot = 'Forbidden';
-    GET DIAGNOSTICS v_affected = ROW_COUNT;
-    IF v_affected <> 0 THEN
-      RAISE EXCEPTION '% can update appointment services', v_role;
-    END IF;
-    DELETE FROM public.appointment_services;
-    GET DIAGNOSTICS v_affected = ROW_COUNT;
-    IF v_affected <> 0 THEN
-      RAISE EXCEPTION '% can delete appointment services', v_role;
-    END IF;
+    BEGIN
+      SELECT count(*) INTO v_count FROM public.appointment_services;
+      IF v_count <> 0 THEN
+        RAISE EXCEPTION '% can read appointment services', v_role;
+      END IF;
+    EXCEPTION WHEN insufficient_privilege THEN
+      IF SQLERRM NOT LIKE 'permission denied for table %' THEN RAISE; END IF;
+    END;
+    BEGIN
+      UPDATE public.appointment_services SET service_name_snapshot = 'Forbidden';
+      GET DIAGNOSTICS v_affected = ROW_COUNT;
+      IF v_affected <> 0 THEN
+        RAISE EXCEPTION '% can update appointment services', v_role;
+      END IF;
+    EXCEPTION WHEN insufficient_privilege THEN
+      IF SQLERRM NOT LIKE 'permission denied for table %' THEN RAISE; END IF;
+    END;
+    BEGIN
+      DELETE FROM public.appointment_services;
+      GET DIAGNOSTICS v_affected = ROW_COUNT;
+      IF v_affected <> 0 THEN
+        RAISE EXCEPTION '% can delete appointment services', v_role;
+      END IF;
+    EXCEPTION WHEN insufficient_privilege THEN
+      IF SQLERRM NOT LIKE 'permission denied for table %' THEN RAISE; END IF;
+    END;
     BEGIN
       INSERT INTO public.appointment_services (appointment_id, service_id, service_name_snapshot,
                                               unit_price_snapshot, duration_minutes_snapshot, line_total)

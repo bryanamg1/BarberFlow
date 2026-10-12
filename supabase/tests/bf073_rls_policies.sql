@@ -233,7 +233,7 @@ BEGIN
               END IF;
             EXCEPTION WHEN insufficient_privilege THEN
               GET STACKED DIAGNOSTICS message = MESSAGE_TEXT;
-              IF operation <> 'INSERT' OR allowed OR message NOT LIKE '%row-level security%' THEN RAISE; END IF;
+              IF allowed OR (message NOT LIKE '%row-level security%' AND message NOT LIKE 'permission denied for table %') THEN RAISE; END IF;
             END;
             RESET ROLE;
             RAISE EXCEPTION 'Rollback matrix operation' USING ERRCODE = 'ZB073';
@@ -341,9 +341,13 @@ BEGIN
         EXECUTE format('UPDATE public.%I SET updated_at = updated_at WHERE %s', table_name, predicate);
         GET DIAGNOSTICS affected = ROW_COUNT;
         IF affected <> 0 THEN RAISE EXCEPTION 'Revoked UPDATE persists'; END IF;
-        EXECUTE format('DELETE FROM public.%I WHERE %s', table_name, predicate);
-        GET DIAGNOSTICS affected = ROW_COUNT;
-        IF affected <> 0 THEN RAISE EXCEPTION 'Revoked DELETE persists'; END IF;
+        BEGIN
+          EXECUTE format('DELETE FROM public.%I WHERE %s', table_name, predicate);
+          GET DIAGNOSTICS affected = ROW_COUNT;
+          IF affected <> 0 THEN RAISE EXCEPTION 'Revoked DELETE persists'; END IF;
+        EXCEPTION WHEN insufficient_privilege THEN
+          IF SQLERRM NOT LIKE 'permission denied for table %' THEN RAISE; END IF;
+        END;
       END LOOP;
       BEGIN
         INSERT INTO public.business_hours (business_id, day_of_week, open_time, close_time) VALUES (biz[1], 6, '09:00', '18:00');

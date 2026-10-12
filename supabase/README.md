@@ -1,5 +1,40 @@
 # Base local de BarberFlow
 
+## BF-116A: grants de roles cliente
+
+La migración `20261012002000_harden_client_role_grants.sql` elimina los grants heredados
+`TRUNCATE`, `REFERENCES`, `TRIGGER` y `MAINTAIN` de `anon` y `authenticated` en las 19 tablas
+públicas. `anon` tampoco conserva DML de negocio; mantiene `USAGE` del schema `public`.
+
+`authenticated` conserva SELECT en las 19 tablas y las operaciones autorizadas por las 46
+policies existentes. `businesses` conserva UPDATE pero no INSERT. `sales`, `sale_items`,
+`payments`, `purchases`, `purchase_items` y `stock_movements` conservan únicamente SELECT.
+Las demás tablas conservan INSERT/UPDATE, incluidas las allowlists de UPDATE por columna.
+DELETE solo permanece en `business_hours` y `appointment_services`. RLS sigue decidiendo
+el acceso a filas y tenants; no se modifica ninguna policy ni se activa FORCE RLS.
+
+Se retira EXECUTE público y de cliente de `set_updated_at()`; los triggers existentes siguen
+funcionando. Los tres helpers SECURITY DEFINER, sus owners, `search_path` y ACL permanecen
+intactos, así como los permisos de `service_role` y el schema privado no expuesto.
+
+El catálogo local identifica `postgres` como creador de las tablas V1. Sus defaults de tablas
+y secuencias futuras en `public` dejan de conceder acceso automático a roles cliente. Las
+migraciones futuras deben conceder explícitamente su DML aprobado. No se cambian defaults
+de otros owners/schemas, defaults de funciones ni grants de `service_role`. Las funciones
+privilegiadas futuras deben declarar su ACL explícitamente, como los helpers existentes.
+
+Después del reset local, ejecutar la prueba focalizada y todos los archivos SQL existentes:
+
+```powershell
+Get-Content supabase/tests/bf116a_client_role_grants.sql | docker exec -i supabase_db_barberflow psql -U postgres -d postgres -v ON_ERROR_STOP=1
+npx supabase db lint --local --schema public,private --level warning --fail-on warning
+```
+
+Las pruebas históricas de denegación admiten ahora el rechazo SQL anterior a RLS; conservan
+sus controles positivos, comprobaciones de filas y predicates exactos. La prueba BF-116A
+valida además los grants efectivos por tabla/columna, funciones y objetos futuros sin RLS,
+mediante fixtures transaccionales que se revierten.
+
 BF-050 usa el CLI oficial de Supabase fijado en `devDependencies` y PostgreSQL 17.
 Desde la raíz del proyecto, con Docker funcionando:
 

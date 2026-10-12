@@ -142,20 +142,32 @@ BEGIN
 
   FOREACH v_role IN ARRAY ARRAY['anon', 'authenticated'] LOOP
     EXECUTE format('SET LOCAL ROLE %I', v_role);
-    SELECT count(*) INTO v_count FROM public.services;
-    IF v_count <> 0 THEN
-      RAISE EXCEPTION '% can read services', v_role;
-    END IF;
-    UPDATE public.services SET price = 0, description = 'Forbidden';
-    GET DIAGNOSTICS v_affected = ROW_COUNT;
-    IF v_affected <> 0 THEN
-      RAISE EXCEPTION '% can update services', v_role;
-    END IF;
-    DELETE FROM public.services;
-    GET DIAGNOSTICS v_affected = ROW_COUNT;
-    IF v_affected <> 0 THEN
-      RAISE EXCEPTION '% can delete services', v_role;
-    END IF;
+    BEGIN
+      SELECT count(*) INTO v_count FROM public.services;
+      IF v_count <> 0 THEN
+        RAISE EXCEPTION '% can read services', v_role;
+      END IF;
+    EXCEPTION WHEN insufficient_privilege THEN
+      IF SQLERRM NOT LIKE 'permission denied for table %' THEN RAISE; END IF;
+    END;
+    BEGIN
+      UPDATE public.services SET price = 0, description = 'Forbidden';
+      GET DIAGNOSTICS v_affected = ROW_COUNT;
+      IF v_affected <> 0 THEN
+        RAISE EXCEPTION '% can update services', v_role;
+      END IF;
+    EXCEPTION WHEN insufficient_privilege THEN
+      IF SQLERRM NOT LIKE 'permission denied for table %' THEN RAISE; END IF;
+    END;
+    BEGIN
+      DELETE FROM public.services;
+      GET DIAGNOSTICS v_affected = ROW_COUNT;
+      IF v_affected <> 0 THEN
+        RAISE EXCEPTION '% can delete services', v_role;
+      END IF;
+    EXCEPTION WHEN insufficient_privilege THEN
+      IF SQLERRM NOT LIKE 'permission denied for table %' THEN RAISE; END IF;
+    END;
     BEGIN
       INSERT INTO public.services (business_id, name, price, duration_minutes)
       VALUES (v_business_id, 'Denied', 0, 1);

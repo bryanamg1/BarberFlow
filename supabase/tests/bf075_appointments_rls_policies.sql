@@ -129,7 +129,7 @@ BEGIN
           (CASE WHEN col.relname = 'appointments' THEN col.attname NOT IN ('business_id','created_by')
                 ELSE col.attname <> 'appointment_id' END)
        OR NOT has_column_privilege('service_role', col.oid, col.attname, 'UPDATE')
-       OR NOT has_column_privilege('anon', col.oid, col.attname, 'UPDATE') THEN
+       OR has_column_privilege('anon', col.oid, col.attname, 'UPDATE') THEN
       RAISE EXCEPTION 'Incorrect immutable-column grant: %.%', col.relname, col.attname;
     END IF;
   END LOOP;
@@ -269,7 +269,7 @@ BEGIN
               END IF;
             EXCEPTION WHEN insufficient_privilege THEN
               GET STACKED DIAGNOSTICS message = MESSAGE_TEXT;
-              IF operation <> 'INSERT' OR allowed OR message NOT LIKE '%row-level security%' THEN RAISE; END IF;
+              IF allowed OR (message NOT LIKE '%row-level security%' AND message NOT LIKE 'permission denied for table %') THEN RAISE; END IF;
             END;
             RESET ROLE;
             RAISE EXCEPTION 'Rollback matrix operation' USING ERRCODE = 'ZB075';
@@ -398,9 +398,13 @@ BEGIN
         EXECUTE format('UPDATE public.%I SET created_at = created_at',table_name);
         GET DIAGNOSTICS affected = ROW_COUNT;
         IF affected <> 0 THEN RAISE EXCEPTION 'Revoked UPDATE persists'; END IF;
-        EXECUTE format('DELETE FROM public.%I',table_name);
-        GET DIAGNOSTICS affected = ROW_COUNT;
-        IF affected <> 0 THEN RAISE EXCEPTION 'Revoked DELETE persists'; END IF;
+        BEGIN
+          EXECUTE format('DELETE FROM public.%I',table_name);
+          GET DIAGNOSTICS affected = ROW_COUNT;
+          IF affected <> 0 THEN RAISE EXCEPTION 'Revoked DELETE persists'; END IF;
+        EXCEPTION WHEN insufficient_privilege THEN
+          IF SQLERRM NOT LIKE 'permission denied for table %' THEN RAISE; END IF;
+        END;
         BEGIN
           IF table_name = 'appointments' THEN
             INSERT INTO public.appointments (business_id,client_id,barber_member_id,start_at,end_at,created_by)

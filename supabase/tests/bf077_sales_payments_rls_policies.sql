@@ -215,7 +215,7 @@ BEGIN
                 IF operation = 'INSERT' OR affected <> 0 THEN RAISE EXCEPTION 'Direct financial write succeeded'; END IF;
               END IF;
             EXCEPTION WHEN insufficient_privilege THEN
-              IF operation <> 'INSERT' OR SQLERRM NOT LIKE '%row-level security%' THEN RAISE; END IF;
+              IF (operation = 'SELECT' AND allowed) OR (SQLERRM NOT LIKE '%row-level security%' AND SQLERRM NOT LIKE 'permission denied for table %') THEN RAISE; END IF;
             END;
             RESET ROLE;
             RAISE EXCEPTION 'Rollback action' USING ERRCODE = 'ZB077';

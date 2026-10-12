@@ -228,7 +228,7 @@ BEGIN
                 END IF;
               EXCEPTION WHEN insufficient_privilege THEN
                 GET STACKED DIAGNOSTICS message = MESSAGE_TEXT;
-                IF operation <> 'INSERT' OR allowed OR message NOT LIKE '%row-level security%' THEN RAISE; END IF;
+                IF allowed OR (message NOT LIKE '%row-level security%' AND message NOT LIKE 'permission denied for table %') THEN RAISE; END IF;
               END;
               RESET ROLE;
               RAISE EXCEPTION 'Rollback matrix operation' USING ERRCODE = 'ZB074';
@@ -299,9 +299,13 @@ BEGIN
         EXECUTE format('UPDATE public.%I SET is_active = false WHERE business_id = %L', table_name, biz[side]);
         GET DIAGNOSTICS affected = ROW_COUNT;
         IF affected <> 0 THEN RAISE EXCEPTION 'Revoked UPDATE persists'; END IF;
-        EXECUTE format('DELETE FROM public.%I WHERE business_id = %L', table_name, biz[side]);
-        GET DIAGNOSTICS affected = ROW_COUNT;
-        IF affected <> 0 THEN RAISE EXCEPTION 'Revoked DELETE persists'; END IF;
+        BEGIN
+          EXECUTE format('DELETE FROM public.%I WHERE business_id = %L', table_name, biz[side]);
+          GET DIAGNOSTICS affected = ROW_COUNT;
+          IF affected <> 0 THEN RAISE EXCEPTION 'Revoked DELETE persists'; END IF;
+        EXCEPTION WHEN insufficient_privilege THEN
+          IF SQLERRM NOT LIKE 'permission denied for table %' THEN RAISE; END IF;
+        END;
         BEGIN
           IF table_name = 'clients' THEN
             INSERT INTO public.clients (business_id, first_name) VALUES (biz[side], 'Revoked');
