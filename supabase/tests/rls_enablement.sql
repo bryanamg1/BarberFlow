@@ -157,10 +157,15 @@ BEGIN
   END IF;
   IF (SELECT array_agg(p.proname::text ORDER BY p.proname)
       FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace WHERE n.nspname = 'public')
-     IS DISTINCT FROM ARRAY['has_business_role', 'is_business_member',
+     IS DISTINCT FROM ARRAY['get_client_stats', 'has_business_role', 'is_business_member',
                             'prevent_stock_movement_changes', 'set_updated_at']::text[]
      OR EXISTS (SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
                 WHERE n.nspname = 'public' AND CASE
+                  WHEN p.proname = 'get_client_stats' THEN
+                    p.oid <> 'public.get_client_stats(uuid,uuid)'::regprocedure
+                    OR NOT p.prosecdef OR p.provolatile <> 's' OR NOT p.proretset
+                    OR p.prorettype <> 'pg_catalog.record'::regtype
+                    OR p.proconfig IS DISTINCT FROM ARRAY['search_path=""']::text[]
                   WHEN p.proname IN ('is_business_member', 'has_business_role') THEN
                     NOT p.prosecdef OR p.prorettype <> 'pg_catalog.bool'::regtype
                     OR p.proretset OR p.proconfig IS DISTINCT FROM ARRAY['search_path=""']::text[]
@@ -169,7 +174,7 @@ BEGIN
                   ELSE p.prosecdef OR p.pronargs <> 0
                        OR p.prorettype <> 'pg_catalog.trigger'::regtype
                 END) THEN
-    RAISE EXCEPTION 'Public functions differ from the approved BF-071/BF-072 baseline';
+    RAISE EXCEPTION 'Public functions differ from the approved BF-071/BF-072/BF-245 baseline';
   END IF;
   IF (SELECT count(*) FROM pg_roles WHERE rolname IN ('anon', 'authenticated')
       AND NOT rolsuper AND NOT rolbypassrls) <> 2

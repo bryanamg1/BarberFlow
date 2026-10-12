@@ -60,9 +60,9 @@ BEGIN
   END IF;
   IF (SELECT array_agg(proname::text ORDER BY proname) FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
       WHERE n.nspname = 'public') IS DISTINCT FROM
-      ARRAY['has_business_role','is_business_member','prevent_stock_movement_changes','set_updated_at']::text[]
+      ARRAY['get_client_stats','has_business_role','is_business_member','prevent_stock_movement_changes','set_updated_at']::text[]
      OR (SELECT count(*) FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
-         WHERE n.nspname IN ('public','private') AND p.prosecdef) <> 3 THEN
+         WHERE n.nspname IN ('public','private') AND p.prosecdef) <> 4 THEN
     RAISE EXCEPTION 'Unexpected functions or definers outside the approved exception';
   END IF;
   IF (SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
