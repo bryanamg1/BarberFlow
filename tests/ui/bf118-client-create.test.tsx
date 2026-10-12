@@ -18,6 +18,8 @@ import { resetRouterMocks, routerMock } from '@/test/routerTestUtils';
 
 jest.mock('@/features/business/context/BusinessContext', () => ({ useBusiness: jest.fn() }));
 jest.mock('@/features/clients/hooks/useCreateClient', () => ({ useCreateClient: jest.fn() }));
+// ClientForm supports edit too; keep that unused server boundary isolated from provider setup.
+jest.mock('@/features/clients/hooks/useUpdateClient', () => ({ useUpdateClient: jest.fn() }));
 jest.mock('expo-router/react-navigation', () => ({ useHeaderHeight: () => 64 }));
 // Extend only this screen's Router boundary; shared push/replace/back spies stay unchanged.
 jest.mock('expo-router', () => {

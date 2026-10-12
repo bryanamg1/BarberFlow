@@ -3,31 +3,25 @@ import { useLayoutEffect, useRef } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { StyleSheet, Text, View } from 'react-native';
 
-import { Button, Input } from '@/components/ui';
+import { Button } from '@/components/ui';
 import { theme } from '@/theme';
 
 import { useCreateClient } from '../hooks/useCreateClient';
 import type { ClientRow } from '../repositories/clientsRepository';
 import { createClientSchema, type CreateClientInput } from '../schemas/client.schema';
+import { ClientEditForm } from './ClientEditForm';
+import { ClientTextField, clientTextFields as fields } from './ClientTextField';
 
 export type ClientFormProps = {
-  mode: 'create';
   onSuccess: (client: ClientRow) => void;
   onCancel: () => void;
-};
+} & ({ mode: 'create' } | { mode: 'edit'; clientId: string; initialClient: ClientRow });
 
-const fields = [
-  { name: 'first_name', label: 'Nombre (obligatorio)' },
-  { name: 'last_name', label: 'Apellido' },
-  { name: 'phone', label: 'Teléfono' },
-  { name: 'email', label: 'Email' },
-  { name: 'instagram', label: 'Instagram' },
-  { name: 'birth_date', label: 'Fecha de nacimiento' },
-  { name: 'notes', label: 'Notas' },
-  { name: 'preferences', label: 'Preferencias' },
-] as const;
+export function ClientForm(props: ClientFormProps) {
+  return props.mode === 'create' ? <CreateClientForm {...props} /> : <ClientEditForm {...props} />;
+}
 
-export function ClientForm({ onSuccess, onCancel }: ClientFormProps) {
+function CreateClientForm({ onSuccess, onCancel }: Extract<ClientFormProps, { mode: 'create' }>) {
   const mutation = useCreateClient();
   const { control, handleSubmit, setFocus, formState } = useForm<CreateClientInput>({
     resolver: zodResolver(createClientSchema),
@@ -77,40 +71,25 @@ export function ClientForm({ onSuccess, onCancel }: ClientFormProps) {
 
   return (
     <View style={styles.form}>
-      {fields.map(({ name, label }, index) => {
-        const multiline = name === 'notes' || name === 'preferences';
-        return (
-          <Controller
-            key={name}
-            control={control}
-            name={name}
-            render={({ field: { ref, value, onChange, onBlur }, fieldState: { error } }) => (
-              <Input
-                ref={ref}
-                label={label}
-                value={value ?? ''}
-                onBlur={onBlur}
-                onChangeText={(text) =>
-                  onChange(name === 'birth_date' && text === '' ? null : text)
-                }
-                error={error?.message}
-                disabled={blocked}
-                helperText={name === 'birth_date' ? 'YYYY-MM-DD (opcional)' : undefined}
-                placeholder={name === 'birth_date' ? 'YYYY-MM-DD' : undefined}
-                multiline={multiline}
-                numberOfLines={multiline ? 4 : 1}
-                autoCapitalize={name === 'email' || name === 'instagram' ? 'none' : 'sentences'}
-                keyboardType={
-                  name === 'phone' ? 'phone-pad' : name === 'email' ? 'email-address' : 'default'
-                }
-                returnKeyType={multiline ? 'default' : 'next'}
-                submitBehavior={multiline ? 'newline' : 'submit'}
-                onSubmitEditing={multiline ? undefined : () => setFocus(fields[index + 1].name)}
-              />
-            )}
-          />
-        );
-      })}
+      {fields.map((field, index) => (
+        <Controller
+          key={field.name}
+          control={control}
+          name={field.name}
+          render={({ field: { ref, value, onChange, onBlur }, fieldState: { error } }) => (
+            <ClientTextField
+              field={field}
+              inputRef={ref}
+              value={value}
+              onBlur={onBlur}
+              onChange={onChange}
+              error={error?.message}
+              disabled={blocked}
+              onNext={fields[index + 1] ? () => setFocus(fields[index + 1].name) : undefined}
+            />
+          )}
+        />
+      ))}
       {mutation.status === 'error' && (
         <Text role="alert" aria-live="assertive" style={styles.error}>
           {mutation.error.message}

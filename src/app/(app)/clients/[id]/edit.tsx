@@ -1,9 +1,9 @@
-import { Text, View } from 'react-native';
+import { useLocalSearchParams } from 'expo-router';
 
-export default function EditClientScreen() {
-  return (
-    <View>
-      <Text>Editar cliente</Text>
-    </View>
-  );
+import { ClientEditScreen } from '@/features/clients/screens/ClientEditScreen';
+
+export default function ClientEditRoute() {
+  const { id } = useLocalSearchParams<{ id?: string | string[] }>();
+  const clientId = typeof id === 'string' && id.trim().length > 0 ? id : null;
+  return <ClientEditScreen clientId={clientId} />;
 }
