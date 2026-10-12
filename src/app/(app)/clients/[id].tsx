@@ -1,9 +1,9 @@
-import { Text, View } from 'react-native';
+import { useLocalSearchParams } from 'expo-router';
 
-export default function ClientDetailScreen() {
-  return (
-    <View>
-      <Text>Detalle de cliente</Text>
-    </View>
-  );
+import { ClientDetailScreen } from '@/features/clients/screens/ClientDetailScreen';
+
+export default function ClientDetailRoute() {
+  const { id } = useLocalSearchParams<{ id?: string | string[] }>();
+  const clientId = typeof id === 'string' && id.trim().length > 0 ? id : null;
+  return <ClientDetailScreen clientId={clientId} />;
 }
