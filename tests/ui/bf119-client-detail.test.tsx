@@ -18,6 +18,8 @@ import { resetRouterMocks, routerMock } from '@/test/routerTestUtils';
 
 jest.mock('@/features/business/context/BusinessContext', () => ({ useBusiness: jest.fn() }));
 jest.mock('@/features/clients/hooks/useClientDetail', () => ({ useClientDetail: jest.fn() }));
+// BF-119 exercises basic detail independently from the BF-121 stats read.
+jest.mock('@/features/clients/components/ClientStats', () => ({ ClientStats: () => null }));
 jest.mock('expo-router', () => {
   const { routerMock } =
     jest.requireActual<typeof import('@/test/routerTestUtils')>('@/test/routerTestUtils');

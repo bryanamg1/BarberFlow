@@ -8,6 +8,7 @@ import { useBusiness } from '@/features/business/context/BusinessContext';
 import { theme } from '@/theme';
 
 import { clientsKeys } from '../constants/clientsKeys';
+import { ClientStats } from '../components/ClientStats';
 import { useClientDetail, type UseClientDetailResult } from '../hooks/useClientDetail';
 
 export function ClientDetailScreen({ clientId }: { clientId: string | null }) {
@@ -53,7 +54,11 @@ export function ClientDetailScreen({ clientId }: { clientId: string | null }) {
             />
           )
         ) : business.status === 'success' ? (
-          <ClientInformation result={result} timezone={business.data.business.timezone} />
+          <ClientInformation
+            result={result}
+            timezone={business.data.business.timezone}
+            clientId={clientId}
+          />
         ) : (
           <EmptyState title="Cliente no disponible" />
         )}
@@ -65,9 +70,11 @@ export function ClientDetailScreen({ clientId }: { clientId: string | null }) {
 function ClientInformation({
   result,
   timezone,
+  clientId,
 }: {
   result: Extract<UseClientDetailResult, { status: 'success' }>;
   timezone: string;
+  clientId: string | null;
 }) {
   const client = result.data;
   const name =
@@ -91,6 +98,7 @@ function ClientInformation({
         <InfoRow label="Notas" value={client.notes} />
         <InfoRow label="Preferencias" value={client.preferences} />
       </Card>
+      <ClientStats clientId={clientId} />
       <Button
         label="Editar cliente"
         onPress={() => router.push({ pathname: '/clients/[id]/edit', params: { id: client.id } })}
