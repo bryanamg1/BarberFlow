@@ -1,9 +1,3 @@
-import { Text, View } from 'react-native';
+import { ClientsScreen } from '@/features/clients/screens/ClientsScreen';
 
-export default function ClientsScreen() {
-  return (
-    <View>
-      <Text>Clientes</Text>
-    </View>
-  );
-}
+export default ClientsScreen;
