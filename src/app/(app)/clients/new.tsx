@@ -1,9 +1,3 @@
-import { Text, View } from 'react-native';
+import { ClientCreateScreen } from '@/features/clients/screens/ClientCreateScreen';
 
-export default function NewClientScreen() {
-  return (
-    <View>
-      <Text>Nuevo cliente</Text>
-    </View>
-  );
-}
+export default ClientCreateScreen;
