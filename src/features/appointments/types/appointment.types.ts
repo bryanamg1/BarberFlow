@@ -1,3 +1,10 @@
+import type { AppointmentRangeInput, CreateAppointmentInput } from '../schemas/appointment.schema';
+
+export type {
+  CreateAppointmentInput,
+  CreateAppointmentItemInput,
+} from '../schemas/appointment.schema';
+
 // Database values only: this tuple does not define presentation or transition order.
 export const APPOINTMENT_STATUSES = [
   'PENDING',
@@ -37,32 +44,13 @@ export type AppointmentServiceRow = {
   created_at: string;
 };
 
-export type CreateAppointmentItemInput = {
-  serviceId: string;
-  quantity: number;
-};
-
-// Validation belongs to BF141; persisted snapshots, creator and status are server-managed.
-export type CreateAppointmentInput = {
-  requestId: string;
-  clientId: string;
-  barberMemberId: string;
-  startAt: string;
-  items: CreateAppointmentItemInput[];
-  durationOverride?: number;
-  notes?: string | null;
-};
-
 // A context adapter supplies businessId; this identifier is not authorization.
 export type CreateAppointmentRequest = CreateAppointmentInput & {
   businessId: string;
 };
 
 // UTC instant endpoints, half-open [from, to); civil/timezone conversion is a separate concern.
-export type AppointmentRange = {
-  from: string;
-  to: string;
-};
+export type AppointmentRange = AppointmentRangeInput;
 
 // BF147 defines domain error codes/mapping; BF140 only fixes the safe result envelope.
 export type AppointmentError<TCode extends string> = {

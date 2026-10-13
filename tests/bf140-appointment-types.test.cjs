@@ -170,8 +170,10 @@ test('BF140 type contract rejects invalid statuses, null FKs, Date values and ma
   );
 });
 
-test('BF140 module has no external dependency or implementation beyond status values', () => {
-  assert.equal(sourceFile.statements.some(ts.isImportDeclaration), false);
+test('BF140 module has no runtime dependency or implementation beyond status values', () => {
+  for (const statement of sourceFile.statements.filter(ts.isImportDeclaration)) {
+    assert.equal(statement.importClause.isTypeOnly, true);
+  }
   assert.equal(sourceFile.statements.some(ts.isEnumDeclaration), false);
   assert.equal(sourceFile.statements.some(ts.isFunctionDeclaration), false);
   assert.doesNotMatch(text, /\bany\b|canOverride|blockingStatuses|completeAppointment|Date\(/);
