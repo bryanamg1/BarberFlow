@@ -1,7 +1,9 @@
+import { router } from 'expo-router';
 import { StyleSheet, Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { LogoutButton } from '@/features/auth/components/LogoutButton';
+import { Button } from '@/components/ui';
 import { theme } from '@/theme';
 
 export default function SettingsScreen() {
@@ -9,6 +11,7 @@ export default function SettingsScreen() {
     <SafeAreaView edges={['left', 'right', 'bottom']} style={styles.container}>
       <Text style={styles.title}>Configuración</Text>
       <LogoutButton />
+      <Button label="Servicios" variant="secondary" onPress={() => router.push('/services')} />
     </SafeAreaView>
   );
 }

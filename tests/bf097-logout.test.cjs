@@ -55,6 +55,10 @@ function loader(
       if (name === 'react') return filename === componentFile ? hooks : React;
       if (name === 'react/jsx-runtime') return require(name);
       if (name === 'react-native') return native;
+      if (name === 'expo-router') {
+        assert.equal(filename, routeFile, 'Only Settings may import navigation; not LogoutButton');
+        return { router: { push: () => assert.fail('No Settings navigation on render') } };
+      }
       if (name === 'react-native-safe-area-context')
         return { SafeAreaView: realUI ? native.View : 'SafeAreaView' };
       if (name === '../services/authService') return { authService: { signOut: operation } };
