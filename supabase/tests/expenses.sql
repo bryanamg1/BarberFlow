@@ -101,13 +101,17 @@ BEGIN
      OR (SELECT array_agg(policyname::text ORDER BY policyname) FROM pg_policies WHERE schemaname = 'public' AND tablename = 'expenses') IS DISTINCT FROM ARRAY['expenses_insert_manual_owners','expenses_select_owners','expenses_update_manual_owners']::text[] THEN
     RAISE EXCEPTION 'Expenses must have RLS enabled with exact BF079 policies';
   END IF;
-  IF (SELECT count(*) FROM pg_trigger WHERE tgrelid = 'public.expenses'::regclass AND NOT tgisinternal) <> 1
+  IF (SELECT count(*) FROM pg_trigger WHERE tgrelid = 'public.expenses'::regclass AND NOT tgisinternal) <> 2
+     OR NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgrelid='public.expenses'::regclass
+                    AND tgname='expenses_lock_business_currency' AND tgenabled='O' AND tgtype=23
+                    AND tgfoid='private.lock_financial_business_currency()'::regprocedure
+                    AND pg_get_triggerdef(oid) LIKE '% BEFORE INSERT OR UPDATE OF business_id ON %')
      OR NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgrelid = 'public.expenses'::regclass
                     AND tgname = 'expenses_set_updated_at' AND tgenabled = 'O'
                     AND tgfoid = 'public.set_updated_at()'::regprocedure
                     AND pg_get_triggerdef(oid) LIKE '% BEFORE UPDATE ON %'
                     AND pg_get_triggerdef(oid) LIKE '% FOR EACH ROW %') THEN
-    RAISE EXCEPTION 'Only the existing timestamp utility is approved';
+    RAISE EXCEPTION 'Expected timestamp utility and exact BF272 currency coordination trigger only';
   END IF;
 
   INSERT INTO auth.users (id) VALUES (v_user_id), (v_expense_user_id);

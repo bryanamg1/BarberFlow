@@ -98,14 +98,18 @@ BEGIN
         IS DISTINCT FROM ARRAY['purchases_select_owners']::text[] THEN
     RAISE EXCEPTION 'Purchases must have RLS enabled with exactly its BF-078 SELECT policy';
   END IF;
-  IF (SELECT count(*) FROM pg_trigger WHERE tgrelid = 'public.purchases'::regclass AND NOT tgisinternal) <> 1
+  IF (SELECT count(*) FROM pg_trigger WHERE tgrelid = 'public.purchases'::regclass AND NOT tgisinternal) <> 2
+     OR NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgrelid='public.purchases'::regclass
+                    AND tgname='purchases_lock_business_currency' AND tgenabled='O' AND tgtype=23
+                    AND tgfoid='private.lock_financial_business_currency()'::regprocedure
+                    AND pg_get_triggerdef(oid) LIKE '% BEFORE INSERT OR UPDATE OF business_id ON %')
      OR NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgrelid = 'public.purchases'::regclass
                     AND tgname = 'purchases_set_updated_at'
                     AND tgfoid = 'public.set_updated_at()'::regprocedure AND NOT tgisinternal
                     AND pg_get_triggerdef(oid) LIKE '% BEFORE UPDATE ON %') THEN
-    RAISE EXCEPTION 'Only the existing BEFORE UPDATE timestamp utility is approved';
+    RAISE EXCEPTION 'Expected timestamp utility and exact BF272 currency coordination trigger only';
   END IF;
-  -- Only the existing timestamp utility can run; inserts below must leave products intact.
+  -- Timestamp and BF272 currency coordination only; inserts must leave products intact.
   INSERT INTO auth.users (id) VALUES (v_user_id);
   INSERT INTO public.businesses (name) VALUES ('Temporary purchases test') RETURNING id INTO v_business_id;
   INSERT INTO public.businesses (name) VALUES ('Other temporary purchases test') RETURNING id INTO v_other_business_id;

@@ -42,8 +42,9 @@ BEGIN
      OR helper.proowner <> (SELECT relowner FROM pg_class WHERE oid = 'public.sales'::regclass)
      OR helper.proowner <> (SELECT relowner FROM pg_class WHERE oid = 'public.payments'::regclass)
      OR helper.proowner <> helper.nspowner
-     OR (SELECT count(*) FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
-         WHERE n.nspname = 'private') <> 1 THEN
+     OR (SELECT array_agg(p.proname::text ORDER BY p.proname) FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+         WHERE n.nspname = 'private') IS DISTINCT FROM
+          ARRAY['can_read_payment','guard_business_currency_change','lock_financial_business_currency']::text[] THEN
     RAISE EXCEPTION 'Incorrect private boolean helper signature/execution context';
   END IF;
   IF NOT has_function_privilege('authenticated',helper.oid,'EXECUTE')
@@ -60,9 +61,9 @@ BEGIN
   END IF;
   IF (SELECT array_agg(proname::text ORDER BY proname) FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
       WHERE n.nspname = 'public') IS DISTINCT FROM
-      ARRAY['get_client_stats','has_business_role','is_business_member','prevent_stock_movement_changes','set_updated_at']::text[]
+      ARRAY['get_client_stats','has_business_role','is_business_member','prevent_stock_movement_changes','save_business_hours','set_updated_at']::text[]
      OR (SELECT count(*) FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
-         WHERE n.nspname IN ('public','private') AND p.prosecdef) <> 4 THEN
+         WHERE n.nspname IN ('public','private') AND p.prosecdef) <> 5 THEN
     RAISE EXCEPTION 'Unexpected functions or definers outside the approved exception';
   END IF;
   IF (SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace

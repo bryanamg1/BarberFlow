@@ -85,13 +85,14 @@ BEGIN
   IF (SELECT array_agg(n.nspname || '.' || p.proname ORDER BY n.nspname,p.proname)
       FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
       WHERE n.nspname IN ('public','private')) IS DISTINCT FROM ARRAY[
-        'private.can_read_payment','public.get_client_stats','public.has_business_role','public.is_business_member',
-        'public.prevent_stock_movement_changes','public.set_updated_at']::text[]
+        'private.can_read_payment','private.guard_business_currency_change','private.lock_financial_business_currency',
+        'public.get_client_stats','public.has_business_role','public.is_business_member',
+        'public.prevent_stock_movement_changes','public.save_business_hours','public.set_updated_at']::text[]
      OR (SELECT count(*) FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
-         WHERE n.nspname IN ('public','private') AND p.prosecdef) <> 4 THEN
+         WHERE n.nspname IN ('public','private') AND p.prosecdef) <> 5 THEN
     RAISE EXCEPTION 'Unexpected function/definer change';
   END IF;
-  RAISE NOTICE 'BF-078 metadata passed: exact 46 policy identities, two authenticated SELECT-only OWNER policies, 19 RLS tables/FORCE off, all 19 tables covered, six functions/four definers including BF-245';
+  RAISE NOTICE 'BF-078 metadata passed: exact46policies,19RLS/FORCEoff,nine approved functions/five definers including BF272/273 exceptions';
 END;
 $$;
 

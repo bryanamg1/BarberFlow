@@ -106,11 +106,11 @@ BEGIN
      OR EXISTS(SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relkind IN ('r','p') AND (NOT c.relrowsecurity OR c.relforcerowsecurity OR NOT EXISTS(SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename=c.relname))) THEN
     RAISE EXCEPTION 'All 19 public tables must have policies and RLS without FORCE';
   END IF;
-  IF (SELECT array_agg(n.nspname || '.' || p.proname ORDER BY n.nspname,p.proname) FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname IN ('public','private')) IS DISTINCT FROM ARRAY['private.can_read_payment','public.get_client_stats','public.has_business_role','public.is_business_member','public.prevent_stock_movement_changes','public.set_updated_at']::text[]
-     OR (SELECT count(*) FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname IN ('public','private') AND p.prosecdef) <> 4 THEN
+  IF (SELECT array_agg(n.nspname || '.' || p.proname ORDER BY n.nspname,p.proname) FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname IN ('public','private')) IS DISTINCT FROM ARRAY['private.can_read_payment','private.guard_business_currency_change','private.lock_financial_business_currency','public.get_client_stats','public.has_business_role','public.is_business_member','public.prevent_stock_movement_changes','public.save_business_hours','public.set_updated_at']::text[]
+     OR (SELECT count(*) FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname IN ('public','private') AND p.prosecdef) <> 5 THEN
     RAISE EXCEPTION 'Helper/definer baseline changed';
   END IF;
-  RAISE NOTICE 'BF079 metadata passed: exact 46 policies, six exact authenticated policies, exact approved UPDATE columns, all 19 tables RLS/FORCE off, unchanged function inventory';
+  RAISE NOTICE 'BF079 metadata passed: exact46policies,exact approved UPDATE columns,19RLS/FORCEoff,exact function inventory including BF272/273';
 END;
 $$;
 

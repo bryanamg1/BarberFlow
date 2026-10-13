@@ -53,7 +53,11 @@ function loadRepository(client) {
     module.exports,
   );
   assert.deepEqual(Object.keys(module.exports), ['businessHoursRepository']);
-  assert.deepEqual(Object.keys(module.exports.businessHoursRepository), ['getByBusinessId']);
+  // BF-273 adds the approved upsert; retain all original read-contract checks.
+  assert.deepEqual(Object.keys(module.exports.businessHoursRepository), [
+    'getByBusinessId',
+    'upsert',
+  ]);
   return module.exports.businessHoursRepository;
 }
 
@@ -88,7 +92,7 @@ function boundary(result, failure) {
   return { repository, calls };
 }
 
-test('BF-105: import is inert and public API is read-only', () => {
+test('BF-105: import remains inert with BF-273 write extension', () => {
   loadRepository(new Proxy({}, { get: () => assert.fail('No client access during import') }));
 });
 
@@ -220,7 +224,7 @@ test('BF-105: public TypeScript contract is six fields, numeric days, string tim
     export type Shape = Assert<Equal<BusinessHour, Expected>>;
     export type Data = Assert<Equal<Result['data'], BusinessHour[] | null>>;
     export type Error = Assert<Equal<Result['error'], PostgrestError | null>>;
-    export type Operations = Assert<Equal<keyof typeof businessHoursRepository, 'getByBusinessId'>>;
+    export type Operations = Assert<Equal<keyof typeof businessHoursRepository, 'getByBusinessId' | 'upsert'>>;
     export type Input = Assert<Equal<Parameters<typeof businessHoursRepository.getByBusinessId>, [businessId: string]>>;
     // @ts-expect-error Day remains the schema's numeric range.
     const invalidDay: BusinessHour['day_of_week'] = 7;

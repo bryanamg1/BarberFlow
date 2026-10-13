@@ -112,11 +112,15 @@ BEGIN
         IS DISTINCT FROM ARRAY['sales_select_authorized']::text[] THEN
     RAISE EXCEPTION 'Sales must have RLS enabled with exactly its BF-077 SELECT policy';
   END IF;
-  IF (SELECT count(*) FROM pg_trigger WHERE tgrelid = 'public.sales'::regclass AND NOT tgisinternal) <> 1
+  IF (SELECT count(*) FROM pg_trigger WHERE tgrelid = 'public.sales'::regclass AND NOT tgisinternal) <> 2
+     OR NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgrelid='public.sales'::regclass
+                    AND tgname='sales_lock_business_currency' AND tgenabled='O' AND tgtype=23
+                    AND tgfoid='private.lock_financial_business_currency()'::regprocedure
+                    AND pg_get_triggerdef(oid) LIKE '% BEFORE INSERT OR UPDATE OF business_id ON %')
      OR NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgrelid = 'public.sales'::regclass
                     AND tgname = 'sales_set_updated_at'
                     AND tgfoid = 'public.set_updated_at()'::regprocedure AND NOT tgisinternal) THEN
-    RAISE EXCEPTION 'Only the existing updated_at utility is allowed';
+    RAISE EXCEPTION 'Expected timestamp utility and exact BF272 currency coordination trigger only';
   END IF;
 
   INSERT INTO auth.users (id) VALUES (v_user_id);

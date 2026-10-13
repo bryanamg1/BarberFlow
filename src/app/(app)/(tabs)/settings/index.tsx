@@ -17,6 +17,11 @@ export default function SettingsScreen() {
         onPress={() => router.push('/business/settings')}
       />
       <Button label="Servicios" variant="secondary" onPress={() => router.push('/services')} />
+      <Button
+        label="Horarios de atención"
+        variant="secondary"
+        onPress={() => router.push('/business/hours')}
+      />
     </SafeAreaView>
   );
 }

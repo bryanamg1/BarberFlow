@@ -158,7 +158,7 @@ BEGIN
   IF (SELECT array_agg(p.proname::text ORDER BY p.proname)
       FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace WHERE n.nspname = 'public')
      IS DISTINCT FROM ARRAY['get_client_stats', 'has_business_role', 'is_business_member',
-                            'prevent_stock_movement_changes', 'set_updated_at']::text[]
+                            'prevent_stock_movement_changes', 'save_business_hours', 'set_updated_at']::text[]
      OR EXISTS (SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
                 WHERE n.nspname = 'public' AND CASE
                   WHEN p.proname = 'get_client_stats' THEN
@@ -171,6 +171,11 @@ BEGIN
                     OR p.proretset OR p.proconfig IS DISTINCT FROM ARRAY['search_path=""']::text[]
                     OR p.oid NOT IN ('public.is_business_member(uuid)'::regprocedure,
                                     'public.has_business_role(uuid,text[])'::regprocedure)
+                  WHEN p.proname = 'save_business_hours' THEN
+                    p.prosecdef OR NOT p.proretset OR p.provolatile <> 'v'
+                    OR p.oid <> 'public.save_business_hours(uuid,jsonb)'::regprocedure
+                    OR p.prorettype <> 'pg_catalog.record'::regtype
+                    OR p.proconfig IS DISTINCT FROM ARRAY['search_path=""']::text[]
                   ELSE p.prosecdef OR p.pronargs <> 0
                        OR p.prorettype <> 'pg_catalog.trigger'::regtype
                 END) THEN

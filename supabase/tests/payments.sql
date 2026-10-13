@@ -90,8 +90,12 @@ BEGIN
         IS DISTINCT FROM ARRAY['payments_select_authorized']::text[] THEN
     RAISE EXCEPTION 'Payments must have RLS enabled with exactly its BF-077 SELECT policy';
   END IF;
-  IF EXISTS (SELECT 1 FROM pg_trigger WHERE tgrelid = 'public.payments'::regclass AND NOT tgisinternal) THEN
-    RAISE EXCEPTION 'No payment aggregate, completion, timestamp or commerce trigger is approved';
+  IF (SELECT count(*) FROM pg_trigger WHERE tgrelid='public.payments'::regclass AND NOT tgisinternal) <> 1
+     OR NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgrelid='public.payments'::regclass
+                    AND tgname='payments_lock_business_currency' AND tgenabled='O' AND tgtype=23
+                    AND tgfoid='private.lock_financial_business_currency()'::regprocedure
+                    AND pg_get_triggerdef(oid) LIKE '% BEFORE INSERT OR UPDATE OF business_id ON %') THEN
+    RAISE EXCEPTION 'Only the exact BF272 currency coordination trigger is approved';
   END IF;
 
   INSERT INTO auth.users (id) VALUES (v_user_id), (v_payment_user_id);

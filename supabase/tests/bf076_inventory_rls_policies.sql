@@ -106,7 +106,7 @@ BEGIN
   END IF;
   IF (SELECT array_agg(p.proname::text ORDER BY p.proname) FROM pg_proc p
       JOIN pg_namespace n ON n.oid = p.pronamespace WHERE n.nspname = 'public') IS DISTINCT FROM
-      ARRAY['get_client_stats','has_business_role','is_business_member','prevent_stock_movement_changes','set_updated_at']::text[]
+      ARRAY['get_client_stats','has_business_role','is_business_member','prevent_stock_movement_changes','save_business_hours','set_updated_at']::text[]
      OR (SELECT count(*) FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
          WHERE n.nspname = 'public' AND p.prosecdef) <> 3 THEN
     RAISE EXCEPTION 'Unexpected public function/SECURITY DEFINER';
@@ -118,7 +118,7 @@ BEGIN
      OR (SELECT count(*) FROM pg_trigger WHERE tgrelid = 'public.stock_movements'::regclass AND NOT tgisinternal) <> 1 THEN
     RAISE EXCEPTION 'Append-only trigger changed';
   END IF;
-  RAISE NOTICE 'BF-076 metadata passed: exactly 46 identities, seven exact inventory policies, authenticated only, catalog business_id excluded, 19 RLS tables, FORCE off, all 19 tables covered, five public functions/three approved definers including BF-245, existing ledger trigger';
+  RAISE NOTICE 'BF-076 metadata passed: exactly46policies,19RLS/FORCEoff,six approved public functions/three public definers,existing ledger trigger';
 END;
 $$;
 
