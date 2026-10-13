@@ -11,6 +11,11 @@ export default function SettingsScreen() {
     <SafeAreaView edges={['left', 'right', 'bottom']} style={styles.container}>
       <Text style={styles.title}>Configuración</Text>
       <LogoutButton />
+      <Button
+        label="Configuración del negocio"
+        variant="secondary"
+        onPress={() => router.push('/business/settings')}
+      />
       <Button label="Servicios" variant="secondary" onPress={() => router.push('/services')} />
     </SafeAreaView>
   );

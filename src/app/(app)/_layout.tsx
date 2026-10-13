@@ -8,6 +8,7 @@ export default function AppLayout() {
   return (
     <Stack>
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+      <Stack.Screen name="business/settings" options={{ title: 'Configuración del negocio' }} />
       <Stack.Screen name="appointments/new" options={{ title: 'Nueva cita' }} />
       <Stack.Screen name="appointments/[id]" options={{ title: 'Detalle de cita' }} />
       <Stack.Screen name="clients/new" options={{ title: 'Nuevo cliente' }} />

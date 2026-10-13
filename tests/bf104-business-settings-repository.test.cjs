@@ -38,7 +38,11 @@ function loadRepository(client) {
     module.exports,
   );
   assert.deepEqual(Object.keys(module.exports), ['businessSettingsRepository']);
-  assert.deepEqual(Object.keys(module.exports.businessSettingsRepository), ['getByBusinessId']);
+  // BF-272 adds the approved write adapter; BF-104 read contract stays intact.
+  assert.deepEqual(Object.keys(module.exports.businessSettingsRepository), [
+    'getByBusinessId',
+    'update',
+  ]);
   return module.exports.businessSettingsRepository;
 }
 
@@ -73,7 +77,7 @@ function boundary(result, failure) {
   return { repository, calls };
 }
 
-test('BF-104: import is inert and public API is read-only', () => {
+test('BF-104: import remains inert with BF-272 write extension', () => {
   loadRepository(new Proxy({}, { get: () => assert.fail('No client access during import') }));
 });
 
@@ -184,7 +188,7 @@ test('BF-104: TypeScript exposes exactly five functional fields and a nullable S
     export type Shape = Assert<Equal<BusinessSettings, Expected>>;
     export type Data = Assert<Equal<Result['data'], BusinessSettings | null>>;
     export type Error = Assert<Equal<Result['error'], PostgrestError | null>>;
-    export type Operations = Assert<Equal<keyof typeof businessSettingsRepository, 'getByBusinessId'>>;
+    export type Operations = Assert<Equal<keyof typeof businessSettingsRepository, 'getByBusinessId' | 'update'>>;
     export type Input = Assert<Equal<Parameters<typeof businessSettingsRepository.getByBusinessId>, [businessId: string]>>;
     declare const settings: BusinessSettings;
     // @ts-expect-error No audit timestamps in the functional projection.
