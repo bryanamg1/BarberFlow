@@ -44,6 +44,23 @@ export type AppointmentServiceRow = {
   created_at: string;
 };
 
+export type AppointmentDetail = AppointmentRow & {
+  appointment_services: AppointmentServiceRow[];
+};
+
+export type AppointmentAvailabilityInput = {
+  barberMemberId: string;
+  date: string;
+  durationMinutes: number;
+  excludeAppointmentId?: string;
+};
+
+export type AppointmentAvailabilitySlot = {
+  start_at: string;
+  end_at: string;
+  available: boolean;
+};
+
 // A context adapter supplies businessId; this identifier is not authorization.
 export type CreateAppointmentRequest = CreateAppointmentInput & {
   businessId: string;
