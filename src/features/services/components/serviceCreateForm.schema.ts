@@ -1,9 +1,14 @@
 import { z } from 'zod';
 
-import { createServiceSchema, type CreateServiceInput } from '../schemas/service.schema';
+import {
+  createServiceSchema,
+  updateServiceSchema,
+  type CreateServiceInput,
+  type UpdateServiceInput,
+} from '../schemas/service.schema';
 
 // Validate text syntax before Number: never parse a prefix, round, or turn blank into zero.
-export const serviceCreateFormSchema = z
+const serviceFormValueSchema = z
   .object({
     name: createServiceSchema.shape.name,
     description: z.string().optional(),
@@ -19,7 +24,11 @@ export const serviceCreateFormSchema = z
       .transform((value) => Number(value)),
   })
   // Widen the adapter output to the nullable domain contract without changing visual text values.
-  .transform((values): CreateServiceInput => values)
-  .pipe(createServiceSchema);
+  .transform((values): CreateServiceInput => values);
+
+export const serviceCreateFormSchema = serviceFormValueSchema.pipe(createServiceSchema);
+export const serviceEditFormSchema = serviceFormValueSchema
+  .transform((values): UpdateServiceInput => values)
+  .pipe(updateServiceSchema);
 
 export type ServiceCreateFormValues = z.input<typeof serviceCreateFormSchema>;

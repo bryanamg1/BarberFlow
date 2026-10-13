@@ -1,7 +1,6 @@
 import { fireEvent, screen, userEvent } from '@testing-library/react-native';
 
 import ServicesRoute from '@/app/(app)/services';
-import EditServiceRoute from '@/app/(app)/services/[id]/edit';
 import SettingsRoute from '@/app/(app)/(tabs)/settings';
 import {
   useBusiness,
@@ -329,13 +328,6 @@ test('role downgrade removes management controls without copying server data', a
   await rendered.rerender(<ServicesScreen />);
   expect(screen.queryByRole('button', { name: /Crear servicio|Editar servicio/ })).toBeNull();
   expect(screen.getByText('Corte')).toBeOnTheScreen();
-});
-
-test('future edit destination is only unavailable copy without forms', async () => {
-  await renderWithProviders(<EditServiceRoute />);
-  expect(screen.getByText('Esta función estará disponible próximamente.')).toBeOnTheScreen();
-  expect(screen.queryByRole('textbox')).toBeNull();
-  expect(screen.queryByRole('button', { name: /Guardar|Crear|Archivar/ })).toBeNull();
 });
 
 test('settings exposes the service list destination', async () => {

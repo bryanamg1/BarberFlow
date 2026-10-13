@@ -18,6 +18,7 @@ import { resetRouterMocks, routerMock } from '@/test/routerTestUtils';
 
 jest.mock('@/features/business/context/BusinessContext', () => ({ useBusiness: jest.fn() }));
 jest.mock('@/features/services/hooks/useCreateService', () => ({ useCreateService: jest.fn() }));
+jest.mock('@/features/services/hooks/useUpdateService', () => ({ useUpdateService: jest.fn() }));
 jest.mock('expo-router/react-navigation', () => ({ useHeaderHeight: () => 64 }));
 jest.mock('expo-router', () => {
   const { routerMock } =

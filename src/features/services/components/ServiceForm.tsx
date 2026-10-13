@@ -1,31 +1,36 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useLayoutEffect, useRef } from 'react';
-import { Controller, useForm } from 'react-hook-form';
+import { useForm } from 'react-hook-form';
 import { StyleSheet, Text, View } from 'react-native';
 
-import { Button, Input } from '@/components/ui';
+import { Button } from '@/components/ui';
 import { theme } from '@/theme';
 
 import { useCreateService } from '../hooks/useCreateService';
 import type { ServiceRow } from '../repositories/servicesRepository';
 import type { CreateServiceInput } from '../schemas/service.schema';
+import { ServiceEditForm } from './ServiceEditForm';
+import { ServiceFields } from './ServiceFields';
 import { serviceCreateFormSchema, type ServiceCreateFormValues } from './serviceCreateForm.schema';
 
-type ServiceFormProps = {
+export type ServiceFormProps = {
   currency: string;
-  onSuccess: (service: ServiceRow) => void;
   onCancel: () => void;
-};
+} & (
+  | { mode?: 'create'; onSuccess: (service: ServiceRow) => void }
+  | { mode: 'edit'; serviceId: string; initialService: ServiceRow }
+);
 
-const fields = [
-  { name: 'name', label: 'Nombre (obligatorio)' },
-  { name: 'description', label: 'Descripción' },
-  { name: 'price', label: 'Precio (obligatorio)' },
-  { name: 'duration_minutes', label: 'Duración en minutos (obligatorio)' },
-] as const;
+// Shared fields, with separate create and edit orchestration.
+export function ServiceForm(props: ServiceFormProps) {
+  return props.mode === 'edit' ? <ServiceEditForm {...props} /> : <CreateServiceForm {...props} />;
+}
 
-// Shared field/action composition for Services; BF134 supplies create behavior only.
-export function ServiceForm({ currency, onSuccess, onCancel }: ServiceFormProps) {
+function CreateServiceForm({
+  currency,
+  onSuccess,
+  onCancel,
+}: Extract<ServiceFormProps, { mode?: 'create' }>) {
   const mutation = useCreateService();
   const { control, handleSubmit, setFocus, formState } = useForm<
     ServiceCreateFormValues,
@@ -76,62 +81,16 @@ export function ServiceForm({ currency, onSuccess, onCancel }: ServiceFormProps)
 
   return (
     <View style={styles.form}>
-      {fields.map((field, index) => (
-        <Controller
-          key={field.name}
-          control={control}
-          name={field.name}
-          render={({ field: { ref, value, onChange, onBlur }, fieldState: { error } }) => (
-            <Input
-              ref={ref}
-              label={field.label}
-              value={value ?? ''}
-              onBlur={onBlur}
-              onChangeText={(text) => {
-                if (blocked) return;
-                if (mutation.status === 'error') mutation.reset();
-                onChange(text);
-              }}
-              error={error?.message}
-              disabled={blocked}
-              multiline={field.name === 'description'}
-              keyboardType={
-                field.name === 'price'
-                  ? 'decimal-pad'
-                  : field.name === 'duration_minutes'
-                    ? 'number-pad'
-                    : 'default'
-              }
-              inputMode={
-                field.name === 'price'
-                  ? 'decimal'
-                  : field.name === 'duration_minutes'
-                    ? 'numeric'
-                    : 'text'
-              }
-              helperText={
-                field.name === 'price'
-                  ? `${currency} · Usa punto para decimales (ej. 10000.50).`
-                  : undefined
-              }
-              autoCapitalize={
-                field.name === 'price' || field.name === 'duration_minutes' ? 'none' : 'sentences'
-              }
-              returnKeyType={field.name === 'duration_minutes' ? 'done' : 'next'}
-              onSubmitEditing={
-                field.name === 'description'
-                  ? undefined
-                  : () => {
-                      if (blocked) return;
-                      const next = fields[index + 1];
-                      if (next) setFocus(next.name);
-                      else void submit();
-                    }
-              }
-            />
-          )}
-        />
-      ))}
+      <ServiceFields
+        control={control}
+        setFocus={setFocus}
+        currency={currency}
+        disabled={blocked}
+        onChange={() => {
+          if (mutation.status === 'error') mutation.reset();
+        }}
+        onSubmit={() => void submit()}
+      />
       {mutation.status === 'error' && (
         <Text role="alert" aria-live="assertive" style={styles.error}>
           {mutation.error.message}
