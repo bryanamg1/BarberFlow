@@ -157,10 +157,15 @@ BEGIN
   END IF;
   IF (SELECT array_agg(p.proname::text ORDER BY p.proname)
       FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace WHERE n.nspname = 'public')
-     IS DISTINCT FROM ARRAY['get_client_stats', 'has_business_role', 'is_business_member',
+     IS DISTINCT FROM ARRAY['get_availability','get_client_stats', 'has_business_role', 'is_business_member',
                             'prevent_stock_movement_changes', 'save_business_hours', 'set_updated_at']::text[]
      OR EXISTS (SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
                 WHERE n.nspname = 'public' AND CASE
+                  WHEN p.proname = 'get_availability' THEN
+                    p.prosecdef OR NOT p.proretset OR p.provolatile <> 's' OR p.pronargs<>5 OR p.pronargdefaults<>1
+                    OR p.oid <> 'public.get_availability(uuid,uuid,date,integer,uuid)'::regprocedure
+                    OR p.prorettype <> 'pg_catalog.record'::regtype
+                    OR p.proconfig IS DISTINCT FROM ARRAY['search_path=""']::text[]
                   WHEN p.proname = 'get_client_stats' THEN
                     p.oid <> 'public.get_client_stats(uuid,uuid)'::regprocedure
                     OR NOT p.prosecdef OR p.provolatile <> 's' OR NOT p.proretset
