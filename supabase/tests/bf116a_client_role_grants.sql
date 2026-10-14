@@ -75,20 +75,20 @@ BEGIN
   END LOOP;
 
   IF (SELECT count(*) FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
-      WHERE n.nspname IN ('public','private')) <> 14 THEN
+      WHERE n.nspname IN ('public','private')) <> 15 THEN
     RAISE EXCEPTION 'Unexpected helper/RPC inventory';
   END IF;
   FOR target IN SELECT p.*,n.nspname FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
     WHERE n.nspname IN ('public','private') LOOP
     IF target.proowner <> 'postgres'::regrole OR target.proconfig IS DISTINCT FROM ARRAY['search_path=""']::text[]
-       OR target.prosecdef IS DISTINCT FROM (target.proname IN ('is_business_member','has_business_role','can_read_payment','get_client_stats','guard_business_currency_change','create_appointment_with_services'))
+       OR target.prosecdef IS DISTINCT FROM (target.proname IN ('is_business_member','has_business_role','can_read_payment','get_client_stats','guard_business_currency_change','create_appointment_with_services','adjust_stock'))
        OR EXISTS (SELECT 1 FROM aclexplode(COALESCE(target.proacl,acldefault('f',target.proowner))) WHERE grantee=0 AND privilege_type='EXECUTE') THEN
       RAISE EXCEPTION 'Unsafe function owner/search_path/definer/PUBLIC ACL: %',target.proname;
     END IF;
     FOREACH role_name IN ARRAY ARRAY['anon','authenticated','service_role'] LOOP
       expected := CASE role_name WHEN 'anon' THEN false
-        WHEN 'authenticated' THEN target.proname IN ('is_business_member','has_business_role','can_read_payment','get_client_stats','get_product_stock','get_low_stock_products','save_business_hours','get_availability','appointment_slot_candidates','create_appointment_with_services')
-        ELSE target.nspname='public' AND target.proname NOT IN ('get_client_stats','get_product_stock','get_low_stock_products','save_business_hours','get_availability','create_appointment_with_services') END;
+        WHEN 'authenticated' THEN target.proname IN ('is_business_member','has_business_role','can_read_payment','get_client_stats','get_product_stock','get_low_stock_products','save_business_hours','get_availability','appointment_slot_candidates','create_appointment_with_services','adjust_stock')
+        ELSE target.nspname='public' AND target.proname NOT IN ('get_client_stats','get_product_stock','get_low_stock_products','save_business_hours','get_availability','create_appointment_with_services','adjust_stock') END;
       IF has_function_privilege(role_name,target.oid,'EXECUTE') IS DISTINCT FROM expected THEN
         RAISE EXCEPTION 'Wrong function EXECUTE: % %',role_name,target.proname;
       END IF;

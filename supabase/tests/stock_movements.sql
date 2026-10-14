@@ -84,13 +84,14 @@ BEGIN
       RAISE EXCEPTION 'Restrictive FK missing: %', v_case.constraint_name;
     END IF;
   END LOOP;
-  IF (SELECT count(*) FROM pg_indexes WHERE schemaname = 'public' AND tablename = 'stock_movements') <> 3 THEN
-    RAISE EXCEPTION 'Expected PK, business/product event history and product event history indexes';
+  IF (SELECT count(*) FROM pg_indexes WHERE schemaname = 'public' AND tablename = 'stock_movements') <> 4 THEN
+    RAISE EXCEPTION 'Expected PK, two event history indexes and BF223 scoped idempotency index';
   END IF;
   FOR v_case IN
     SELECT * FROM (VALUES
       ('stock_movements_business_id_product_id_occurred_at_idx', '% USING btree (business_id, product_id, occurred_at)'),
-      ('stock_movements_product_id_occurred_at_idx', '% USING btree (product_id, occurred_at)')
+      ('stock_movements_product_id_occurred_at_idx', '% USING btree (product_id, occurred_at)'),
+      ('stock_movements_adjustment_operation_idx', 'CREATE UNIQUE INDEX % USING btree (business_id, reference_id) WHERE (reference_type = ''STOCK_ADJUSTMENT''::text)')
     ) AS indexes(index_name, definition)
   LOOP
     IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE schemaname = 'public' AND tablename = 'stock_movements'

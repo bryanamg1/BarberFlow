@@ -81,13 +81,13 @@ BEGIN
       FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
       WHERE n.nspname IN ('public','private')) IS DISTINCT FROM ARRAY[
         'private.appointment_slot_candidates','private.can_read_payment','private.guard_business_currency_change','private.lock_financial_business_currency',
-        'public.create_appointment_with_services','public.get_availability','public.get_client_stats','public.get_low_stock_products','public.get_product_stock','public.has_business_role','public.is_business_member',
+        'public.adjust_stock','public.create_appointment_with_services','public.get_availability','public.get_client_stats','public.get_low_stock_products','public.get_product_stock','public.has_business_role','public.is_business_member',
         'public.prevent_stock_movement_changes','public.save_business_hours','public.set_updated_at']::text[]
      OR (SELECT count(*) FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
-         WHERE n.nspname IN ('public','private') AND p.prosecdef) <> 6 THEN
+         WHERE n.nspname IN ('public','private') AND p.prosecdef) <> 7 THEN
     RAISE EXCEPTION 'Unexpected function/definer change';
   END IF;
-  RAISE NOTICE 'BF-078 metadata passed: exact41policies,19RLS/FORCEoff,fourteen approved functions/six definers including BF144/BF272/BF273';
+  RAISE NOTICE 'BF-078 metadata passed: exact41policies,19RLS/FORCEoff,fifteen approved functions/seven definers including BF223';
 END;
 $$;
 
