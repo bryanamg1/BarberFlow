@@ -26,3 +26,5 @@ export { Modal } from './Modal';
 export type { ModalProps } from './Modal';
 export { BottomSheet } from './BottomSheet';
 export type { BottomSheetProps } from './BottomSheet';
+export { Avatar } from './Avatar';
+export type { AvatarProps } from './Avatar';
