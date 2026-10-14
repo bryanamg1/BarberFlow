@@ -152,7 +152,7 @@ BEGIN
   END IF;
   IF (SELECT array_agg(p.proname::text ORDER BY p.proname)
       FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace WHERE n.nspname = 'public')
-     IS DISTINCT FROM ARRAY['create_appointment_with_services','get_availability','get_client_stats', 'has_business_role', 'is_business_member',
+     IS DISTINCT FROM ARRAY['create_appointment_with_services','get_availability','get_client_stats', 'get_low_stock_products', 'get_product_stock', 'has_business_role', 'is_business_member',
                             'prevent_stock_movement_changes', 'save_business_hours', 'set_updated_at']::text[]
      OR EXISTS (SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
                 WHERE n.nspname = 'public' AND CASE
@@ -160,6 +160,12 @@ BEGIN
                     NOT p.prosecdef OR p.proretset OR p.provolatile <> 'v' OR p.pronargs<>8 OR p.pronargdefaults<>2
                     OR p.oid <> 'public.create_appointment_with_services(uuid,uuid,uuid,uuid,timestamptz,jsonb,integer,text)'::regprocedure
                     OR p.prorettype <> 'pg_catalog.jsonb'::regtype OR p.proconfig IS DISTINCT FROM ARRAY['search_path=""']::text[]
+                  WHEN p.proname IN ('get_product_stock','get_low_stock_products') THEN
+                    p.prosecdef OR NOT p.proretset OR p.provolatile <> 's' OR p.pronargdefaults <> 0
+                    OR p.oid NOT IN ('public.get_product_stock(uuid,uuid[])'::regprocedure,
+                                    'public.get_low_stock_products(uuid,integer,integer)'::regprocedure)
+                    OR p.prorettype <> 'pg_catalog.record'::regtype
+                    OR p.proconfig IS DISTINCT FROM ARRAY['search_path=""']::text[]
                   WHEN p.proname = 'get_availability' THEN
                     p.prosecdef OR NOT p.proretset OR p.provolatile <> 's' OR p.pronargs<>5 OR p.pronargdefaults<>1
                     OR p.oid <> 'public.get_availability(uuid,uuid,date,integer,uuid)'::regprocedure

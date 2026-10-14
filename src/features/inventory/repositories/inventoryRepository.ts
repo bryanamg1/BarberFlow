@@ -14,7 +14,7 @@ const movementColumns =
   'id, business_id, product_id, type, quantity_delta, unit_cost, reference_type, reference_id, notes, occurred_at, created_by, created_at';
 
 export const inventoryRepository = {
-  // These transport the BF-221 wire contract; the RPC producers are a later ticket.
+  // Read-only BF-221 producers compute balances under the caller's existing RLS.
   getProductStock(
     businessId: string,
     productIds: string[],
