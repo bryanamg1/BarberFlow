@@ -11,11 +11,11 @@ DECLARE
   privilege_name text;
   expected boolean;
   checks integer := 0;
-  read_only constant text[] := ARRAY['sales','sale_items','payments','purchases','purchase_items','stock_movements'];
+  read_only constant text[] := ARRAY['sales','sale_items','payments','purchases','purchase_items','stock_movements','appointments','appointment_services'];
 BEGIN
   IF current_user <> 'postgres' THEN RAISE EXCEPTION 'Run this local suite as migration owner postgres'; END IF;
   IF (SELECT count(*) FROM pg_tables WHERE schemaname='public') <> 19
-     OR (SELECT count(*) FROM pg_policies WHERE schemaname='public') <> 46 THEN
+     OR (SELECT count(*) FROM pg_policies WHERE schemaname='public') <> 41 THEN
     RAISE EXCEPTION 'Unexpected table/policy inventory';
   END IF;
   FOR target IN SELECT c.* FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
@@ -36,7 +36,7 @@ BEGIN
             WHEN 'SELECT' THEN true
             WHEN 'INSERT' THEN target.relname <> 'businesses' AND NOT target.relname = ANY(read_only)
             WHEN 'UPDATE' THEN target.relname IN ('profiles','businesses')
-            WHEN 'DELETE' THEN target.relname IN ('business_hours','appointment_services')
+            WHEN 'DELETE' THEN target.relname IN ('business_hours')
             ELSE false END END;
         IF has_table_privilege(role_name,target.oid,privilege_name) IS DISTINCT FROM expected THEN
           RAISE EXCEPTION 'Wrong effective table grant: % % %',role_name,target.relname,privilege_name;
@@ -58,8 +58,8 @@ BEGIN
                 WHEN target.relname = ANY(read_only) THEN false
                 WHEN target.relname IN ('profiles','businesses') THEN true
                 WHEN target.relname='expenses' THEN col.attname = ANY(ARRAY['category_id','description','amount','payment_method','expense_date','receipt_path','notes'])
-                WHEN target.relname='appointment_services' THEN col.attname <> 'appointment_id'
-                WHEN target.relname='appointments' THEN col.attname NOT IN ('business_id','created_by')
+                WHEN target.relname='appointment_services' THEN false
+                WHEN target.relname='appointments' THEN false
                 ELSE col.attname <> 'business_id' END
               ELSE false END END;
           IF has_column_privilege(role_name,target.oid,col.attname,privilege_name) IS DISTINCT FROM expected THEN
@@ -75,20 +75,20 @@ BEGIN
   END LOOP;
 
   IF (SELECT count(*) FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
-      WHERE n.nspname IN ('public','private')) <> 11 THEN
+      WHERE n.nspname IN ('public','private')) <> 12 THEN
     RAISE EXCEPTION 'Unexpected helper/RPC inventory';
   END IF;
   FOR target IN SELECT p.*,n.nspname FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
     WHERE n.nspname IN ('public','private') LOOP
     IF target.proowner <> 'postgres'::regrole OR target.proconfig IS DISTINCT FROM ARRAY['search_path=""']::text[]
-       OR target.prosecdef IS DISTINCT FROM (target.proname IN ('is_business_member','has_business_role','can_read_payment','get_client_stats','guard_business_currency_change'))
+       OR target.prosecdef IS DISTINCT FROM (target.proname IN ('is_business_member','has_business_role','can_read_payment','get_client_stats','guard_business_currency_change','create_appointment_with_services'))
        OR EXISTS (SELECT 1 FROM aclexplode(COALESCE(target.proacl,acldefault('f',target.proowner))) WHERE grantee=0 AND privilege_type='EXECUTE') THEN
       RAISE EXCEPTION 'Unsafe function owner/search_path/definer/PUBLIC ACL: %',target.proname;
     END IF;
     FOREACH role_name IN ARRAY ARRAY['anon','authenticated','service_role'] LOOP
       expected := CASE role_name WHEN 'anon' THEN false
-        WHEN 'authenticated' THEN target.proname IN ('is_business_member','has_business_role','can_read_payment','get_client_stats','save_business_hours','get_availability','appointment_slot_candidates')
-        ELSE target.nspname='public' AND target.proname NOT IN ('get_client_stats','save_business_hours','get_availability') END;
+        WHEN 'authenticated' THEN target.proname IN ('is_business_member','has_business_role','can_read_payment','get_client_stats','save_business_hours','get_availability','appointment_slot_candidates','create_appointment_with_services')
+        ELSE target.nspname='public' AND target.proname NOT IN ('get_client_stats','save_business_hours','get_availability','create_appointment_with_services') END;
       IF has_function_privilege(role_name,target.oid,'EXECUTE') IS DISTINCT FROM expected THEN
         RAISE EXCEPTION 'Wrong function EXECUTE: % %',role_name,target.proname;
       END IF;
@@ -106,7 +106,7 @@ BEGIN
              WHERE n.nspname='public' AND c.relkind='S') THEN
     RAISE EXCEPTION 'Unexpected existing public sequence';
   END IF;
-  RAISE NOTICE 'BF-116A effective ACL passed: % table/column/function checks; 19 RLS tables, 46 policies, private helper and service_role preserved',checks;
+  RAISE NOTICE 'BF-116A effective ACL passed: % table/column/function checks; 19 RLS tables, 41 policies, private helper and service_role preserved',checks;
 END;
 $$;
 

@@ -30,12 +30,7 @@ DECLARE
     'services.services_insert_owners',
     'services.services_update_owners',
     'appointments.appointments_select_authorized',
-    'appointments.appointments_insert_authorized',
-    'appointments.appointments_update_authorized',
     'appointment_services.appointment_services_select_authorized',
-    'appointment_services.appointment_services_insert_authorized',
-    'appointment_services.appointment_services_update_authorized',
-    'appointment_services.appointment_services_delete_authorized',
     'product_categories.product_categories_select_members',
     'product_categories.product_categories_insert_owners',
     'product_categories.product_categories_update_owners',
@@ -153,14 +148,18 @@ BEGIN
   IF (SELECT array_agg(tablename || '.' || policyname ORDER BY tablename, policyname)
       FROM pg_policies WHERE schemaname = 'public')
      IS DISTINCT FROM (SELECT array_agg(p ORDER BY p) FROM unnest(v_policy_names) AS names(p)) THEN
-    RAISE EXCEPTION 'Expected exactly the 46 approved BF-073/BF-074/BF-075/BF-076/BF-077/BF-078/BF-079 policies and no others';
+    RAISE EXCEPTION 'Expected exactly the 41 approved BF-073/BF-074/BF-075/BF-076/BF-077/BF-078/BF-079 policies and no others';
   END IF;
   IF (SELECT array_agg(p.proname::text ORDER BY p.proname)
       FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace WHERE n.nspname = 'public')
-     IS DISTINCT FROM ARRAY['get_availability','get_client_stats', 'has_business_role', 'is_business_member',
+     IS DISTINCT FROM ARRAY['create_appointment_with_services','get_availability','get_client_stats', 'has_business_role', 'is_business_member',
                             'prevent_stock_movement_changes', 'save_business_hours', 'set_updated_at']::text[]
      OR EXISTS (SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
                 WHERE n.nspname = 'public' AND CASE
+                  WHEN p.proname = 'create_appointment_with_services' THEN
+                    NOT p.prosecdef OR p.proretset OR p.provolatile <> 'v' OR p.pronargs<>8 OR p.pronargdefaults<>2
+                    OR p.oid <> 'public.create_appointment_with_services(uuid,uuid,uuid,uuid,timestamptz,jsonb,integer,text)'::regprocedure
+                    OR p.prorettype <> 'pg_catalog.jsonb'::regtype OR p.proconfig IS DISTINCT FROM ARRAY['search_path=""']::text[]
                   WHEN p.proname = 'get_availability' THEN
                     p.prosecdef OR NOT p.proretset OR p.provolatile <> 's' OR p.pronargs<>5 OR p.pronargdefaults<>1
                     OR p.oid <> 'public.get_availability(uuid,uuid,date,integer,uuid)'::regprocedure
@@ -342,7 +341,7 @@ BEGIN
       RAISE EXCEPTION 'Denied DML changed rows on %', v_table;
     END IF;
   END LOOP;
-  RAISE NOTICE 'BF-071 passed: 19 RLS tables, 46 approved policies, zero FORCE/unexpected functions, % denied DML checks, 19 service_role reads and unchanged fixtures', v_checks;
+  RAISE NOTICE 'BF-071 passed: 19 RLS tables, 41 approved policies, zero FORCE/unexpected functions, % denied DML checks, 19 service_role reads and unchanged fixtures', v_checks;
 END;
 $$;
 

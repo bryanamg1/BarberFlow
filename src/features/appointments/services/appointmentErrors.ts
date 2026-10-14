@@ -23,7 +23,8 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 /**
  * A public code string is an explicit domain signal (missing detail or failed validation).
  * Technical inputs are SDK errors/responses or caught rejections, never public-code strings.
- * Conflict has no approved RPC identifier yet: do not infer it from SQLSTATE or error prose.
+ * BF-145 emits PT409 for scheduling conflicts and PT422 for invalid create input.
+ * Other database/HTTP errors are not inferred from free-form prose or generic status.
  */
 export function mapAppointmentError(error: unknown): AppointmentServiceError | null {
   if (error === null || error === undefined) return null;
@@ -45,6 +46,8 @@ export function mapAppointmentError(error: unknown): AppointmentServiceError | n
       ) {
         return failure('APPOINTMENT_ACCESS_DENIED');
       }
+      if (isRecord(cause) && cause.code === 'PT409') return failure('APPOINTMENT_CONFLICT');
+      if (isRecord(cause) && cause.code === 'PT422') return failure('INVALID_APPOINTMENT');
     }
   } catch {
     // Unknown rejection objects may have throwing accessors; never leak or rethrow them.

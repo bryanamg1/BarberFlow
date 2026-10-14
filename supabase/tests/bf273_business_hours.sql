@@ -14,7 +14,7 @@ BEGIN
     RAISE EXCEPTION 'Hours RPC must be an authenticated-only invoker with empty search_path';
   END IF;
   IF has_column_privilege('authenticated','public.business_hours','business_id','UPDATE')
-     OR (SELECT count(*) FROM pg_policies WHERE schemaname='public') <> 46
+     OR (SELECT count(*) FROM pg_policies WHERE schemaname='public') <> 41
      OR (SELECT count(*) FROM pg_tables WHERE schemaname='public') <> 19 THEN
     RAISE EXCEPTION 'Hours RPC must not relax existing RLS or immutable tenant grants';
   END IF;

@@ -28,12 +28,7 @@ DECLARE
     'services.services_insert_owners',
     'services.services_update_owners',
     'appointments.appointments_select_authorized',
-    'appointments.appointments_insert_authorized',
-    'appointments.appointments_update_authorized',
     'appointment_services.appointment_services_select_authorized',
-    'appointment_services.appointment_services_insert_authorized',
-    'appointment_services.appointment_services_update_authorized',
-    'appointment_services.appointment_services_delete_authorized',
     'product_categories.product_categories_select_members',
     'product_categories.product_categories_insert_owners',
     'product_categories.product_categories_update_owners',
@@ -117,7 +112,7 @@ BEGIN
   IF (SELECT array_agg(tablename || '.' || policyname ORDER BY tablename, policyname)
       FROM pg_policies WHERE schemaname = 'public')
      IS DISTINCT FROM (SELECT array_agg(p ORDER BY p) FROM unnest(v_policy_names) AS names(p)) THEN
-    RAISE EXCEPTION 'Expected exactly the 46 approved BF-073/BF-074/BF-075/BF-076/BF-077/BF-078/BF-079 policies and no others';
+    RAISE EXCEPTION 'Expected exactly the 41 approved BF-073/BF-074/BF-075/BF-076/BF-077/BF-078/BF-079 policies and no others';
   END IF;
 
   INSERT INTO auth.users (id) VALUES (v_user_a), (v_user_b), (v_nonmember), (v_inactive_user);
@@ -256,9 +251,9 @@ BEGIN
   IF (SELECT array_agg(tablename || '.' || policyname ORDER BY tablename, policyname)
       FROM pg_policies WHERE schemaname = 'public')
      IS DISTINCT FROM (SELECT array_agg(p ORDER BY p) FROM unnest(v_policy_names) AS names(p)) THEN
-    RAISE EXCEPTION 'Expected exactly the 46 approved BF-073/BF-074/BF-075/BF-076/BF-077/BF-078/BF-079 policies and no others';
+    RAISE EXCEPTION 'Expected exactly the 41 approved BF-073/BF-074/BF-075/BF-076/BF-077/BF-078/BF-079 policies and no others';
   END IF;
-  RAISE NOTICE 'BF-072 passed: % authenticated helper results, scoped direct membership reads, no recursion, hostile search_path, NULL safety, literal roles, revocation, anon EXECUTE denial, service_role semantics, 46 approved policies and unchanged fixtures', v_checks;
+  RAISE NOTICE 'BF-072 passed: % authenticated helper results, scoped direct membership reads, no recursion, hostile search_path, NULL safety, literal roles, revocation, anon EXECUTE denial, service_role semantics, 41 approved policies and unchanged fixtures', v_checks;
 END;
 $$;
 

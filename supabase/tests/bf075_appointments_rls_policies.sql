@@ -29,12 +29,7 @@ DECLARE
     'services.services_insert_owners',
     'services.services_update_owners',
     'appointments.appointments_select_authorized',
-    'appointments.appointments_insert_authorized',
-    'appointments.appointments_update_authorized',
     'appointment_services.appointment_services_select_authorized',
-    'appointment_services.appointment_services_insert_authorized',
-    'appointment_services.appointment_services_update_authorized',
-    'appointment_services.appointment_services_delete_authorized',
     'product_categories.product_categories_select_members',
     'product_categories.product_categories_insert_owners',
     'product_categories.product_categories_update_owners',
@@ -61,54 +56,15 @@ BEGIN
   IF (SELECT array_agg(tablename || '.' || policyname ORDER BY tablename, policyname)
       FROM pg_policies WHERE schemaname = 'public')
      IS DISTINCT FROM (SELECT array_agg(p ORDER BY p) FROM unnest(policy_names) AS names(p)) THEN
-    RAISE EXCEPTION 'Expected exactly the 46 approved public policy identities';
+    RAISE EXCEPTION 'Expected exactly the 41 approved public policy identities';
   END IF;
   FOR expected IN SELECT * FROM (VALUES
-    ('appointment_services', 'appointment_services_delete_authorized', 'DELETE', $policy$(EXISTS ( SELECT 1
-   FROM public.appointments parent
-  WHERE ((parent.id = appointment_services.appointment_id) AND (public.has_business_role(parent.business_id, ARRAY['OWNER'::text]) OR (EXISTS ( SELECT 1
-           FROM public.business_members assigned
-          WHERE ((assigned.id = parent.barber_member_id) AND (assigned.business_id = parent.business_id) AND (assigned.user_id = auth.uid()) AND (assigned.is_active = true) AND (assigned.role = 'BARBER'::text))))))))$policy$, NULL),
-    ('appointment_services', 'appointment_services_insert_authorized', 'INSERT', NULL, $policy$(EXISTS ( SELECT 1
-   FROM public.appointments parent
-  WHERE ((parent.id = appointment_services.appointment_id) AND (public.has_business_role(parent.business_id, ARRAY['OWNER'::text]) OR (EXISTS ( SELECT 1
-           FROM public.business_members assigned
-          WHERE ((assigned.id = parent.barber_member_id) AND (assigned.business_id = parent.business_id) AND (assigned.user_id = auth.uid()) AND (assigned.is_active = true) AND (assigned.role = 'BARBER'::text))))) AND ((appointment_services.service_id IS NULL) OR (EXISTS ( SELECT 1
-           FROM public.services service
-          WHERE ((service.id = appointment_services.service_id) AND (service.business_id = parent.business_id))))))))$policy$),
     ('appointment_services', 'appointment_services_select_authorized', 'SELECT', $policy$(EXISTS ( SELECT 1
    FROM public.appointments parent
   WHERE (parent.id = appointment_services.appointment_id)))$policy$, NULL),
-    ('appointment_services', 'appointment_services_update_authorized', 'UPDATE', $policy$(EXISTS ( SELECT 1
-   FROM public.appointments parent
-  WHERE ((parent.id = appointment_services.appointment_id) AND (public.has_business_role(parent.business_id, ARRAY['OWNER'::text]) OR (EXISTS ( SELECT 1
-           FROM public.business_members assigned
-          WHERE ((assigned.id = parent.barber_member_id) AND (assigned.business_id = parent.business_id) AND (assigned.user_id = auth.uid()) AND (assigned.is_active = true) AND (assigned.role = 'BARBER'::text))))))))$policy$, $policy$(EXISTS ( SELECT 1
-   FROM public.appointments parent
-  WHERE ((parent.id = appointment_services.appointment_id) AND (public.has_business_role(parent.business_id, ARRAY['OWNER'::text]) OR (EXISTS ( SELECT 1
-           FROM public.business_members assigned
-          WHERE ((assigned.id = parent.barber_member_id) AND (assigned.business_id = parent.business_id) AND (assigned.user_id = auth.uid()) AND (assigned.is_active = true) AND (assigned.role = 'BARBER'::text))))) AND ((appointment_services.service_id IS NULL) OR (EXISTS ( SELECT 1
-           FROM public.services service
-          WHERE ((service.id = appointment_services.service_id) AND (service.business_id = parent.business_id))))))))$policy$),
-    ('appointments', 'appointments_insert_authorized', 'INSERT', NULL, $policy$((created_by = auth.uid()) AND (public.has_business_role(business_id, ARRAY['OWNER'::text]) OR (EXISTS ( SELECT 1
-   FROM public.business_members assigned
-  WHERE ((assigned.id = appointments.barber_member_id) AND (assigned.business_id = appointments.business_id) AND (assigned.user_id = auth.uid()) AND (assigned.is_active = true) AND (assigned.role = 'BARBER'::text))))) AND (EXISTS ( SELECT 1
-   FROM public.clients client
-  WHERE ((client.id = appointments.client_id) AND (client.business_id = appointments.business_id)))) AND (EXISTS ( SELECT 1
-   FROM public.business_members member
-  WHERE ((member.id = appointments.barber_member_id) AND (member.business_id = appointments.business_id)))))$policy$),
     ('appointments', 'appointments_select_authorized', 'SELECT', $policy$(public.has_business_role(business_id, ARRAY['OWNER'::text]) OR (EXISTS ( SELECT 1
    FROM public.business_members assigned
-  WHERE ((assigned.id = appointments.barber_member_id) AND (assigned.business_id = appointments.business_id) AND (assigned.user_id = auth.uid()) AND (assigned.is_active = true) AND (assigned.role = 'BARBER'::text)))))$policy$, NULL),
-    ('appointments', 'appointments_update_authorized', 'UPDATE', $policy$(public.has_business_role(business_id, ARRAY['OWNER'::text]) OR (EXISTS ( SELECT 1
-   FROM public.business_members assigned
-  WHERE ((assigned.id = appointments.barber_member_id) AND (assigned.business_id = appointments.business_id) AND (assigned.user_id = auth.uid()) AND (assigned.is_active = true) AND (assigned.role = 'BARBER'::text)))))$policy$, $policy$((public.has_business_role(business_id, ARRAY['OWNER'::text]) OR (EXISTS ( SELECT 1
-   FROM public.business_members assigned
-  WHERE ((assigned.id = appointments.barber_member_id) AND (assigned.business_id = appointments.business_id) AND (assigned.user_id = auth.uid()) AND (assigned.is_active = true) AND (assigned.role = 'BARBER'::text))))) AND (EXISTS ( SELECT 1
-   FROM public.clients client
-  WHERE ((client.id = appointments.client_id) AND (client.business_id = appointments.business_id)))) AND (EXISTS ( SELECT 1
-   FROM public.business_members member
-  WHERE ((member.id = appointments.barber_member_id) AND (member.business_id = appointments.business_id)))))$policy$)
+  WHERE ((assigned.id = appointments.barber_member_id) AND (assigned.business_id = appointments.business_id) AND (assigned.user_id = auth.uid()) AND (assigned.is_active = true) AND (assigned.role = 'BARBER'::text)))))$policy$, NULL)
   ) AS policies(table_name, policy_name, command, using_expression, check_expression) LOOP
     SELECT * INTO STRICT actual FROM pg_policies WHERE schemaname = 'public'
       AND tablename = expected.table_name AND policyname = expected.policy_name;
@@ -126,8 +82,7 @@ BEGIN
   LOOP
     IF has_table_privilege('authenticated', col.oid, 'UPDATE')
        OR has_column_privilege('authenticated', col.oid, col.attname, 'UPDATE') IS DISTINCT FROM
-          (CASE WHEN col.relname = 'appointments' THEN col.attname NOT IN ('business_id','created_by')
-                ELSE col.attname <> 'appointment_id' END)
+          false
        OR NOT has_column_privilege('service_role', col.oid, col.attname, 'UPDATE')
        OR has_column_privilege('anon', col.oid, col.attname, 'UPDATE') THEN
       RAISE EXCEPTION 'Incorrect immutable-column grant: %.%', col.relname, col.attname;
@@ -140,7 +95,7 @@ BEGIN
                   AND (NOT c.relrowsecurity OR c.relforcerowsecurity)) THEN
     RAISE EXCEPTION 'Expected 19 RLS tables without FORCE';
   END IF;
-  RAISE NOTICE 'BF-075 metadata passed: exactly 46 known policies, seven exact appointment policies, authenticated only, three immutable columns, other UPDATE columns and service_role unchanged, all 19 tables covered, 19 RLS tables without FORCE';
+  RAISE NOTICE 'BF-075 metadata passed: exactly 41 known policies, two exact SELECT policies, authenticated only, all direct writes fenced, service_role unchanged, all 19 tables covered, 19 RLS tables without FORCE';
 END;
 $$;
 
@@ -240,7 +195,7 @@ BEGIN
         FOREACH operation IN ARRAY ARRAY['SELECT','INSERT','UPDATE','DELETE'] LOOP
           allowed := person.database_role = 'authenticated' AND parent_business = ANY(person.active_businesses)
             AND (person.business_role = 'OWNER' OR person.assigned_index = idx)
-            AND (operation <> 'DELETE' OR table_name = 'appointment_services');
+            AND operation = 'SELECT';
           allowed := coalesce(allowed, false);
           expected_count := CASE WHEN allowed THEN 1 ELSE 0 END;
           statement := CASE operation
@@ -310,6 +265,7 @@ BEGIN
       ('archived service UPDATE', format('UPDATE public.appointment_services SET service_id = %L WHERE id = %L',services[3],lines[1]), true),
       ('COMPLETED to CONFIRMED', format('UPDATE public.appointments SET status = ''COMPLETED'' WHERE id = %L; UPDATE public.appointments SET status = ''CONFIRMED'' WHERE id = %L',appts[1],appts[1]), true)
     ) AS cases(label,statement,allowed) LOOP
+      scenario.allowed := false; -- BF145: all direct appointment writes are forbidden, including formerly valid boundaries.
       BEGIN
         PERFORM set_config('request.jwt.claims',jsonb_build_object('sub',person.user_id,'role','authenticated')::text,true);
         PERFORM set_config('request.jwt.claim.sub',person.user_id::text,true);
@@ -319,7 +275,7 @@ BEGIN
           GET DIAGNOSTICS affected = ROW_COUNT;
           IF NOT scenario.allowed OR affected <> 1 THEN RAISE EXCEPTION 'Unexpected boundary success/row count'; END IF;
         EXCEPTION WHEN insufficient_privilege THEN
-          IF scenario.allowed OR SQLERRM NOT LIKE '%row-level security%' THEN RAISE; END IF;
+          IF scenario.allowed OR (SQLERRM NOT LIKE '%row-level security%' AND SQLERRM NOT LIKE 'permission denied for table %') THEN RAISE; END IF;
         END;
         RESET ROLE;
         RAISE EXCEPTION 'Rollback boundary case' USING ERRCODE = 'ZB075';
@@ -334,9 +290,10 @@ BEGIN
   PERFORM set_config('request.jwt.claims',jsonb_build_object('sub',users[3],'role','authenticated')::text,true);
   PERFORM set_config('request.jwt.claim.sub',users[3]::text,true);
   SET LOCAL ROLE authenticated;
-  UPDATE public.appointments SET barber_member_id = members[3] WHERE id = appts[2];
-  GET DIAGNOSTICS affected = ROW_COUNT;
-  IF affected <> 0 THEN RAISE EXCEPTION 'BARBER took another appointment'; END IF;
+  BEGIN
+    UPDATE public.appointments SET barber_member_id = members[3] WHERE id = appts[2];
+    RAISE EXCEPTION 'BARBER direct reassignment succeeded';
+  EXCEPTION WHEN insufficient_privilege THEN NULL; END;
   RESET ROLE;
   -- Matching the referenced membership id alone is insufficient across tenants.
   PERFORM set_config('request.jwt.claims',jsonb_build_object('sub',users[5],'role','authenticated')::text,true);
@@ -395,9 +352,10 @@ BEGIN
       FOREACH table_name IN ARRAY ARRAY['appointments','appointment_services'] LOOP
         EXECUTE format('SELECT count(*) FROM public.%I',table_name) INTO actual_count;
         IF actual_count <> 0 THEN RAISE EXCEPTION 'Revoked SELECT persists'; END IF;
-        EXECUTE format('UPDATE public.%I SET created_at = created_at',table_name);
-        GET DIAGNOSTICS affected = ROW_COUNT;
-        IF affected <> 0 THEN RAISE EXCEPTION 'Revoked UPDATE persists'; END IF;
+        BEGIN
+          EXECUTE format('UPDATE public.%I SET created_at = created_at',table_name);
+          RAISE EXCEPTION 'Revoked UPDATE persists';
+        EXCEPTION WHEN insufficient_privilege THEN NULL; END;
         BEGIN
           EXECUTE format('DELETE FROM public.%I',table_name);
           GET DIAGNOSTICS affected = ROW_COUNT;
@@ -415,7 +373,7 @@ BEGIN
           END IF;
           RAISE EXCEPTION 'Revoked INSERT persists';
         EXCEPTION WHEN insufficient_privilege THEN
-          IF SQLERRM NOT LIKE '%row-level security%' THEN RAISE; END IF;
+          IF SQLERRM NOT LIKE '%row-level security%' AND SQLERRM NOT LIKE 'permission denied for table %' THEN RAISE; END IF;
         END;
         revocation_checks := revocation_checks + 4;
       END LOOP;

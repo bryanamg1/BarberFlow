@@ -27,12 +27,7 @@ DECLARE
     'services.services_insert_owners',
     'services.services_update_owners',
     'appointments.appointments_select_authorized',
-    'appointments.appointments_insert_authorized',
-    'appointments.appointments_update_authorized',
     'appointment_services.appointment_services_select_authorized',
-    'appointment_services.appointment_services_insert_authorized',
-    'appointment_services.appointment_services_update_authorized',
-    'appointment_services.appointment_services_delete_authorized',
     'product_categories.product_categories_select_members',
     'product_categories.product_categories_insert_owners',
     'product_categories.product_categories_update_owners',
@@ -59,7 +54,7 @@ BEGIN
   IF (SELECT array_agg(tablename || '.' || policyname ORDER BY tablename, policyname)
       FROM pg_policies WHERE schemaname = 'public')
      IS DISTINCT FROM (SELECT array_agg(p ORDER BY p) FROM unnest(policy_names) AS names(p)) THEN
-    RAISE EXCEPTION 'Expected exactly the 46 approved public policy identities';
+    RAISE EXCEPTION 'Expected exactly the 41 approved public policy identities';
   END IF;
   -- Literal expressions are the independent metadata oracle; only whitespace
   -- is normalized, retaining every operator, cast and tenant correlation.
@@ -106,9 +101,9 @@ BEGIN
   END IF;
   IF (SELECT array_agg(p.proname::text ORDER BY p.proname) FROM pg_proc p
       JOIN pg_namespace n ON n.oid = p.pronamespace WHERE n.nspname = 'public') IS DISTINCT FROM
-      ARRAY['get_availability','get_client_stats','has_business_role','is_business_member','prevent_stock_movement_changes','save_business_hours','set_updated_at']::text[]
+      ARRAY['create_appointment_with_services','get_availability','get_client_stats','has_business_role','is_business_member','prevent_stock_movement_changes','save_business_hours','set_updated_at']::text[]
      OR (SELECT count(*) FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
-         WHERE n.nspname = 'public' AND p.prosecdef) <> 3 THEN
+         WHERE n.nspname = 'public' AND p.prosecdef) <> 4 THEN
     RAISE EXCEPTION 'Unexpected public function/SECURITY DEFINER';
   END IF;
   IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgrelid = 'public.stock_movements'::regclass
@@ -118,7 +113,7 @@ BEGIN
      OR (SELECT count(*) FROM pg_trigger WHERE tgrelid = 'public.stock_movements'::regclass AND NOT tgisinternal) <> 1 THEN
     RAISE EXCEPTION 'Append-only trigger changed';
   END IF;
-  RAISE NOTICE 'BF-076 metadata passed: exactly46policies,19RLS/FORCEoff,seven approved public functions/three public definers,existing ledger trigger';
+  RAISE NOTICE 'BF-076 metadata passed: exactly41policies,19RLS/FORCEoff,eight approved public functions/four public definers,existing ledger trigger';
 END;
 $$;
 

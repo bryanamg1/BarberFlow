@@ -118,12 +118,31 @@ test('BF147 failed caller validation is an explicit INVALID_APPOINTMENT signal',
   );
 });
 
-test('BF147 conflict is a domain signal without invented technical RPC/SQLSTATE mapping', () => {
+test('BF147 generic constraint/HTTP conflicts remain unknown without the BF145 identifier', () => {
   check('APPOINTMENT_CONFLICT', 'APPOINTMENT_CONFLICT');
   for (const code of ['23P01', '23505', 'P0001', 'APPOINTMENT_CONFLICT']) {
     check({ code, message: 'APPOINTMENT_CONFLICT', details: privateText }, 'UNKNOWN_ERROR');
   }
   check({ status: 409, error: { code: '23505' } }, 'UNKNOWN_ERROR');
+});
+
+test('BF145 fixed SQL identifiers map safely, raw and wrapped, without reading prose', () => {
+  for (const [code, expected] of [
+    ['PT409', 'APPOINTMENT_CONFLICT'],
+    ['PT422', 'INVALID_APPOINTMENT'],
+  ]) {
+    const error = { code };
+    for (const key of ['message', 'details', 'hint'])
+      Object.defineProperty(error, key, {
+        get() {
+          throw new Error('must not read');
+        },
+      });
+    check(error, expected);
+    check({ error, status: code === 'PT409' ? 409 : 422 }, expected);
+    check({ error, status: 0 }, 'NETWORK_ERROR');
+    check({ error, status: 403 }, 'APPOINTMENT_ACCESS_DENIED');
+  }
 });
 
 test('BF147 invalid lifecycle state is not a separate unapproved public code', () => {

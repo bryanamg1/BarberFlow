@@ -33,12 +33,12 @@ BEGIN
           OR acl.privilege_type <> 'EXECUTE' OR acl.is_grantable) THEN
     RAISE EXCEPTION 'BF-245 EXECUTE must be authenticated-only, no PUBLIC or backend default';
   END IF;
-  IF (SELECT count(*) FROM pg_policies WHERE schemaname='public') <> 46
+  IF (SELECT count(*) FROM pg_policies WHERE schemaname='public') <> 41
      OR (SELECT count(*) FROM pg_tables WHERE schemaname='public') <> 19
      OR EXISTS (SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
        WHERE n.nspname='public' AND c.relkind IN ('r','p')
          AND (NOT c.relrowsecurity OR c.relforcerowsecurity)) THEN
-    RAISE EXCEPTION 'BF-245 must preserve 19 RLS tables, FORCE off and46 policies';
+    RAISE EXCEPTION 'BF-245 must preserve 19 RLS tables, FORCE off and41 policies';
   END IF;
   RAISE NOTICE 'BF-245 metadata passed: native six-column signature, STABLE definer, postgres owner, empty path, authenticated-only EXECUTE';
 END;

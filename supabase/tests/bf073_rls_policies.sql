@@ -8,20 +8,15 @@ DECLARE
   actual record;
   col record;
 BEGIN
-  IF (SELECT count(*) FROM pg_policies WHERE schemaname = 'public') <> 46 THEN
-    RAISE EXCEPTION 'Expected exactly 46 BF-073/BF-074/BF-075/BF-076/BF-077/BF-078/BF-079 policies';
+  IF (SELECT count(*) FROM pg_policies WHERE schemaname = 'public') <> 41 THEN
+    RAISE EXCEPTION 'Expected exactly 41 BF-073/BF-074/BF-075/BF-076/BF-077/BF-078/BF-079 policies';
   END IF;
   IF (SELECT array_agg(tablename || '.' || policyname ORDER BY tablename, policyname)
       FROM pg_policies WHERE schemaname = 'public'
         AND tablename IN ('appointments', 'appointment_services')) IS DISTINCT FROM
-     ARRAY['appointment_services.appointment_services_delete_authorized',
-           'appointment_services.appointment_services_insert_authorized',
-           'appointment_services.appointment_services_select_authorized',
-           'appointment_services.appointment_services_update_authorized',
-           'appointments.appointments_insert_authorized',
-           'appointments.appointments_select_authorized',
-           'appointments.appointments_update_authorized']::text[] THEN
-    RAISE EXCEPTION 'Expected exactly the seven approved BF-075 policy identities';
+     ARRAY['appointment_services.appointment_services_select_authorized',
+           'appointments.appointments_select_authorized']::text[] THEN
+    RAISE EXCEPTION 'Expected exactly the two retained appointment SELECT policies after BF145';
   END IF;
   IF (SELECT array_agg(tablename || '.' || policyname ORDER BY tablename, policyname)
       FROM pg_policies WHERE schemaname = 'public'

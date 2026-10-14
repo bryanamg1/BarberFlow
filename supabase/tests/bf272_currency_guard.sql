@@ -26,7 +26,7 @@ BEGIN
   IF (SELECT count(*) FROM pg_trigger WHERE NOT tgisinternal AND tgname IN (
       'businesses_guard_currency','sales_lock_business_currency','payments_lock_business_currency',
       'purchases_lock_business_currency','expenses_lock_business_currency')) <> 5
-     OR (SELECT count(*) FROM pg_policies WHERE schemaname='public') <> 46
+     OR (SELECT count(*) FROM pg_policies WHERE schemaname='public') <> 41
      OR (SELECT count(*) FROM pg_tables WHERE schemaname='public') <> 19
      OR EXISTS (SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
          WHERE n.nspname='public' AND c.relkind IN ('r','p') AND (NOT c.relrowsecurity OR c.relforcerowsecurity)) THEN

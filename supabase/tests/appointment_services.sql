@@ -95,8 +95,7 @@ BEGIN
   IF NOT (SELECT relrowsecurity FROM pg_class WHERE oid = 'public.appointment_services'::regclass)
      OR (SELECT array_agg(policyname::text ORDER BY policyname) FROM pg_policies
          WHERE schemaname = 'public' AND tablename = 'appointment_services') IS DISTINCT FROM
-        ARRAY['appointment_services_delete_authorized', 'appointment_services_insert_authorized',
-              'appointment_services_select_authorized', 'appointment_services_update_authorized']::text[] THEN
+        ARRAY['appointment_services_select_authorized']::text[] THEN
     RAISE EXCEPTION 'Appointment services must have RLS and exactly the four BF-075 policies';
   END IF;
   IF EXISTS (SELECT 1 FROM pg_trigger WHERE tgrelid = 'public.appointment_services'::regclass AND NOT tgisinternal) THEN

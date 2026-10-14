@@ -82,7 +82,7 @@ BEGIN
      OR (SELECT count(*) FROM auth.refresh_tokens) <> 0 THEN
     RAISE EXCEPTION 'BF081 baseline has extra tables, sessions or refresh tokens';
   END IF;
-  IF (SELECT count(*) FROM pg_policies WHERE schemaname = 'public') <> 46
+  IF (SELECT count(*) FROM pg_policies WHERE schemaname = 'public') <> 41
      OR (SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
          WHERE n.nspname = 'public' AND c.relkind IN ('r', 'p') AND c.relrowsecurity
            AND NOT c.relforcerowsecurity) <> 19 THEN

@@ -22,7 +22,7 @@ BEGIN
       RAISE EXCEPTION 'Unexpected availability/helper EXECUTE for %',role_name;
     END IF;
   END LOOP;
-  IF (SELECT count(*) FROM pg_policies WHERE schemaname='public')<>46
+  IF (SELECT count(*) FROM pg_policies WHERE schemaname='public')<>41
     OR (SELECT count(*) FROM pg_tables WHERE schemaname='public')<>19
     OR EXISTS(SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relkind='r' AND (NOT c.relrowsecurity OR c.relforcerowsecurity)) THEN
     RAISE EXCEPTION 'Availability must preserve existing tables/RLS/policies';

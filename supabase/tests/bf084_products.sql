@@ -64,7 +64,7 @@ BEGIN
     checked_tables := checked_tables + 1;
   END LOOP;
   IF checked_tables <> 12 THEN RAISE EXCEPTION 'Unexpected public table inventory'; END IF;
-  IF (SELECT count(*) FROM pg_policies WHERE schemaname = 'public') <> 46
+  IF (SELECT count(*) FROM pg_policies WHERE schemaname = 'public') <> 41
      OR (SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
          WHERE n.nspname = 'public' AND c.relkind IN ('r', 'p') AND c.relrowsecurity
            AND NOT c.relforcerowsecurity) <> 19 THEN

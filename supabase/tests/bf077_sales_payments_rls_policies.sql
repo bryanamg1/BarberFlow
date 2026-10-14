@@ -8,12 +8,12 @@ DECLARE
   actual record;
   helper record;
 BEGIN
-  IF (SELECT count(*) FROM pg_policies WHERE schemaname = 'public') <> 46
+  IF (SELECT count(*) FROM pg_policies WHERE schemaname = 'public') <> 41
      OR (SELECT array_agg(tablename || '.' || policyname ORDER BY tablename,policyname)
          FROM pg_policies WHERE schemaname = 'public' AND tablename IN ('sales','sale_items','payments'))
         IS DISTINCT FROM ARRAY['payments.payments_select_authorized',
           'sale_items.sale_items_select_authorized','sales.sales_select_authorized']::text[] THEN
-    RAISE EXCEPTION 'Expected exactly 46 public policies and three BF-077 SELECT identities';
+    RAISE EXCEPTION 'Expected exactly 41 public policies and three BF-077 SELECT identities';
   END IF;
   FOR expected IN SELECT * FROM (VALUES
     ('sales','sales_select_authorized',$policy$(public.has_business_role(business_id, ARRAY['OWNER'::text]) OR (public.has_business_role(business_id, ARRAY['BARBER'::text]) AND (created_by = ( SELECT auth.uid() AS uid))))$policy$),
@@ -61,9 +61,9 @@ BEGIN
   END IF;
   IF (SELECT array_agg(proname::text ORDER BY proname) FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
       WHERE n.nspname = 'public') IS DISTINCT FROM
-      ARRAY['get_availability','get_client_stats','has_business_role','is_business_member','prevent_stock_movement_changes','save_business_hours','set_updated_at']::text[]
+      ARRAY['create_appointment_with_services','get_availability','get_client_stats','has_business_role','is_business_member','prevent_stock_movement_changes','save_business_hours','set_updated_at']::text[]
      OR (SELECT count(*) FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
-         WHERE n.nspname IN ('public','private') AND p.prosecdef) <> 5 THEN
+         WHERE n.nspname IN ('public','private') AND p.prosecdef) <> 6 THEN
     RAISE EXCEPTION 'Unexpected functions or definers outside the approved exception';
   END IF;
   IF (SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
@@ -73,7 +73,7 @@ BEGIN
                   AND (NOT c.relrowsecurity OR c.relforcerowsecurity)) THEN
     RAISE EXCEPTION 'RLS/FORCE/future domain boundary changed';
   END IF;
-  RAISE NOTICE 'BF-077 metadata passed: 46 public policies, three exact authenticated SELECT policies, one private boolean STABLE definer, authenticated-only EXECUTE, 19 RLS tables/FORCE off, all 19 tables covered';
+  RAISE NOTICE 'BF-077 metadata passed: 41 public policies, three exact authenticated SELECT policies, one private boolean STABLE definer, authenticated-only EXECUTE, 19 RLS tables/FORCE off, all 19 tables covered';
 END;
 $$;
 

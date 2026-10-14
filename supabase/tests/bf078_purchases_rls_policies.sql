@@ -27,12 +27,7 @@ DECLARE
     'services.services_insert_owners',
     'services.services_update_owners',
     'appointments.appointments_select_authorized',
-    'appointments.appointments_insert_authorized',
-    'appointments.appointments_update_authorized',
     'appointment_services.appointment_services_select_authorized',
-    'appointment_services.appointment_services_insert_authorized',
-    'appointment_services.appointment_services_update_authorized',
-    'appointment_services.appointment_services_delete_authorized',
     'product_categories.product_categories_select_members',
     'product_categories.product_categories_insert_owners',
     'product_categories.product_categories_update_owners',
@@ -58,7 +53,7 @@ BEGIN
   IF (SELECT array_agg(tablename || '.' || policyname ORDER BY tablename,policyname)
       FROM pg_policies WHERE schemaname = 'public') IS DISTINCT FROM
      (SELECT array_agg(p ORDER BY p) FROM unnest(policy_names) names(p)) THEN
-    RAISE EXCEPTION 'Expected exactly the 46 approved policy identities';
+    RAISE EXCEPTION 'Expected exactly the 41 approved policy identities';
   END IF;
   FOR expected IN SELECT * FROM (VALUES
     ('purchases','purchases_select_owners','public.has_business_role(business_id, ARRAY[''OWNER''::text])'),
@@ -86,13 +81,13 @@ BEGIN
       FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
       WHERE n.nspname IN ('public','private')) IS DISTINCT FROM ARRAY[
         'private.appointment_slot_candidates','private.can_read_payment','private.guard_business_currency_change','private.lock_financial_business_currency',
-        'public.get_availability','public.get_client_stats','public.has_business_role','public.is_business_member',
+        'public.create_appointment_with_services','public.get_availability','public.get_client_stats','public.has_business_role','public.is_business_member',
         'public.prevent_stock_movement_changes','public.save_business_hours','public.set_updated_at']::text[]
      OR (SELECT count(*) FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
-         WHERE n.nspname IN ('public','private') AND p.prosecdef) <> 5 THEN
+         WHERE n.nspname IN ('public','private') AND p.prosecdef) <> 6 THEN
     RAISE EXCEPTION 'Unexpected function/definer change';
   END IF;
-  RAISE NOTICE 'BF-078 metadata passed: exact46policies,19RLS/FORCEoff,eleven approved functions/five definers including BF144/BF272/BF273';
+  RAISE NOTICE 'BF-078 metadata passed: exact41policies,19RLS/FORCEoff,twelve approved functions/six definers including BF144/BF272/BF273';
 END;
 $$;
 
