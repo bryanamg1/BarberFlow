@@ -13,3 +13,11 @@ export type ProductRow = {
   created_at: string;
   updated_at: string;
 };
+
+// Resolved pagination/status come from the future service, as in Services/Clients.
+export type ProductListParams = {
+  page: number;
+  pageSize: number;
+  status: 'active' | 'inactive' | 'all';
+  categoryId?: string;
+};
