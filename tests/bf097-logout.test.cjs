@@ -11,6 +11,7 @@ const ts = require('typescript');
 const root = path.resolve(__dirname, '..');
 const componentFile = path.join(root, 'src/features/auth/components/LogoutButton.tsx');
 const routeFile = path.join(root, 'src/app/(app)/(tabs)/settings/index.tsx');
+const screenFile = path.join(root, 'src/features/business/screens/SettingsScreen.tsx');
 const success = { data: null, error: null };
 const failure = {
   data: null,
@@ -42,6 +43,7 @@ function loader(
     : {
         View: 'View',
         Text: 'Text',
+        ScrollView: 'ScrollView',
         StyleSheet: { create: (styles) => styles },
         Platform: { OS: 'web', select: (values) => values.web ?? values.default },
       };
@@ -56,8 +58,12 @@ function loader(
       if (name === 'react/jsx-runtime') return require(name);
       if (name === 'react-native') return native;
       if (name === 'expo-router') {
-        assert.equal(filename, routeFile, 'Only Settings may import navigation; not LogoutButton');
+        assert.equal(filename, screenFile, 'Only Settings may import navigation; not LogoutButton');
         return { router: { push: () => assert.fail('No Settings navigation on render') } };
+      }
+      if (name === '../context/BusinessContext') {
+        assert.equal(filename, screenFile, 'Only Settings may consume business context');
+        return { useBusiness: () => ({ status: 'success', data: { role: 'OWNER' } }) };
       }
       if (name === 'react-native-safe-area-context')
         return { SafeAreaView: realUI ? native.View : 'SafeAreaView' };
@@ -65,6 +71,7 @@ function loader(
       if (name === '@/components/ui')
         return {
           Button: realUI ? load(path.join(root, 'src/components/ui/Button.tsx')).Button : 'Button',
+          Card: realUI ? native.View : 'Card',
         };
       if (name.startsWith('@/') || name.startsWith('.')) {
         const base = name.startsWith('@/')
@@ -73,7 +80,9 @@ function loader(
         const target = ['.ts', '.tsx', '/index.ts'].map((ext) => base + ext).find(fs.existsSync);
         assert(target, `Missing module ${name}`);
         assert(
-          target === componentFile || target.startsWith(path.join(root, 'src/theme')),
+          target === componentFile ||
+            (filename === routeFile && target === screenFile) ||
+            target.startsWith(path.join(root, 'src/theme')),
           `Unexpected dependency ${name}: logout must not access SDK, repository, routing, storage or business`,
         );
         return load(target);
