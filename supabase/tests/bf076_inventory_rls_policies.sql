@@ -101,7 +101,7 @@ BEGIN
   END IF;
   IF (SELECT array_agg(p.proname::text ORDER BY p.proname) FROM pg_proc p
       JOIN pg_namespace n ON n.oid = p.pronamespace WHERE n.nspname = 'public') IS DISTINCT FROM
-      ARRAY['adjust_stock','create_appointment_with_services','get_availability','get_client_stats','get_low_stock_products','get_product_stock','has_business_role','is_business_member','prevent_stock_movement_changes','save_business_hours','set_updated_at']::text[]
+      ARRAY['adjust_stock','complete_checkout','create_appointment_with_services','get_availability','get_client_stats','get_low_stock_products','get_product_stock','has_business_role','is_business_member','prevent_stock_movement_changes','save_business_hours','set_updated_at']::text[]
      OR (SELECT count(*) FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
          WHERE n.nspname = 'public' AND p.prosecdef) <> 5 THEN
     RAISE EXCEPTION 'Unexpected public function/SECURITY DEFINER';
@@ -113,7 +113,7 @@ BEGIN
      OR (SELECT count(*) FROM pg_trigger WHERE tgrelid = 'public.stock_movements'::regclass AND NOT tgisinternal) <> 1 THEN
     RAISE EXCEPTION 'Append-only trigger changed';
   END IF;
-  RAISE NOTICE 'BF-076 metadata passed: exactly41policies,19RLS/FORCEoff,eleven approved public functions/five public definers including BF223,existing ledger trigger';
+  RAISE NOTICE 'BF-076 metadata passed: exactly41policies,19RLS/FORCEoff,twelve approved public functions/five public definers including BF223 and BF180 invoker skeleton,existing ledger trigger';
 END;
 $$;
 
