@@ -196,6 +196,31 @@ it never adds a payment to a VOIDED sale. It owns no stock, appointment completi
 refund, receipt or public endpoint. Every new slice still shares one transaction
 and connection, with commit only after all checkout effects succeed.
 
+BF-185 provides only
+`private.persist_checkout_stock(p_business_id uuid, p_operation_id uuid)`,
+returning the existing twelve-column `stock_movements` row type ordered by
+occurred_at/id. It consumes the persisted PRODUCT sale items, appending one SALE
+movement per line with `quantity_delta = -sale_items.quantity` and
+`unit_cost = sale_items.unit_cost_snapshot`. Duplicate lines remain separate;
+SERVICE lines create no movement, and a free product still consumes stock.
+The sale reference is `reference_type='SALE' / reference_id=sale.id`; identity,
+timestamps and IDs are server-managed, and notes are NULL. No client stock,
+quantity, cost, type or audit payload is accepted by this slice.
+
+It reuses the existing operation key and sale lock, and invokes BF-181 with the
+persisted product IDs/quantities on the same transaction/connection. The future
+orchestrator must still acquire BF-181 product locks before BF-183 catalog locks;
+re-acquiring locks here does not release them or replace that lock order.
+Balances come from the ledger under those retained product locks. New writes
+require the existing item subtotal and payment set to match the sale header.
+An exact existing per-line movement multiset replays without consulting current
+prices/costs, product activity or stock, including for a VOIDED sale. Partial,
+foreign or inconsistent historical sets are rejected without repair. The future
+public orchestrator handles historical empty sets before invoking new stages.
+The helper is SECURITY INVOKER, empty search_path, with no client-role EXECUTE.
+No stock column, payment mutation, appointment completion or public checkout is
+introduced; all checkout effects must succeed before the shared transaction commits.
+
 Final output is exactly `{ sale, items, payments }`, containing persisted values:
 
 - SaleRow (13): id, business_id, client_id, appointment_id, operation_id, status,
