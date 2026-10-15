@@ -5,10 +5,11 @@ Status: APPROVED
 
 ## complete_checkout
 
-BF-180 freezes the following contract. The current function is a **fail-closed
-skeleton**: an authenticated active OWNER receives `0A000 / CHECKOUT_NOT_READY`,
-with no writes and no successful response. Checkout becomes available only after
-BF-181–188 are implemented and validated. No frontend adapter or UI invokes it yet.
+BF-180 is **design-only** and freezes the following contract. It installs no SQL
+function, endpoint, EXECUTE grants or runtime path. Materializing this contract
+belongs to BF-181–BF-188; checkout becomes available only after those implementation
+stages are completed and validated. The behavior below is the approved design,
+not a claim of implemented checkout functionality.
 
 Exact SQL signature (all seven arguments are required at the SQL boundary):
 
@@ -54,9 +55,8 @@ and inactive membership are denied. Existing read policies stay unchanged. Deriv
 `created_by` only from `auth.uid()`; explicitly verify the business and every reference.
 Do not add an extra business-is-active condition beyond the membership contract.
 Unknown and foreign references have the same safe failure, without existence details.
-The current no-write skeleton is SECURITY INVOKER with empty search_path. The final
-atomic writer will require a narrowly scoped hardened SECURITY DEFINER because
-ordinary callers cannot write the ledger: static schema-qualified SQL, explicit
+The future atomic writer will require a narrowly scoped hardened SECURITY DEFINER
+because ordinary callers cannot write the ledger: static schema-qualified SQL, explicit
 identity/role/tenant checks before replay or return, and EXECUTE only for authenticated.
 Do not broaden client table-write grants or introduce service-role frontend access.
 
@@ -65,6 +65,8 @@ for a new operation. CANCELLED, NO_SHOW and COMPLETED are rejected. Derive the s
 client from the appointment; an explicitly supplied client must match it. A direct
 sale may omit appointment and client; any supplied client must belong to the business.
 No synthetic walk-in client is created.
+COMPLETED is reachable only through checkout; operational status changes must not
+provide a second completion path.
 
 The submitted sale items are independent of `appointment_services`: do not require
 equal services/quantities and do not copy lines automatically. SERVICE/PRODUCT names
@@ -73,6 +75,8 @@ an explicit validated override replaces only that sale line's price. PRODUCT cos
 comes from `products.default_purchase_cost`; SERVICE cost is NULL. Preserve the
 appointment's historical snapshots exactly. Later catalog changes cannot rewrite
 either appointment or sale snapshots. No browser price/name/cost is authoritative.
+Persist SERVICE lines with service_id and a NULL product_id; persist PRODUCT lines
+with product_id and a NULL service_id, matching the existing sale_items constraints.
 
 ### Atomic effects, payment and discount
 
@@ -88,9 +92,10 @@ no payment rows and sum(empty payments) is zero. There are no zero payments, spl
 payments, credit sales, overpayments or external payment-provider calls in this flow.
 Payment notes are NULL because this DTO supplies no payment notes; actor/time are
 server-managed. HD-006 methods are exactly CASH, BANK_TRANSFER, DEBIT_CARD, CREDIT_CARD
-and DIGITAL_WALLET. **Current payments CHECK uses CASH/TRANSFER/DEBIT/CREDIT/OTHER**:
-it must be explicitly aligned before payment writes are enabled. BF-180 does not
-change that CHECK, migrate historical methods or invent a mapping to OTHER.
+and DIGITAL_WALLET. The current payments CHECK still uses a legacy method set:
+explicit schema alignment to these five values is required before payment writes
+are enabled. BF-180 does not change that CHECK, migrate historical methods or
+invent an implicit mapping.
 
 Global discount allocation for net revenue follows BUSINESS_RULES, Finance:
 positive-gross SERVICE/PRODUCT lines are eligible; zero-gross lines receive zero;
@@ -99,7 +104,7 @@ assign residual to the last eligible line, so allocations sum exactly to the glo
 discount and net lines sum to sale.total. Checkout persists gross line totals and
 the global discount only; no per-line discount/net amount is added. The separately
 pending HD-004 pathological allocation rule is not silently adopted or implemented
-by this checkout skeleton.
+by this design-only ticket.
 
 For each product, derive current stock from the same-business/product ledger after
 locking its product row, aggregate quantities across duplicate product lines and
@@ -107,6 +112,10 @@ reject negative resulting stock. Append SALE movements with negative quantities,
 transaction-time cost and `reference_type='SALE' / reference_id=sale.id`. Never call
 `adjust_stock` for a sale, update a prior movement or persist current stock in products.
 No expense, purchase, receipt retention/deletion or refund effect belongs to checkout.
+Financial history is immutable: later corrections belong to a separate authorized
+void/adjustment flow that preserves sale snapshots and payments and appends
+compensating stock movements. It must not delete historical records, rewrite their
+snapshots/payments or perform an automatic external refund.
 
 ### Idempotency, concurrency and result
 
@@ -148,9 +157,8 @@ Future fixed error identifiers: 42501/CHECKOUT_ACCESS_DENIED;
 22023/INVALID_CHECKOUT (including uniformly unavailable references);
 PT409/INSUFFICIENT_STOCK; PT409/INVALID_APPOINTMENT_STATUS. Use fixed allowlisted
 details for PT409; never parse SQL prose or expose constraints/foreign IDs.
-40001/40P01 abort the transaction without automatic retry. The current skeleton
-returns only access denial or 0A000 with detail CHECKOUT_NOT_READY; it does not yet
-implement item validation, snapshots, money, locks, replay or any completion effect.
+40001/40P01 abort the transaction without automatic retry. These are future error
+contracts; BF-180 introduces no executable error response or SQL implementation.
 
 Future validation must cover authorization/tenant negatives, linked statuses and
 client consistency, exact item keys and overrides, duplicate quantities, monetary
