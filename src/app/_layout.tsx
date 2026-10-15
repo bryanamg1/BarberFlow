@@ -9,6 +9,7 @@ import { useEffect } from 'react';
 import { AuthProvider } from '@/features/auth/context/AuthContext';
 import { AuthNavigator } from '@/features/auth/routing/AuthNavigator';
 import { BusinessProvider } from '@/features/business/context/BusinessContext';
+import { PurchaseDraftLifecycle } from '@/features/purchases/store/PurchaseDraftLifecycle';
 import { QueryProvider } from '@/lib/query';
 import { fontFamilies } from '@/theme/typography';
 
@@ -50,6 +51,7 @@ export default function RootLayout() {
     <QueryProvider>
       <AuthProvider>
         <BusinessProvider>
+          <PurchaseDraftLifecycle />
           <AuthNavigator />
         </BusinessProvider>
       </AuthProvider>

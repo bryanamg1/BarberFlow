@@ -426,6 +426,7 @@ test('BF-095: real React Context preserves children and exposes initializing dur
 test('BF-095: root keeps AuthProvider inside QueryProvider around Auth routing and the font gate', () => {
   let fontsLoaded = true;
   const AuthNavigator = function AuthNavigator() {};
+  const PurchaseDraftLifecycle = function PurchaseDraftLifecycle() {};
   const exports = compile(path.join(root, 'src/app/_layout.tsx'), (name) => {
     if (name.startsWith('@expo-google-fonts/inter/')) return new Proxy({}, { get: () => 1 });
     if (name === 'expo-font')
@@ -435,6 +436,8 @@ test('BF-095: root keeps AuthProvider inside QueryProvider around Auth routing a
     if (name === 'react') return { useEffect: () => {} };
     if (name === '@/features/auth/context/AuthContext') return { AuthProvider: 'AuthProvider' };
     if (name === '@/features/auth/routing/AuthNavigator') return { AuthNavigator };
+    if (name === '@/features/purchases/store/PurchaseDraftLifecycle')
+      return { PurchaseDraftLifecycle };
     if (name === '@/features/business/context/BusinessContext')
       return { BusinessProvider: 'BusinessProvider' };
     if (name === '@/lib/query') return { QueryProvider: 'QueryProvider' };
@@ -449,7 +452,10 @@ test('BF-095: root keeps AuthProvider inside QueryProvider around Auth routing a
   assert.equal(tree.type, 'QueryProvider');
   assert.equal(tree.props.children.type, 'AuthProvider');
   assert.equal(tree.props.children.props.children.type, 'BusinessProvider');
-  assert.equal(tree.props.children.props.children.props.children.type, AuthNavigator);
+  const businessChildren = tree.props.children.props.children.props.children;
+  assert.equal(businessChildren.length, 2);
+  assert.equal(businessChildren[0].type, PurchaseDraftLifecycle);
+  assert.equal(businessChildren[1].type, AuthNavigator);
   assert.deepEqual(exports.unstable_settings, { initialRouteName: '(app)' });
   fontsLoaded = false;
   assert.equal(exports.default(), null);
