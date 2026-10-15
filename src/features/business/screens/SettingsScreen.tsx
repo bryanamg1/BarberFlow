@@ -86,6 +86,13 @@ export function SettingsScreen() {
           <Text style={styles.description}>
             Cinco medios de pago fijos en V1, sin personalización.
           </Text>
+          {business.status === 'success' && (
+            <Button
+              label="Ver medios de pago"
+              variant="secondary"
+              onPress={() => router.push('/settings/payment-methods')}
+            />
+          )}
         </Card>
         <Card style={styles.section}>
           <Text role="heading" style={styles.sectionHeading}>
