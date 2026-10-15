@@ -161,6 +161,24 @@ before BF-181 product locks; all slices run in that one transaction, with commit
 only after every checkout effect succeeds. A sale header alone is not a completed
 checkout flow and must never be exposed through a separate client RPC.
 
+BF-183 provides only
+`private.persist_checkout_items(p_business_id uuid, p_operation_id uuid, p_items jsonb)`,
+returning the existing eleven-column `sale_items` row type, ordered by created_at/id.
+It reuses the operation key and existing BF-182 header, never creates another sale,
+and atomically inserts the explicit SERVICE/PRODUCT lines. Gross subtotal must match
+the server-computed header; neither header totals nor catalog values are repaired.
+Catalog names/prices and product cost are captured under UUID-ordered shared locks
+(products before services); these preserve BF-181's already-held stronger product
+locks without reading stock or replacing its stock-validation protocol. Overrides
+are exact two-decimal strings; quantities are positive int4 JSON numbers. Unknown
+keys and caller snapshots are rejected. Duplicates retain their separate quantities
+and overrides. Existing snapshots replay unchanged before any input/catalog validation,
+including for a VOIDED sale. The helper is SECURITY INVOKER, empty search_path, and
+has no client-role EXECUTE. The future writer must call it for the fresh header on
+the same transaction/connection and commit only after every remaining checkout slice;
+this internal item result is not public checkout success. No payment, discount
+allocation, stock movement or appointment completion is implemented by BF-183.
+
 Final output is exactly `{ sale, items, payments }`, containing persisted values:
 
 - SaleRow (13): id, business_id, client_id, appointment_id, operation_id, status,
