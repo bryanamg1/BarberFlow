@@ -107,12 +107,12 @@ test('BF274 context loss removes the list and a new business has the same fixed 
   await view.rerender(<PaymentRoute />);
   for (const label of labels) expect(screen.getByText(label)).toBeOnTheScreen();
 });
-test('BF274 back uses history when available', async () => {
+test('BF274 named Settings return ignores unrelated back-stack history', async () => {
   canGoBack.mockReturnValue(true);
   await renderWithProviders(<PaymentRoute />);
   await press('Volver a Configuración');
-  expect(routerMock.back).toHaveBeenCalledTimes(1);
-  expect(routerMock.replace).not.toHaveBeenCalled();
+  expect(routerMock.back).not.toHaveBeenCalled();
+  expect(routerMock.replace).toHaveBeenCalledWith('/settings');
 });
 test('BF274 direct deep link safely returns to Settings', async () => {
   await renderWithProviders(<PaymentRoute />);

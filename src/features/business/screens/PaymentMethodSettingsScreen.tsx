@@ -50,10 +50,7 @@ export function PaymentMethodSettingsScreen() {
         <Button
           label="Volver a Configuración"
           variant="secondary"
-          onPress={() => {
-            if (router.canGoBack()) router.back();
-            else router.replace('/settings');
-          }}
+          onPress={() => router.replace('/settings')}
         />
       </ScrollView>
     </SafeAreaView>
