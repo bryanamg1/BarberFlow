@@ -18,6 +18,11 @@ export default function SettingsScreen() {
       />
       <Button label="Servicios" variant="secondary" onPress={() => router.push('/services')} />
       <Button
+        label="Categorías de gastos"
+        variant="secondary"
+        onPress={() => router.push('/expenses/categories')}
+      />
+      <Button
         label="Horarios de atención"
         variant="secondary"
         onPress={() => router.push('/business/hours')}
