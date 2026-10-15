@@ -148,6 +148,19 @@ call it after operation/parent locks, and append SALE movements on the same conn
 and transaction before commit. Calling it in a separate client RPC would not preserve
 the stock guarantee; BF-181 exposes no such endpoint or completed checkout operation.
 
+BF-182 provides only `private.persist_checkout_sale(business UUID, operation UUID,
+appointment UUID, client UUID, subtotal NUMERIC, discount NUMERIC, total NUMERIC)`,
+returning the existing `sales` row type internally. It validates trusted server-computed
+amounts, derives linked client identity, serializes the operation key and parent,
+and inserts one COMPLETED sale header or returns an authorized historical replay.
+It never promotes a legacy DRAFT, rewrites a VOIDED sale, writes items/payments/stock,
+or completes an appointment. It is an invoker helper with no client EXECUTE, not a
+public intermediate checkout result. The future writer must acquire the same
+`barberflow:checkout:{businessId}:{operationId}` advisory key and appointment lock
+before BF-181 product locks; all slices run in that one transaction, with commit
+only after every checkout effect succeeds. A sale header alone is not a completed
+checkout flow and must never be exposed through a separate client RPC.
+
 Final output is exactly `{ sale, items, payments }`, containing persisted values:
 
 - SaleRow (13): id, business_id, client_id, appointment_id, operation_id, status,
