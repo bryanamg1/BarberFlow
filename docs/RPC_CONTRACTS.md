@@ -136,6 +136,18 @@ isolation with 40001 rather than trust a pre-lock ledger snapshot. Every failure
 deadlock or serialization abort rolls back all effects. There is no automatic
 financial retry; an explicit retry retains its operationId.
 
+BF-181 provides only the internal stock slice:
+`private.lock_checkout_products(p_business_id uuid, p_product_ids uuid[], p_quantities integer[])`
+returns `(product_id uuid, requested_quantity bigint, current_stock bigint)` in UUID
+order. Parallel arrays contain PRODUCT lines only; duplicates aggregate before
+locking and an empty pair supports service-only sales. The helper locks all product
+anchors before reading balances, rejects unavailable/inactive products and insufficient
+stock, and performs no ledger or catalog writes. It is SECURITY INVOKER with an empty
+search_path and no EXECUTE for client roles. The future authorized server writer must
+call it after operation/parent locks, and append SALE movements on the same connection
+and transaction before commit. Calling it in a separate client RPC would not preserve
+the stock guarantee; BF-181 exposes no such endpoint or completed checkout operation.
+
 Final output is exactly `{ sale, items, payments }`, containing persisted values:
 
 - SaleRow (13): id, business_id, client_id, appointment_id, operation_id, status,
