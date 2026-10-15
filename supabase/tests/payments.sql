@@ -113,7 +113,7 @@ BEGIN
   SELECT * INTO v_actual_sale FROM public.sales WHERE id = v_sale.id;
   IF v_actual_sale IS DISTINCT FROM v_sale THEN RAISE EXCEPTION 'Partial payment changed sale'; END IF;
   INSERT INTO public.payments (business_id, sale_id, payment_method, amount, notes, paid_at, created_by, created_at)
-  VALUES (v_business_id, v_sale.id, 'TRANSFER', 40, 'Manual transfer reference',
+  VALUES (v_business_id, v_sale.id, 'BANK_TRANSFER', 40, 'Manual transfer reference',
           '2030-01-07T09:30:00-03:00', v_payment_user_id, '1999-01-01T00:00:00Z') RETURNING * INTO v_transfer;
   IF v_transfer.notes IS DISTINCT FROM 'Manual transfer reference'
      OR v_transfer.paid_at IS DISTINCT FROM '2030-01-07T12:30:00Z'::timestamptz
@@ -125,7 +125,7 @@ BEGIN
   SELECT * INTO v_actual_sale FROM public.sales WHERE id = v_sale.id;
   IF v_actual_sale IS DISTINCT FROM v_sale THEN RAISE EXCEPTION 'Full payment automatically completed or changed sale'; END IF;
   -- Every documented method works; repeated methods and overpayment are not restricted here.
-  FOREACH v_method IN ARRAY ARRAY['CASH', 'DEBIT', 'CREDIT', 'OTHER'] LOOP
+  FOREACH v_method IN ARRAY ARRAY['CASH', 'DEBIT_CARD', 'CREDIT_CARD', 'DIGITAL_WALLET'] LOOP
     INSERT INTO public.payments (business_id, sale_id, payment_method, amount, notes, created_by)
     VALUES (v_business_id, v_sale.id, v_method, 0.01, '', v_payment_user_id);
   END LOOP;

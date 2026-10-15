@@ -44,7 +44,7 @@ BEGIN
      OR helper.proowner <> helper.nspowner
      OR (SELECT array_agg(p.proname::text ORDER BY p.proname) FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
          WHERE n.nspname = 'private') IS DISTINCT FROM
-          ARRAY['appointment_slot_candidates','can_read_payment','guard_business_currency_change','lock_checkout_products','lock_financial_business_currency','persist_checkout_items','persist_checkout_sale']::text[] THEN
+          ARRAY['appointment_slot_candidates','can_read_payment','guard_business_currency_change','lock_checkout_products','lock_financial_business_currency','persist_checkout_items','persist_checkout_payment','persist_checkout_sale']::text[] THEN
     RAISE EXCEPTION 'Incorrect private boolean helper signature/execution context';
   END IF;
   IF NOT has_function_privilege('authenticated',helper.oid,'EXECUTE')
@@ -156,7 +156,7 @@ BEGIN
   FOR idx IN 1..20 LOOP
     INSERT INTO public.payments (id,business_id,sale_id,payment_method,amount,created_by)
       VALUES (payment_ids[idx],biz[payment_sides[idx]],sale_ids[payment_sales[idx]],
-        (ARRAY['CASH','TRANSFER','DEBIT','CREDIT','OTHER'])[(idx-1)%5+1],10,users[payment_creators[idx]]);
+        (ARRAY['CASH','BANK_TRANSFER','DEBIT_CARD','CREDIT_CARD','DIGITAL_WALLET'])[(idx-1)%5+1],10,users[payment_creators[idx]]);
   END LOOP;
   FOREACH table_name IN ARRAY ARRAY['sales','sale_items','payments'] LOOP
     EXECUTE format('SELECT jsonb_agg(to_jsonb(t) ORDER BY id) FROM public.%I t',table_name) INTO rows;
@@ -195,7 +195,7 @@ BEGIN
         update_statement := CASE table_name
           WHEN 'sales' THEN format('UPDATE public.sales SET business_id = %L, client_id = %L, appointment_id = NULL, subtotal = 20, discount = 2, total = 18, status = ''COMPLETED'', sold_at = now(), created_by = %L WHERE id = %L',biz[2],client_ids[2],users[1],row_id)
           WHEN 'sale_items' THEN format('UPDATE public.sale_items SET sale_id = %L, item_name_snapshot = ''Changed'', unit_price_snapshot = 20, quantity = 2, line_total = 40, unit_cost_snapshot = CASE item_type WHEN ''PRODUCT'' THEN 5 END WHERE id = %L',sale_ids[4],row_id)
-          ELSE format('UPDATE public.payments SET business_id = %L, sale_id = %L, amount = 20, payment_method = ''OTHER'', notes = ''Changed'', created_by = %L WHERE id = %L',biz[2],sale_ids[4],users[1],row_id) END;
+          ELSE format('UPDATE public.payments SET business_id = %L, sale_id = %L, amount = 20, payment_method = ''DIGITAL_WALLET'', notes = ''Changed'', created_by = %L WHERE id = %L',biz[2],sale_ids[4],users[1],row_id) END;
         FOREACH operation IN ARRAY ARRAY['SELECT','INSERT','UPDATE','DELETE'] LOOP
           statement := CASE operation
             WHEN 'SELECT' THEN format('SELECT count(*) FROM public.%I WHERE id = %L',table_name,row_id)

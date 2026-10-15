@@ -137,7 +137,7 @@ BEGIN
            (sale_ids[1],'SERVICE',service_id,'Historical B',0.50,0.50);
   INSERT INTO public.payments (business_id,sale_id,payment_method,amount,created_by)
     VALUES (biz[1],sale_ids[1],'CASH',0.10,users[1]),
-           (biz[1],sale_ids[1],'TRANSFER',0.19,users[1]);
+           (biz[1],sale_ids[1],'BANK_TRANSFER',0.19,users[1]);
   INSERT INTO public.appointment_services
     (appointment_id,service_id,service_name_snapshot,unit_price_snapshot,duration_minutes_snapshot,line_total)
     VALUES (appointment_ids[1],service_id,'Estimated appointment',999,30,999);

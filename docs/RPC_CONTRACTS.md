@@ -92,10 +92,11 @@ no payment rows and sum(empty payments) is zero. There are no zero payments, spl
 payments, credit sales, overpayments or external payment-provider calls in this flow.
 Payment notes are NULL because this DTO supplies no payment notes; actor/time are
 server-managed. HD-006 methods are exactly CASH, BANK_TRANSFER, DEBIT_CARD, CREDIT_CARD
-and DIGITAL_WALLET. The current payments CHECK still uses a legacy method set:
-explicit schema alignment to these five values is required before payment writes
-are enabled. BF-180 does not change that CHECK, migrate historical methods or
-invent an implicit mapping.
+and DIGITAL_WALLET. BF-184 aligns only the payments CHECK to these five values
+with a validated forward-only migration. It aborts if incompatible historical
+methods exist, without mapping or rewriting them. The separate expenses CHECK
+remains legacy and requires its own authorized alignment before expense writes
+using HD-006. No external payment processing is introduced.
 
 Global discount allocation for net revenue follows BUSINESS_RULES, Finance:
 positive-gross SERVICE/PRODUCT lines are eligible; zero-gross lines receive zero;
@@ -178,6 +179,22 @@ has no client-role EXECUTE. The future writer must call it for the fresh header 
 the same transaction/connection and commit only after every remaining checkout slice;
 this internal item result is not public checkout success. No payment, discount
 allocation, stock movement or appointment completion is implemented by BF-183.
+
+BF-184 provides only
+`private.persist_checkout_payment(p_business_id uuid, p_operation_id uuid, p_payment_method text)`,
+returning the existing nine-column `payments` row type as a set: one row for a
+positive total and no rows for a zero total. It reuses the existing sale, operation
+key and sale lock; the amount is derived exclusively from `sales.total`, with no
+caller amount/audit fields. Before a new payment it checks the persisted item gross
+sum against the header subtotal, validates the exact method and derives identity/time.
+An existing singular, tenant-consistent full payment replays unchanged before new
+input/catalog validation; inconsistent historical payments are rejected, never repaired.
+The future public writer must handle authorized historical checkout replay before
+executing new slices, including loading the empty payment set of a zero-total sale.
+The helper is SECURITY INVOKER with an empty search_path and no client-role EXECUTE;
+it never adds a payment to a VOIDED sale. It owns no stock, appointment completion,
+refund, receipt or public endpoint. Every new slice still shares one transaction
+and connection, with commit only after all checkout effects succeed.
 
 Final output is exactly `{ sale, items, payments }`, containing persisted values:
 
