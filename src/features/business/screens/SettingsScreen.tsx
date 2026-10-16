@@ -21,7 +21,12 @@ export function SettingsScreen() {
           <Text role="heading" style={styles.sectionHeading}>
             Perfil
           </Text>
-          <Text style={styles.description}>La edición del perfil todavía no está disponible.</Text>
+          <Text style={styles.description}>Tus datos de perfil y avatar.</Text>
+          <Button
+            label="Editar perfil"
+            variant="secondary"
+            onPress={() => router.push('/settings/profile')}
+          />
         </Card>
 
         {business.status === 'pending' ? (
