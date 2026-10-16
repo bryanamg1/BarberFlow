@@ -98,9 +98,14 @@ export function SettingsScreen() {
           <Text role="heading" style={styles.sectionHeading}>
             Notificaciones
           </Text>
-          <Text style={styles.description}>
-            La configuración de notificaciones aún no está disponible.
-          </Text>
+          <Text style={styles.description}>Preferencia de avisos de stock bajo del negocio.</Text>
+          {business.status === 'success' && business.data.role === 'OWNER' && (
+            <Button
+              label="Configurar notificaciones"
+              variant="secondary"
+              onPress={() => router.push('/settings/notifications')}
+            />
+          )}
         </Card>
         <Card style={styles.section}>
           <Text role="heading" style={styles.sectionHeading}>

@@ -123,9 +123,7 @@ test('BF270 unsupported settings are information, with no fake editable fields o
   await renderWithProviders(<SettingsScreen />);
   expect(screen.getByText(/edición del perfil todavía no está disponible/)).toBeOnTheScreen();
   expect(screen.getByText(/Cinco medios de pago fijos/)).toBeOnTheScreen();
-  expect(
-    screen.getByText(/configuración de notificaciones aún no está disponible/),
-  ).toBeOnTheScreen();
+  expect(screen.getByText('Preferencia de avisos de stock bajo del negocio.')).toBeOnTheScreen();
   expect(screen.getByText('Tema oscuro.')).toBeOnTheScreen();
   expect(screen.queryAllByRole('switch')).toHaveLength(0);
   expect(screen.queryAllByRole('textbox')).toHaveLength(0);
