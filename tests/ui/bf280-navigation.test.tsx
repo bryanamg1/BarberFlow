@@ -26,7 +26,11 @@ jest.mock('expo-router', () => ({
 jest.mock('expo-symbols', () => ({ SymbolView: () => null }));
 jest.mock('@/features/auth/components/LogoutButton', () => ({ LogoutButton: () => null }));
 jest.mock('@/features/business/context/BusinessContext', () => ({ useBusiness: jest.fn() }));
-jest.mock('react-native-safe-area-context', () => ({ useSafeAreaInsets: jest.fn() }));
+jest.mock('react-native-safe-area-context', () => ({
+  ...jest.requireActual('react-native-safe-area-context/jest/mock').default,
+  useSafeAreaInsets: jest.fn(),
+}));
+jest.mock('@/features/analytics/components/HomeLowStock', () => ({ HomeLowStock: () => null }));
 const insets = jest.mocked(useSafeAreaInsets);
 beforeEach(() => {
   jest.clearAllMocks();
@@ -43,12 +47,12 @@ test.each([
   ['Quick Action', QuickActionRoute],
   ['Finanzas', FinanceRoute],
 ] as const)(
-  'BF280 existing %s placeholder remains legible on the dark scene',
+  'BF280 existing %s destination remains legible on the dark scene',
   async (label, Route) => {
     await renderWithProviders(<Route />);
     expect(screen.getByText(label)).toHaveStyle({
       color: theme.colors.textPrimary,
-      ...theme.typography.body,
+      ...(label === 'Inicio' ? theme.typography.headingLg : theme.typography.body),
     });
   },
 );

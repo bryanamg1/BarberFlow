@@ -1,5 +1,1 @@
-import { NavigationPlaceholder } from '@/features/navigation/components/NavigationPlaceholder';
-
-export default function HomeScreen() {
-  return <NavigationPlaceholder label="Inicio" />;
-}
+export { HomeStockScreen as default } from '@/features/analytics/screens/HomeStockScreen';

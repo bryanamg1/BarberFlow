@@ -335,7 +335,8 @@ test('BF-096: existing group initial routes prove /login and / Inicio destinatio
     read('src/features/navigation/components/NavigationTabs.tsx'),
     /initialRouteName="index"/,
   );
-  assert.match(read('src/app/(app)/(tabs)/index.tsx'), /Inicio/);
+  assert.match(read('src/app/(app)/(tabs)/index.tsx'), /HomeStockScreen as default/);
+  assert.match(read('src/features/analytics/screens/HomeStockScreen.tsx'), /Inicio/);
   assert.match(read('src/app/(auth)/login.tsx'), /LoginScreen as default/);
 });
 
