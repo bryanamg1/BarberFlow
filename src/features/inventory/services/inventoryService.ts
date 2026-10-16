@@ -4,7 +4,9 @@ import {
   inventoryUuidSchema,
   type AdjustStockInput,
 } from '../schemas/stockAdjustment.schema';
-import type { ProductStockRow } from '../types/inventory.types';
+import type { ProductStockRow, InventoryPageParams } from '../types/inventory.types';
+import type { LowStockResult } from '../types/lowStockAlerts.types';
+import { lowStockError, normalizeLowStockParams } from '../utils/lowStockParams';
 import type { AdjustStockError, AdjustStockResult } from '../types/stockAdjustment.types';
 import { adjustmentError, mapAdjustmentError } from './stockAdjustmentErrors';
 import type {
@@ -19,6 +21,40 @@ import {
 
 // BF-224 owns adjustment and stock reads; BF-222 history remains independent.
 export const inventoryService = {
+  async getLowStockProducts(
+    businessId: string,
+    params?: Partial<InventoryPageParams>,
+  ): Promise<LowStockResult> {
+    const normalized = normalizeLowStockParams(params);
+    if (!inventoryUuidSchema.safeParse(businessId).success || normalized === null)
+      return { data: null, error: lowStockError('INVALID_INPUT') };
+    try {
+      const result = await inventoryRepository.getLowStockProducts(businessId, normalized);
+      if (result.error) {
+        const code =
+          result.status === 0
+            ? 'NETWORK_ERROR'
+            : result.status === 401 || result.status === 403 || result.error.code === '42501'
+              ? 'INVENTORY_ACCESS_DENIED'
+              : ['22023', '22P02', '22003'].includes(result.error.code)
+                ? 'INVALID_INPUT'
+                : 'UNKNOWN_ERROR';
+        return { data: null, error: lowStockError(code) };
+      }
+      if (result.data == null) return { data: null, error: lowStockError('UNKNOWN_ERROR') };
+      return {
+        data: {
+          items: result.data.slice(0, normalized.pageSize),
+          page: normalized.page,
+          pageSize: normalized.pageSize,
+          hasNextPage: result.data.length > normalized.pageSize,
+        },
+        error: null,
+      };
+    } catch {
+      return { data: null, error: lowStockError('UNKNOWN_ERROR') };
+    }
+  },
   async adjustStock(businessId: string, input: AdjustStockInput): Promise<AdjustStockResult> {
     const parsed = adjustStockSchema.safeParse(input);
     if (!inventoryUuidSchema.safeParse(businessId).success || !parsed.success)

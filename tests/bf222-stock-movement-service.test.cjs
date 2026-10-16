@@ -55,7 +55,12 @@ function service(result = { data: [], error: null, status: 200 }, rejection) {
 }
 test('history read remains available alongside BF224 adapters, defaults 1/25 and preserves empty success', async () => {
   const h = service();
-  assert.deepEqual(Object.keys(h.api), ['adjustStock', 'getProductStock', 'listStockMovements']);
+  assert.deepEqual(Object.keys(h.api), [
+    'getLowStockProducts',
+    'adjustStock',
+    'getProductStock',
+    'listStockMovements',
+  ]);
   const r = await h.api.listStockMovements('b', 'p');
   assert.deepEqual(r, {
     data: { items: [], page: 1, pageSize: 25, hasNextPage: false },

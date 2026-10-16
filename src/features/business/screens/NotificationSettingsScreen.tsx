@@ -113,8 +113,8 @@ function NotificationForm({ initial }: { initial: boolean }) {
   return (
     <Card style={styles.form}>
       <Text style={styles.description}>
-        Preferencia para avisos de stock bajo. La entrega de avisos todavía no está disponible; esta
-        opción no activa notificaciones push ni correos.
+        Controla los avisos de stock bajo dentro de la aplicación. Esta opción no activa
+        notificaciones push ni correos.
       </Text>
       <Controller
         name="low_stock_notifications"

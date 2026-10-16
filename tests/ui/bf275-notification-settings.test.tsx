@@ -115,7 +115,7 @@ test.each([true, false])(
     expect(service.get).toHaveBeenCalledWith('a');
     expect(service.updatePreferences).not.toHaveBeenCalled();
     expect(screen.getByRole('button', { name: 'Guardar notificaciones' })).toBeDisabled();
-    expect(screen.getByText(/entrega de avisos todavía no está disponible/)).toBeOnTheScreen();
+    expect(screen.getByText(/avisos de stock bajo dentro de la aplicación/)).toBeOnTheScreen();
   },
 );
 test('BF275 writes only the dirty boolean and refreshes the shared scoped settings cache', async () => {
