@@ -306,3 +306,10 @@ test('BF275 existing boolean validator refuses null/string/number coercion', () 
       false,
     );
 });
+test('BF280 Notification return targets existing Settings without pushing a duplicate', async () => {
+  await renderWithProviders(<NotificationRoute />);
+  await press('Volver a Configuración');
+  expect(routerMock.dismissTo).toHaveBeenCalledWith('/settings');
+  expect(routerMock.push).not.toHaveBeenCalled();
+  expect(routerMock.replace).not.toHaveBeenCalled();
+});

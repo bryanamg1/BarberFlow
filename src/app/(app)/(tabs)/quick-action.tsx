@@ -1,9 +1,5 @@
-import { Text, View } from 'react-native';
+import { NavigationPlaceholder } from '@/features/navigation/components/NavigationPlaceholder';
 
 export default function QuickActionScreen() {
-  return (
-    <View>
-      <Text>Quick Action</Text>
-    </View>
-  );
+  return <NavigationPlaceholder label="Quick Action" />;
 }

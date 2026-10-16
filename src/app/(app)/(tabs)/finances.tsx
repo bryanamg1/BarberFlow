@@ -1,9 +1,5 @@
-import { Text, View } from 'react-native';
+import { NavigationPlaceholder } from '@/features/navigation/components/NavigationPlaceholder';
 
 export default function FinancesScreen() {
-  return (
-    <View>
-      <Text>Finanzas</Text>
-    </View>
-  );
+  return <NavigationPlaceholder label="Finanzas" />;
 }

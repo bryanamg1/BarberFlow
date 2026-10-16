@@ -112,12 +112,12 @@ test('BF274 named Settings return ignores unrelated back-stack history', async (
   await renderWithProviders(<PaymentRoute />);
   await press('Volver a Configuración');
   expect(routerMock.back).not.toHaveBeenCalled();
-  expect(routerMock.replace).toHaveBeenCalledWith('/settings');
+  expect(routerMock.dismissTo).toHaveBeenCalledWith('/settings');
 });
 test('BF274 direct deep link safely returns to Settings', async () => {
   await renderWithProviders(<PaymentRoute />);
   await press('Volver a Configuración');
-  expect(routerMock.replace).toHaveBeenCalledWith('/settings');
+  expect(routerMock.dismissTo).toHaveBeenCalledWith('/settings');
   expect(routerMock.back).not.toHaveBeenCalled();
 });
 test.each(['OWNER', 'BARBER'] as const)(

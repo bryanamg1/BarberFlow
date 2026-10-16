@@ -44,7 +44,7 @@ export function NotificationSettingsScreen() {
         <Button
           label="Volver a Configuración"
           variant="secondary"
-          onPress={() => router.replace('/settings')}
+          onPress={() => router.dismissTo('/settings')}
         />
       </ScrollView>
     </SafeAreaView>

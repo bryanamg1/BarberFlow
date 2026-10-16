@@ -1,7 +1,7 @@
 import { fireEvent, screen, userEvent } from '@testing-library/react-native';
 
 import ServicesRoute from '@/app/(app)/services';
-import SettingsRoute from '@/app/(app)/(tabs)/settings';
+import SettingsRoute from '@/app/(app)/settings';
 import {
   useBusiness,
   type BusinessContextValue,

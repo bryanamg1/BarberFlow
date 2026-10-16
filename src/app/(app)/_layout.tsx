@@ -1,13 +1,23 @@
 import { Stack } from 'expo-router';
 
+import { theme } from '@/theme';
+
 export const unstable_settings = {
   initialRouteName: '(tabs)',
 };
 
 export default function AppLayout() {
   return (
-    <Stack>
+    <Stack
+      screenOptions={{
+        headerStyle: { backgroundColor: theme.colors.surface },
+        headerTintColor: theme.colors.textPrimary,
+        headerTitleStyle: theme.typography.headingSm,
+        contentStyle: { backgroundColor: theme.colors.background },
+      }}
+    >
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+      <Stack.Screen name="settings/index" options={{ title: 'Configuración' }} />
       <Stack.Screen name="business/settings" options={{ title: 'Configuración del negocio' }} />
       <Stack.Screen name="business/hours" options={{ title: 'Horarios de atención' }} />
       <Stack.Screen name="settings/payment-methods" options={{ title: 'Medios de pago' }} />

@@ -1,9 +1,5 @@
-import { Text, View } from 'react-native';
+import { NavigationPlaceholder } from '@/features/navigation/components/NavigationPlaceholder';
 
 export default function AgendaScreen() {
-  return (
-    <View>
-      <Text>Agenda</Text>
-    </View>
-  );
+  return <NavigationPlaceholder label="Agenda" />;
 }

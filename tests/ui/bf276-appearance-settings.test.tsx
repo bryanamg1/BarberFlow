@@ -91,7 +91,7 @@ test('BF276 losing context removes information and business switch keeps the sam
 test('BF276 reload/deep-link return uses explicit Settings destination', async () => {
   await renderWithProviders(<AppearanceRoute />);
   await fireEvent.press(screen.getByRole('button', { name: 'Volver a Configuración' }));
-  expect(routerMock.replace).toHaveBeenCalledWith('/settings');
+  expect(routerMock.dismissTo).toHaveBeenCalledWith('/settings');
   expect(routerMock.back).not.toHaveBeenCalled();
 });
 test.each(['OWNER', 'BARBER'] as const)(

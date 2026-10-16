@@ -12,7 +12,7 @@ import type { ExpenseCategoryRow } from '@/features/expenses/repositories/expens
 import { renderWithProviders } from '@/test/renderWithProviders';
 import { resetRouterMocks, routerMock } from '@/test/routerTestUtils';
 import { createTestQueryClient } from '@/test/createTestQueryClient';
-import SettingsScreen from '@/app/(app)/(tabs)/settings';
+import SettingsScreen from '@/app/(app)/settings';
 
 jest.mock('@/features/auth/components/LogoutButton', () => ({ LogoutButton: () => null }));
 

@@ -330,7 +330,11 @@ test('BF-096: existing group initial routes prove /login and / Inicio destinatio
   const read = (file) => fs.readFileSync(path.join(root, file), 'utf8');
   assert.match(read('src/app/(auth)/_layout.tsx'), /initialRouteName: 'login'/);
   assert.match(read('src/app/(app)/_layout.tsx'), /initialRouteName: '\(tabs\)'/);
-  assert.match(read('src/app/(app)/(tabs)/_layout.tsx'), /initialRouteName="index"/);
+  assert.match(read('src/app/(app)/(tabs)/_layout.tsx'), /NavigationTabs as default/);
+  assert.match(
+    read('src/features/navigation/components/NavigationTabs.tsx'),
+    /initialRouteName="index"/,
+  );
   assert.match(read('src/app/(app)/(tabs)/index.tsx'), /Inicio/);
   assert.match(read('src/app/(auth)/login.tsx'), /LoginScreen as default/);
 });

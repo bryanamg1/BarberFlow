@@ -1,6 +1,6 @@
 import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
 
-import SettingsRoute from '@/app/(app)/(tabs)/settings';
+import SettingsRoute from '@/app/(app)/settings';
 import { authService } from '@/features/auth/services/authService';
 import {
   useBusiness,

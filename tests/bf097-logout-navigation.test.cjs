@@ -8,6 +8,7 @@ const React = require('react');
 const ts = require('typescript');
 const { getExactRoutes } = require('expo-router/build/getRoutes');
 const { TabRouter } = require('expo-router/build/react-navigation/routers/TabRouter');
+const { StackRouter } = require('expo-router/build/react-navigation/routers/StackRouter');
 
 const root = path.resolve(__dirname, '..');
 const appRoot = path.join(root, 'src/app');
@@ -17,25 +18,48 @@ const expectedTabs = [
   ['quick-action', 'Quick Action'],
   ['clients', 'Clientes'],
   ['finances', 'Finanzas'],
-  ['settings/index', 'Configuración'],
 ];
 
 function layout(filename) {
   const Tabs = Object.assign(function Tabs() {}, { Screen: function Screen() {} });
-  const module = { exports: {} };
-  const code = ts.transpileModule(fs.readFileSync(filename, 'utf8'), {
-    compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX },
-  }).outputText;
-  vm.runInThisContext(`(function(require,module,exports){${code}\n})`, { filename })(
-    (name) => {
-      if (name === 'expo-router') return { Tabs, Stack: Tabs };
-      assert.equal(name, 'react/jsx-runtime');
-      return require(name);
-    },
-    module,
-    module.exports,
-  );
-  return module.exports.default();
+  function load(file) {
+    const module = { exports: {} };
+    const code = ts.transpileModule(fs.readFileSync(file, 'utf8'), {
+      compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX },
+    }).outputText;
+    vm.runInThisContext(`(function(require,module,exports){${code}\n})`, { filename: file })(
+      (name) => {
+        if (name === 'expo-router') return { Tabs, Stack: Tabs };
+        if (name === 'expo-symbols') return { SymbolView: function SymbolView() {} };
+        if (name === 'react-native')
+          return {
+            View: function View() {},
+            Platform: { OS: 'web', select: (values) => values.web ?? values.default },
+          };
+        if (name === 'react-native-safe-area-context')
+          return { useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }) };
+        if (name === '@/components/ui') return { IconButton: function IconButton() {} };
+        if (name.startsWith('@/') || name.startsWith('.')) {
+          const base = name.startsWith('@/')
+            ? path.join(root, 'src', name.slice(2))
+            : path.resolve(path.dirname(file), name);
+          const target = ['.ts', '.tsx', '/index.ts'].map((ext) => base + ext).find(fs.existsSync);
+          assert(
+            target &&
+              (target.startsWith(path.join(root, 'src/theme')) ||
+                target.startsWith(path.join(root, 'src/features/navigation'))),
+          );
+          return load(target);
+        }
+        assert.equal(name, 'react/jsx-runtime');
+        return require(name);
+      },
+      module,
+      module.exports,
+    );
+    return module.exports;
+  }
+  return load(filename).default();
 }
 
 function routeTree() {
@@ -53,7 +77,7 @@ function routeTree() {
   });
 }
 
-test('BF-097 regression: all existing tabs and Settings are visible destinations in the real route tree', () => {
+test('BF-097/BF-280 regression: five tabs and protected stack Settings remain reachable in the real route tree', () => {
   const tree = layout(path.join(appRoot, '(app)/(tabs)/_layout.tsx'));
   const screens = React.Children.toArray(tree.props.children).map((child) => child.props);
   assert.deepEqual(
@@ -86,9 +110,10 @@ test('BF-097 regression: all existing tabs and Settings are visible destinations
     assert(state, `Tab press must reach ${screen.options.title}`);
     assert.equal(state.routes[state.index].name, screen.name);
   }
-  const settings = tabs.children.find((route) => route.route === 'settings/index');
-  assert.equal(settings.contextKey, './(app)/(tabs)/settings/index.tsx');
-  assert(!app.children.some((route) => route.route === 'settings/index'));
+  assert.equal(tabs.children.length, 5);
+  assert(!tabs.children.some((route) => route.route === 'settings/index'));
+  const settings = app.children.find((route) => route.route === 'settings/index');
+  assert.equal(settings.contextKey, './(app)/settings/index.tsx');
 });
 
 test('BF-097 regression: navigation exposes Settings without competing Auth or storage logic', () => {
@@ -103,8 +128,43 @@ test('BF-097 regression: navigation exposes Settings without competing Auth or s
   }
   const stack = layout(path.join(appRoot, '(app)/_layout.tsx'));
   assert(
-    !React.Children.toArray(stack.props.children).some(
+    React.Children.toArray(stack.props.children).some(
       (child) => child.props.name === 'settings/index',
     ),
   );
 });
+
+for (const existingSettings of [true, false]) {
+  test(`BF280 Router POP_TO preserves one Settings entry, existing=${existingSettings}`, () => {
+    const router = StackRouter({ initialRouteName: '(tabs)' });
+    const options = {
+      routeNames: ['(tabs)', 'settings/index', 'settings/appearance'],
+      routeParamList: {},
+      routeGetIdList: {},
+    };
+    let state = router.getInitialState(options);
+    if (existingSettings)
+      state = router.getStateForAction(
+        state,
+        { type: 'PUSH', payload: { name: 'settings/index' } },
+        options,
+      );
+    state = router.getStateForAction(
+      state,
+      { type: 'PUSH', payload: { name: 'settings/appearance' } },
+      options,
+    );
+    state = router.getStateForAction(
+      state,
+      { type: 'POP_TO', payload: { name: 'settings/index' } },
+      options,
+    );
+    assert(state);
+    assert.deepEqual(
+      state.routes.map((r) => r.name),
+      ['(tabs)', 'settings/index'],
+    );
+    state = router.getStateForAction(state, { type: 'GO_BACK' }, options);
+    assert.equal(state.routes[state.index].name, '(tabs)');
+  });
+}
