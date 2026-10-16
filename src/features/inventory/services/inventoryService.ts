@@ -1,4 +1,12 @@
 import { inventoryRepository } from '../repositories/inventoryRepository';
+import {
+  adjustStockSchema,
+  inventoryUuidSchema,
+  type AdjustStockInput,
+} from '../schemas/stockAdjustment.schema';
+import type { ProductStockRow } from '../types/inventory.types';
+import type { AdjustStockError, AdjustStockResult } from '../types/stockAdjustment.types';
+import { adjustmentError, mapAdjustmentError } from './stockAdjustmentErrors';
 import type {
   StockMovementHistoryParams,
   StockMovementHistoryResult,
@@ -9,8 +17,49 @@ import {
   usableInventoryId,
 } from '../utils/stockMovementParams';
 
-// BF-222 owns this read adapter only. Stock reads/writers are not added here.
+// BF-224 owns adjustment and stock reads; BF-222 history remains independent.
 export const inventoryService = {
+  async adjustStock(businessId: string, input: AdjustStockInput): Promise<AdjustStockResult> {
+    const parsed = adjustStockSchema.safeParse(input);
+    if (!inventoryUuidSchema.safeParse(businessId).success || !parsed.success)
+      return { data: null, error: adjustmentError('INVALID_INPUT') };
+    try {
+      const result = await inventoryRepository.adjustStock(businessId, parsed.data);
+      if (result.error !== null)
+        return {
+          data: null,
+          error: mapAdjustmentError({ status: result.status, error: result.error }),
+        };
+      if (result.data == null) return { data: null, error: adjustmentError('UNKNOWN_ERROR') };
+      // The server may return an original movement for a different replay payload.
+      return { data: result.data, error: null };
+    } catch {
+      return { data: null, error: adjustmentError('UNKNOWN_ERROR') };
+    }
+  },
+
+  async getProductStock(
+    businessId: string,
+    productIds: string[],
+  ): Promise<{ data: ProductStockRow[]; error: null } | { data: null; error: AdjustStockError }> {
+    if (
+      !inventoryUuidSchema.safeParse(businessId).success ||
+      !inventoryUuidSchema.array().safeParse(productIds).success
+    )
+      return { data: null, error: adjustmentError('INVALID_INPUT') };
+    try {
+      const result = await inventoryRepository.getProductStock(businessId, productIds);
+      if (result.error !== null)
+        return {
+          data: null,
+          error: mapAdjustmentError({ status: result.status, error: result.error }),
+        };
+      if (result.data == null) return { data: null, error: adjustmentError('UNKNOWN_ERROR') };
+      return { data: result.data, error: null };
+    } catch {
+      return { data: null, error: adjustmentError('UNKNOWN_ERROR') };
+    }
+  },
   async listStockMovements(
     businessId: string,
     productId: string,

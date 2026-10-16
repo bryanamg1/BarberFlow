@@ -46,6 +46,7 @@ function repository(client) {
   );
   assert.deepEqual(Object.keys(module.exports), ['inventoryRepository']);
   assert.deepEqual(Object.keys(module.exports.inventoryRepository), [
+    'adjustStock',
     'getProductStock',
     'getLowStockProducts',
     'listStockMovements',

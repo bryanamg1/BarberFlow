@@ -1,6 +1,7 @@
 import type { PostgrestSingleResponse } from '@supabase/supabase-js';
 
 import { supabase } from '@/lib/supabase/client';
+import type { AdjustStockInput } from '../schemas/stockAdjustment.schema';
 
 import type {
   InventoryPageParams,
@@ -14,6 +15,19 @@ const movementColumns =
   'id, business_id, product_id, type, quantity_delta, unit_cost, reference_type, reference_id, notes, occurred_at, created_by, created_at';
 
 export const inventoryRepository = {
+  adjustStock(
+    businessId: string,
+    input: AdjustStockInput,
+  ): PromiseLike<PostgrestSingleResponse<StockMovementRow>> {
+    return supabase.rpc('adjust_stock', {
+      p_business_id: businessId,
+      p_operation_id: input.operationId,
+      p_product_id: input.productId,
+      p_quantity_delta: input.quantityDelta,
+      p_reason: input.reason,
+      p_notes: input.notes ?? null,
+    });
+  },
   // Read-only BF-221 producers compute balances under the caller's existing RLS.
   getProductStock(
     businessId: string,
