@@ -112,6 +112,13 @@ export function SettingsScreen() {
             Apariencia
           </Text>
           <Text style={styles.description}>Tema oscuro.</Text>
+          {business.status === 'success' && (
+            <Button
+              label="Ver apariencia"
+              variant="secondary"
+              onPress={() => router.push('/settings/appearance')}
+            />
+          )}
         </Card>
         <LogoutButton />
       </ScrollView>

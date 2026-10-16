@@ -12,6 +12,7 @@ export default function AppLayout() {
       <Stack.Screen name="business/hours" options={{ title: 'Horarios de atención' }} />
       <Stack.Screen name="settings/payment-methods" options={{ title: 'Medios de pago' }} />
       <Stack.Screen name="settings/notifications" options={{ title: 'Notificaciones' }} />
+      <Stack.Screen name="settings/appearance" options={{ title: 'Apariencia' }} />
       <Stack.Screen name="appointments/new" options={{ title: 'Nueva cita' }} />
       <Stack.Screen name="appointments/[id]" options={{ title: 'Detalle de cita' }} />
       <Stack.Screen name="clients/new" options={{ title: 'Nuevo cliente' }} />
