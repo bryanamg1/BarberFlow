@@ -145,7 +145,7 @@ BEGIN
                                amount, payment_method, expense_date, receipt_path, notes,
                                created_by, created_at, updated_at)
   VALUES (v_business_id, v_category.id, 'PURCHASE', v_purchase.id, 'Temporary purchase expense',
-          50, 'TRANSFER', '2026-10-06', 'temporary/receipt.png', 'Temporary note',
+          50, 'BANK_TRANSFER', '2026-10-06', 'temporary/receipt.png', 'Temporary note',
           v_expense_user_id, '1999-01-01T00:00:00Z', '2000-01-01T00:00:00Z') RETURNING * INTO v_generated;
   IF v_generated.source_type IS DISTINCT FROM 'PURCHASE' OR v_generated.purchase_id IS DISTINCT FROM v_purchase.id
      OR v_generated.amount IS DISTINCT FROM 50 OR v_generated.receipt_path IS DISTINCT FROM 'temporary/receipt.png'
@@ -157,12 +157,12 @@ BEGIN
   -- Zero, empty descriptions/notes and duplicate manual data are deliberately allowed.
   INSERT INTO public.expenses (business_id, category_id, source_type, description, amount,
                                payment_method, expense_date, notes, created_by, created_at, updated_at)
-  VALUES (v_business_id, v_category.id, 'MANUAL', '', 0, 'OTHER', '2026-10-07', '',
+  VALUES (v_business_id, v_category.id, 'MANUAL', '', 0, 'DIGITAL_WALLET', '2026-10-07', '',
           v_expense_user_id, '1998-01-01T00:00:00Z', '2000-01-01T00:00:00Z') RETURNING * INTO v_zero;
   IF v_zero.amount IS DISTINCT FROM 0 OR v_zero.description IS DISTINCT FROM '' OR v_zero.notes IS DISTINCT FROM '' THEN
     RAISE EXCEPTION 'Approved zero amount or unrestricted text failed';
   END IF;
-  FOREACH v_method IN ARRAY ARRAY['CASH', 'TRANSFER', 'DEBIT', 'CREDIT', 'OTHER'] LOOP
+  FOREACH v_method IN ARRAY ARRAY['CASH', 'BANK_TRANSFER', 'DEBIT_CARD', 'CREDIT_CARD', 'DIGITAL_WALLET'] LOOP
     INSERT INTO public.expenses (business_id, category_id, source_type, description, amount,
                                  payment_method, expense_date, created_by)
     VALUES (v_business_id, v_category.id, 'MANUAL', 'Temporary manual expense', 12.34,

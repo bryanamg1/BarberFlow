@@ -24,9 +24,9 @@ DECLARE
   v_case record;
   v_rejections integer := 0;
 BEGIN
-  -- Exact columns exclude lines, stock, expenses, cost snapshots and archive fields.
+  -- BF215 adds two nullable internal context snapshots; public projection stays11.
   IF (SELECT count(*) FROM information_schema.columns
-      WHERE table_schema = 'public' AND table_name = 'purchases') <> 11 THEN
+      WHERE table_schema = 'public' AND table_name = 'purchases') <> 13 THEN
     RAISE EXCEPTION 'Unexpected purchases columns';
   END IF;
   FOR v_case IN
@@ -41,7 +41,9 @@ BEGIN
       ('notes', 'text', 'YES'),
       ('created_by', 'uuid', 'NO'),
       ('created_at', 'timestamptz', 'NO'),
-      ('updated_at', 'timestamptz', 'NO')
+      ('updated_at', 'timestamptz', 'NO'),
+      ('expense_category_id', 'uuid', 'YES'),
+      ('payment_method', 'text', 'YES')
     ) AS columns(column_name, udt_name, is_nullable)
   LOOP
     IF NOT EXISTS (
@@ -60,7 +62,7 @@ BEGIN
   END IF;
   IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public'
               AND table_name = 'purchases'
-              AND column_name IN ('business_id', 'operation_id', 'supplier', 'total', 'purchased_at', 'notes', 'created_by')
+              AND column_name IN ('business_id', 'operation_id', 'supplier', 'total', 'purchased_at', 'notes', 'created_by', 'expense_category_id', 'payment_method')
               AND column_default IS NOT NULL) THEN
     RAISE EXCEPTION 'Purchase operation, actor, supplier, total and completion time must be explicit';
   END IF;
@@ -71,7 +73,8 @@ BEGIN
   FOR v_case IN
     SELECT * FROM (VALUES
       ('purchases_business_id_fkey', 'public.businesses'),
-      ('purchases_created_by_fkey', 'auth.users')
+      ('purchases_created_by_fkey', 'auth.users'),
+      ('purchases_expense_category_id_fkey', 'public.expense_categories')
     ) AS foreign_keys(constraint_name, target_table)
   LOOP
     IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid = 'public.purchases'::regclass

@@ -101,7 +101,7 @@ BEGIN
      OR EXISTS(SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relkind IN ('r','p') AND (NOT c.relrowsecurity OR c.relforcerowsecurity OR NOT EXISTS(SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename=c.relname))) THEN
     RAISE EXCEPTION 'All 19 public tables must have policies and RLS without FORCE';
   END IF;
-  IF (SELECT array_agg(n.nspname || '.' || p.proname ORDER BY n.nspname,p.proname) FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname IN ('public','private')) IS DISTINCT FROM ARRAY['private.appointment_slot_candidates','private.can_read_payment','private.guard_business_currency_change','private.lock_checkout_products','private.lock_financial_business_currency','private.persist_checkout_items','private.persist_checkout_payment','private.persist_checkout_sale','private.persist_checkout_stock','private.persist_purchase','private.persist_purchase_stock','private.storage_path_uuid','public.adjust_stock','public.create_appointment_with_services','public.get_availability','public.get_client_stats','public.get_low_stock_products','public.get_product_stock','public.has_business_role','public.is_business_member','public.prevent_stock_movement_changes','public.save_business_hours','public.set_updated_at']::text[]
+  IF (SELECT array_agg(n.nspname || '.' || p.proname ORDER BY n.nspname,p.proname) FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname IN ('public','private')) IS DISTINCT FROM ARRAY['private.appointment_slot_candidates','private.can_read_payment','private.guard_business_currency_change','private.lock_checkout_products','private.lock_financial_business_currency','private.persist_checkout_items','private.persist_checkout_payment','private.persist_checkout_sale','private.persist_checkout_stock','private.persist_purchase','private.persist_purchase_expense','private.persist_purchase_stock','private.storage_path_uuid','public.adjust_stock','public.create_appointment_with_services','public.get_availability','public.get_client_stats','public.get_low_stock_products','public.get_product_stock','public.has_business_role','public.is_business_member','public.prevent_stock_movement_changes','public.save_business_hours','public.set_updated_at']::text[]
      OR (SELECT count(*) FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname IN ('public','private') AND p.prosecdef) <> 7 THEN
     RAISE EXCEPTION 'Helper/definer baseline changed';
   END IF;
@@ -164,7 +164,7 @@ BEGIN
       VALUES(expense_ids[idx],biz[side],cats[(ARRAY[2,2,3,3,3,2,2,2])[idx]],
         CASE WHEN is_manual THEN 'MANUAL' ELSE 'PURCHASE' END,
         CASE idx WHEN 2 THEN purchase_ids[1] WHEN 4 THEN purchase_ids[2] WHEN 6 THEN purchase_ids[4] WHEN 7 THEN purchase_ids[6] ELSE NULL END,
-        'Expense',10,(ARRAY['CASH','TRANSFER','DEBIT','CREDIT','OTHER'])[(idx-1)%5+1],DATE '2030-01-07',users[side+3],'2000-01-01Z','2000-01-01Z');
+        'Expense',10,(ARRAY['CASH','BANK_TRANSFER','DEBIT_CARD','CREDIT_CARD','DIGITAL_WALLET'])[(idx-1)%5+1],DATE '2030-01-07',users[side+3],'2000-01-01Z','2000-01-01Z');
   END LOOP;
   FOREACH table_name IN ARRAY ARRAY['expense_categories','expenses','purchases','products','stock_movements'] LOOP
     EXECUTE format('SELECT coalesce(jsonb_agg(to_jsonb(t) ORDER BY id),''[]''::jsonb) FROM public.%I t',table_name) INTO rows;
@@ -191,7 +191,7 @@ BEGIN
           statement := CASE operation WHEN 'SELECT' THEN format('SELECT count(*) FROM public.%I WHERE id=%L',table_name,row_id)
             WHEN 'DELETE' THEN CASE table_name WHEN 'expense_categories' THEN format('DELETE FROM public.expense_categories WHERE id=%L',cats[CASE side WHEN 1 THEN 1 ELSE 4 END]) ELSE format('DELETE FROM public.expenses WHERE id=%L',row_id) END
             WHEN 'UPDATE' THEN CASE table_name WHEN 'expense_categories' THEN format('UPDATE public.expense_categories SET name=''Edited category'',is_active=NOT is_active WHERE id=%L',row_id)
-              ELSE format('UPDATE public.expenses SET category_id=%L,description=''Edited manual'',amount=12,payment_method=''OTHER'',expense_date=DATE ''2031-02-03'',receipt_path=''metadata/receipt'',notes=''Edited notes'' WHERE id=%L',cats[CASE side WHEN 1 THEN 2 ELSE 3 END],row_id) END
+              ELSE format('UPDATE public.expenses SET category_id=%L,description=''Edited manual'',amount=12,payment_method=''DIGITAL_WALLET'',expense_date=DATE ''2031-02-03'',receipt_path=''metadata/receipt'',notes=''Edited notes'' WHERE id=%L',cats[CASE side WHEN 1 THEN 2 ELSE 3 END],row_id) END
             ELSE CASE table_name WHEN 'expense_categories' THEN format('INSERT INTO public.expense_categories(business_id,name) VALUES(%L,''New category'')',biz[side])
               ELSE format('INSERT INTO public.expenses(business_id,category_id,source_type,purchase_id,description,amount,payment_method,expense_date,created_by) VALUES(%L,%L,%L,%L,''New expense'',10,''CASH'',DATE ''2030-01-07'',%L)',biz[side],cats[(ARRAY[2,2,3,3,3,2,2,2])[idx]],CASE WHEN is_manual THEN 'MANUAL' ELSE 'PURCHASE' END,CASE WHEN is_manual THEN NULL ELSE purchase_ids[side+6] END,coalesce(person.user_id,users[1])) END END;
           -- Every matrix write is schema-valid under a privileged role.
@@ -214,7 +214,7 @@ BEGIN
                 IF (operation='INSERT' AND NOT allowed) OR affected<>expected_count THEN RAISE EXCEPTION 'Unexpected write count'; END IF;
                 IF allowed AND operation='UPDATE' THEN
                   IF table_name='expenses' THEN
-                    SELECT count(*) INTO actual_count FROM public.expenses WHERE id=row_id AND description='Edited manual' AND amount=12 AND payment_method='OTHER' AND expense_date=DATE '2031-02-03' AND receipt_path='metadata/receipt' AND notes='Edited notes' AND category_id=cats[CASE side WHEN 1 THEN 2 ELSE 3 END] AND created_by=users[side+3] AND created_at=TIMESTAMPTZ '2000-01-01Z' AND updated_at=transaction_timestamp();
+                    SELECT count(*) INTO actual_count FROM public.expenses WHERE id=row_id AND description='Edited manual' AND amount=12 AND payment_method='DIGITAL_WALLET' AND expense_date=DATE '2031-02-03' AND receipt_path='metadata/receipt' AND notes='Edited notes' AND category_id=cats[CASE side WHEN 1 THEN 2 ELSE 3 END] AND created_by=users[side+3] AND created_at=TIMESTAMPTZ '2000-01-01Z' AND updated_at=transaction_timestamp();
                   ELSE SELECT count(*) INTO actual_count FROM public.expense_categories WHERE id=row_id AND name='Edited category'; END IF;
                   IF actual_count<>1 THEN RAISE EXCEPTION 'Allowed UPDATE fields/trigger/audit mismatch'; END IF;
                 END IF;
