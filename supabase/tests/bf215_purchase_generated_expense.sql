@@ -72,8 +72,7 @@ BEGIN
   FOREACH role_name IN ARRAY ARRAY['anon','authenticated','service_role'] LOOP
     IF has_function_privilege(role_name,f.oid,'EXECUTE') THEN RAISE EXCEPTION 'BF215 exposed';END IF;
   END LOOP;
-  IF EXISTS(SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
-    WHERE n.nspname='public' AND p.proname='complete_purchase') THEN RAISE EXCEPTION 'BF215 activated partial purchase';END IF;
+  -- BF216 owns public activation/security; this helper remains private above.
   IF EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='purchases'
     AND column_name IN ('expense_category_id','payment_method') AND (is_nullable<>'YES' OR column_default IS NOT NULL))
     OR (SELECT count(*) FROM information_schema.columns WHERE table_schema='public' AND table_name='purchases')<>13 THEN

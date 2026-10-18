@@ -73,9 +73,8 @@ BEGIN
   FOREACH role_name IN ARRAY ARRAY['anon','authenticated','service_role'] LOOP
     IF has_function_privilege(role_name,f.oid,'EXECUTE') THEN RAISE EXCEPTION 'BF214 exposed to %',role_name; END IF;
   END LOOP;
-  IF EXISTS (SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
-             WHERE n.nspname='public' AND p.proname='complete_purchase')
-     OR has_table_privilege('authenticated','public.stock_movements','INSERT') THEN
+  -- The complete public boundary is covered by BF216, never direct ledger DML.
+  IF has_table_privilege('authenticated','public.stock_movements','INSERT') THEN
     RAISE EXCEPTION 'BF214 exposed partial purchase writes';
   END IF;
   checks := checks+5;

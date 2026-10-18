@@ -53,9 +53,8 @@ BEGIN
       RAISE EXCEPTION 'BF213 exposed to %', role_name;
     END IF;
   END LOOP;
-  IF EXISTS (SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
-             WHERE n.nspname='public' AND p.proname='complete_purchase')
-     OR has_table_privilege('authenticated','public.purchases','INSERT')
+  -- BF216 now owns the complete public boundary; private ACL stays denied.
+  IF has_table_privilege('authenticated','public.purchases','INSERT')
      OR has_table_privilege('authenticated','public.purchase_items','UPDATE') THEN
     RAISE EXCEPTION 'BF213 exposed incomplete purchase writes';
   END IF;
