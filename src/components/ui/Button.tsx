@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type Ref } from 'react';
 import {
   ActivityIndicator,
   Platform,
@@ -8,6 +8,7 @@ import {
   type PressableProps,
   type StyleProp,
   type TextStyle,
+  type View,
 } from 'react-native';
 
 import { theme } from '@/theme';
@@ -24,6 +25,7 @@ export type ButtonProps = Omit<
   | 'aria-disabled'
   | 'aria-busy'
 > & {
+  ref?: Ref<View>;
   label: string;
   variant?: ButtonVariant;
   loading?: boolean;

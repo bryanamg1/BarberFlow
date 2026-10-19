@@ -69,7 +69,7 @@ BEGIN
      OR (SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
        WHERE n.nspname='public' AND c.relkind='r' AND c.relrowsecurity AND NOT c.relforcerowsecurity) <> 19
      OR (SELECT count(*) FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
-       WHERE n.nspname IN ('public','private') AND p.prosecdef) <> 9 THEN
+       WHERE n.nspname IN ('public','private') AND p.prosecdef) <> 10 THEN
     RAISE EXCEPTION 'Public security baseline changed';
   END IF;
 

@@ -16,7 +16,12 @@ test('BF216 completion API preserves SDK envelope alongside the additive BF216A 
       },
     },
   });
-  assert.deepEqual(Object.keys(repo).sort(), ['completePurchase', 'voidPurchase']);
+  assert.deepEqual(Object.keys(repo).sort(), [
+    'completePurchase',
+    'getById',
+    'listByBusiness',
+    'voidPurchase',
+  ]);
   assert.strictEqual(await repo.completePurchase(b, input), result);
   assert.deepEqual(calls, [
     [

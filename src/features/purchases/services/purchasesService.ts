@@ -8,7 +8,58 @@ import type { VoidPurchaseInput, VoidPurchaseResult } from '../types/voidPurchas
 import { mapVoidPurchaseError, voidPurchaseError } from './voidPurchaseErrors';
 import { coherentVoidPurchaseResult } from './voidPurchaseResult';
 
+import { z } from 'zod';
+import { purchaseDetailSchema, purchaseHistorySchema } from '../schemas/purchaseRead.schema';
+import { normalizePurchaseList, purchaseReadError, runPurchaseRead } from './purchaseRead';
+import type {
+  PurchaseListParams,
+  PurchaseListData,
+  PurchaseReadResult,
+  PurchaseDetailData,
+} from '../types/purchaseRead.types';
+
 export const purchasesService = {
+  async listByBusiness(
+    businessId: string,
+    params?: PurchaseListParams,
+  ): Promise<PurchaseReadResult<PurchaseListData>> {
+    const normalized = normalizePurchaseList(params);
+    if (!voidPurchaseIdSchema.safeParse(businessId).success || normalized === null)
+      return { data: null, error: purchaseReadError('INVALID_INPUT') };
+    return runPurchaseRead(
+      () => purchasesRepository.listByBusiness(businessId, normalized),
+      (value) => {
+        const parsed = z.array(purchaseHistorySchema).safeParse(value);
+        return parsed.success
+          ? {
+              items: parsed.data.slice(0, normalized.pageSize),
+              ...normalized,
+              hasNextPage: parsed.data.length > normalized.pageSize,
+            }
+          : null;
+      },
+    );
+  },
+  async getById(
+    businessId: string,
+    purchaseId: string,
+  ): Promise<PurchaseReadResult<PurchaseDetailData>> {
+    if (
+      !voidPurchaseIdSchema.safeParse(businessId).success ||
+      !voidPurchaseIdSchema.safeParse(purchaseId).success
+    )
+      return { data: null, error: purchaseReadError('INVALID_INPUT') };
+    return runPurchaseRead(
+      () => purchasesRepository.getById(businessId, purchaseId),
+      (value) => {
+        const parsed = purchaseDetailSchema.safeParse(value);
+        return parsed.success && parsed.data.purchase.id.toLowerCase() === purchaseId.toLowerCase()
+          ? parsed.data
+          : null;
+      },
+      true,
+    );
+  },
   async voidPurchase(businessId: string, input: VoidPurchaseInput): Promise<VoidPurchaseResult> {
     const parsed = voidPurchaseSchema.safeParse(input);
     if (!voidPurchaseIdSchema.safeParse(businessId).success || !parsed.success)

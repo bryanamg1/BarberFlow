@@ -6,7 +6,33 @@ import type { CompletePurchaseInput } from '../schemas/purchase.schema';
 import type { CompletePurchaseData } from '../types/completePurchase.types';
 import type { VoidPurchaseData, VoidPurchaseInput } from '../types/voidPurchase.types';
 
+import type {
+  PurchaseHistoryRow,
+  PurchaseDetailData,
+  PurchaseListParams,
+} from '../types/purchaseRead.types';
+
 export const purchasesRepository = {
+  listByBusiness(businessId: string, params: Required<PurchaseListParams>) {
+    const offset = (params.page - 1) * params.pageSize;
+    return supabase
+      .from('purchases')
+      .select('id, supplier, total, purchased_at, status')
+      .eq('business_id', businessId)
+      .order('purchased_at', { ascending: false, nullsFirst: false })
+      .order('id', { ascending: false })
+      .range(offset, offset + params.pageSize)
+      .overrideTypes<PurchaseHistoryRow[], { merge: false }>();
+  },
+  getById(
+    businessId: string,
+    purchaseId: string,
+  ): PromiseLike<PostgrestSingleResponse<PurchaseDetailData>> {
+    return supabase.rpc('get_purchase_detail', {
+      p_business_id: businessId,
+      p_purchase_id: purchaseId,
+    });
+  },
   voidPurchase(
     businessId: string,
     input: VoidPurchaseInput,

@@ -46,6 +46,8 @@ export default function AppLayout() {
         name="expenses/categories/[id]/edit"
         options={{ title: 'Editar categoría de gastos' }}
       />
+      <Stack.Screen name="purchases/index" options={{ title: 'Compras' }} />
+      <Stack.Screen name="purchases/[id]" options={{ title: 'Detalle de compra' }} />
       <Stack.Screen name="sales/new" options={{ title: 'Nueva venta' }} />
       <Stack.Screen name="sales/[id]" options={{ title: 'Detalle de venta' }} />
     </Stack>
