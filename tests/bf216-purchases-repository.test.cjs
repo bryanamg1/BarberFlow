@@ -3,7 +3,7 @@ const { test } = require('node:test');
 const { createClient } = require('@supabase/supabase-js');
 const { load, b, input, data, response } = require('./helpers/bf216.cjs');
 
-test('BF216 repository has exactly one operation and preserves SDK envelope', async () => {
+test('BF216 completion API preserves SDK envelope alongside the additive BF216A operation', async () => {
   const result = response();
   const calls = [];
   const { purchasesRepository: repo } = load('repositories/purchasesRepository', {
@@ -16,7 +16,7 @@ test('BF216 repository has exactly one operation and preserves SDK envelope', as
       },
     },
   });
-  assert.deepEqual(Object.keys(repo), ['completePurchase']);
+  assert.deepEqual(Object.keys(repo).sort(), ['completePurchase', 'voidPurchase']);
   assert.strictEqual(await repo.completePurchase(b, input), result);
   assert.deepEqual(calls, [
     [

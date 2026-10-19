@@ -4,8 +4,20 @@ import { supabase } from '@/lib/supabase/client';
 
 import type { CompletePurchaseInput } from '../schemas/purchase.schema';
 import type { CompletePurchaseData } from '../types/completePurchase.types';
+import type { VoidPurchaseData, VoidPurchaseInput } from '../types/voidPurchase.types';
 
 export const purchasesRepository = {
+  voidPurchase(
+    businessId: string,
+    input: VoidPurchaseInput,
+  ): PromiseLike<PostgrestSingleResponse<VoidPurchaseData>> {
+    return supabase.rpc('void_purchase', {
+      p_business_id: businessId,
+      p_operation_id: input.operationId,
+      p_purchase_id: input.purchaseId,
+      p_reason: input.reason,
+    });
+  },
   completePurchase(
     businessId: string,
     input: CompletePurchaseInput,

@@ -153,9 +153,13 @@ BEGIN
   IF (SELECT array_agg(p.proname::text ORDER BY p.proname)
       FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace WHERE n.nspname = 'public')
      IS DISTINCT FROM ARRAY['adjust_stock','complete_purchase','create_appointment_with_services','get_availability','get_client_stats', 'get_low_stock_products', 'get_product_stock', 'has_business_role', 'is_business_member',
-                            'prevent_stock_movement_changes', 'save_business_hours', 'set_updated_at']::text[]
+                            'prevent_stock_movement_changes', 'save_business_hours', 'set_updated_at','void_purchase']::text[]
      OR EXISTS (SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
                 WHERE n.nspname = 'public' AND CASE
+                  WHEN p.proname = 'void_purchase' THEN
+                    NOT p.prosecdef OR p.proretset OR p.provolatile <> 'v' OR p.pronargs <> 4 OR p.pronargdefaults <> 0
+                    OR p.oid <> 'public.void_purchase(uuid,uuid,uuid,text)'::regprocedure
+                    OR p.prorettype <> 'pg_catalog.jsonb'::regtype OR p.proconfig IS DISTINCT FROM ARRAY['search_path=""']::text[]
                   WHEN p.proname = 'complete_purchase' THEN
                     NOT p.prosecdef OR p.proretset OR p.provolatile <> 'v' OR p.pronargs <> 8 OR p.pronargdefaults <> 0
                     OR p.oid <> 'public.complete_purchase(uuid,uuid,text,uuid,text,timestamptz,text,jsonb)'::regprocedure

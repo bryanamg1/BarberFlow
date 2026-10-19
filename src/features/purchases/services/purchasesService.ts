@@ -3,8 +3,26 @@ import { completePurchaseSchema, type CompletePurchaseInput } from '../schemas/p
 import type { CompletePurchaseResult } from '../types/completePurchase.types';
 import { completePurchaseError, mapCompletePurchaseError } from './completePurchaseErrors';
 import { coherentPurchaseResult } from './completePurchaseResult';
+import { voidPurchaseIdSchema, voidPurchaseSchema } from '../schemas/voidPurchase.schema';
+import type { VoidPurchaseInput, VoidPurchaseResult } from '../types/voidPurchase.types';
+import { mapVoidPurchaseError, voidPurchaseError } from './voidPurchaseErrors';
+import { coherentVoidPurchaseResult } from './voidPurchaseResult';
 
 export const purchasesService = {
+  async voidPurchase(businessId: string, input: VoidPurchaseInput): Promise<VoidPurchaseResult> {
+    const parsed = voidPurchaseSchema.safeParse(input);
+    if (!voidPurchaseIdSchema.safeParse(businessId).success || !parsed.success)
+      return { data: null, error: voidPurchaseError('INVALID_INPUT') };
+    try {
+      const result = await purchasesRepository.voidPurchase(businessId, parsed.data);
+      if (result.error !== null) return { data: null, error: mapVoidPurchaseError(result) };
+      if (!coherentVoidPurchaseResult(result.data, businessId, parsed.data))
+        return { data: null, error: voidPurchaseError('UNKNOWN_ERROR') };
+      return { data: result.data, error: null };
+    } catch {
+      return { data: null, error: voidPurchaseError('UNKNOWN_ERROR') };
+    }
+  },
   async completePurchase(
     businessId: string,
     input: CompletePurchaseInput,

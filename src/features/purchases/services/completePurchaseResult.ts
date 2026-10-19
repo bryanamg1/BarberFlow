@@ -47,7 +47,11 @@ const expense = z.strictObject({
   created_at: instant,
   updated_at: instant,
 });
-const result = z.strictObject({ purchase, items: z.array(item).min(1), expense });
+export const purchaseResultSchema = z.strictObject({
+  purchase,
+  items: z.array(item).min(1),
+  expense,
+});
 // UUID spelling accepted by PostgreSQL can differ from its canonical output.
 // Compare identities only; never rewrite a persisted string or retry payload.
 const identity = (value: string) => value.trim().replace(/[{}-]/g, '').toLowerCase();
@@ -56,7 +60,7 @@ export function coherentPurchaseResult(
   businessId: string,
   operationId: string,
 ): value is CompletePurchaseData {
-  const parsed = result.safeParse(value);
+  const parsed = purchaseResultSchema.safeParse(value);
   if (!parsed.success) return false;
   const { purchase, items, expense } = parsed.data;
   return (
