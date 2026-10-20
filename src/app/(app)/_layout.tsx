@@ -36,6 +36,7 @@ export default function AppLayout() {
       <Stack.Screen name="products/new" options={{ title: 'Nuevo producto' }} />
       <Stack.Screen name="products/[id]" options={{ title: 'Detalle de producto' }} />
       <Stack.Screen name="products/[id]/stock-adjustment" options={{ title: 'Ajustar stock' }} />
+      <Stack.Screen name="expenses/index" options={{ title: 'Gastos' }} />
       <Stack.Screen name="expenses/new" options={{ title: 'Nuevo gasto' }} />
       <Stack.Screen name="expenses/categories/index" options={{ title: 'Categorías de gastos' }} />
       <Stack.Screen
