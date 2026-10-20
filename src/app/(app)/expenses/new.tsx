@@ -1,9 +1,1 @@
-import { Text, View } from 'react-native';
-
-export default function NewExpenseScreen() {
-  return (
-    <View>
-      <Text>Nuevo gasto</Text>
-    </View>
-  );
-}
+export { ExpenseCreateScreen as default } from '@/features/expenses/screens/ManualExpenseScreen';
