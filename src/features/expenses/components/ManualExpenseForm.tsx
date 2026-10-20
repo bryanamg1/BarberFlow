@@ -10,6 +10,7 @@ import { Button } from '@/components/ui';
 import { useCreateManualExpense } from '../hooks/useCreateManualExpense';
 import { useUpdateManualExpense } from '../hooks/useUpdateManualExpense';
 import { useExpenseLifecycle } from '../hooks/useExpenseLifecycle';
+import { useExpenseReceipt } from '../hooks/useExpenseReceipt';
 import {
   createManualExpenseSchema,
   updateManualExpenseSchema,
@@ -19,9 +20,10 @@ import {
 import type { ExpenseRow } from '../types/expense.types';
 import type { ExpenseMutationResult } from '../types/expenseHooks.types';
 import { ManualExpenseFields } from './ManualExpenseFields';
+import { ExpenseReceiptField } from './ExpenseReceiptField';
 import { expenseStyles as styles } from './expensePresentation';
 
-type Props = { currency: string } & (
+type Props = { currency: string; receiptFailed?: boolean } & (
   { mode: 'create' } | { mode: 'edit'; initialExpense: ExpenseRow }
 );
 
@@ -80,8 +82,14 @@ function FormBody(props: Props & { mutation: ExpenseMutationResult<UpdateManualE
   const inFlight = useRef(false);
   const [sending, setSending] = useState(false);
   const [saved, setSaved] = useState<ExpenseRow | null>(null);
+  const receipt = useExpenseReceipt(
+    `${props.mode}:${initial?.id ?? ''}`,
+    (saved ?? initial)?.receipt_path ?? null,
+  );
+  const receiptFailed = useRef(false);
   const navigated = useRef(false);
-  const pending = sending || formState.isSubmitting || mutation.status === 'pending';
+  const pending =
+    sending || formState.isSubmitting || mutation.status === 'pending' || receipt.busy;
   const blocked = pending || (props.mode === 'create' && saved !== null);
   // Local in-flight protection only. This is not a new unsaved-changes navigation system.
   usePreventRemove(pending, () => {});
@@ -94,7 +102,12 @@ function FormBody(props: Props & { mutation: ExpenseMutationResult<UpdateManualE
       !navigated.current
     ) {
       navigated.current = true;
-      router.replace(`/expenses/${encodeURIComponent(saved.id)}/edit` as Href);
+      // Only a safe outcome flag crosses navigation. No file, path or signed URL in params.
+      router.replace(
+        `/expenses/${encodeURIComponent(saved.id)}/edit${
+          receiptFailed.current ? '?receiptFailed=1' : ''
+        }` as Href,
+      );
     }
   }, [props.mode, saved, pending, lifetime]);
 
@@ -110,13 +123,19 @@ function FormBody(props: Props & { mutation: ExpenseMutationResult<UpdateManualE
     setSending(true);
     const isCurrent = lifetime.isCurrent;
     try {
-      const adopt = (persisted: ExpenseRow) => {
+      const adopt = async (persisted: ExpenseRow) => {
         if (!isCurrent()) return;
+        if (props.mode === 'create' && receipt.file) {
+          const withReceipt = await receipt.attach(persisted);
+          if (!isCurrent()) return;
+          receiptFailed.current = withReceipt === null;
+          persisted = withReceipt ?? persisted;
+        }
         setSaved(persisted);
         if (props.mode === 'edit') reset(persistedValues(persisted));
       };
       if (retry) {
-        adopt(await mutation.retry());
+        await adopt(await mutation.retry());
         return;
       }
       mutation.reset();
@@ -130,7 +149,7 @@ function FormBody(props: Props & { mutation: ExpenseMutationResult<UpdateManualE
           }
         }
         if (props.mode === 'edit') updateManualExpenseSchema.parse(input);
-        adopt(await mutation.mutateAsync(input));
+        await adopt(await mutation.mutateAsync(input));
       })();
     } catch {
       // BF232 owns safe domain feedback and preserves the captured retry intent.
@@ -153,6 +172,24 @@ function FormBody(props: Props & { mutation: ExpenseMutationResult<UpdateManualE
             mutation.reset();
           }
         }}
+      />
+      {props.receiptFailed && !receipt.attached && (
+        <Text role="status" style={styles.hint}>
+          El gasto se guardó. No se pudo adjuntar el comprobante; vuelve a seleccionarlo para
+          reintentar solo el adjunto.
+        </Text>
+      )}
+      <ExpenseReceiptField
+        receipt={receipt}
+        disabled={blocked}
+        onAttach={
+          props.mode === 'edit'
+            ? () => {
+                if (!inFlight.current && !pending && lifetime.isCurrent())
+                  void receipt.attach(saved ?? props.initialExpense);
+              }
+            : undefined
+        }
       />
       {mutation.status === 'error' && (
         <>

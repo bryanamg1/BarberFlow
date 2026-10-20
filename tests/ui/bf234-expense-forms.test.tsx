@@ -28,6 +28,12 @@ import {
 
 jest.mock('@/features/auth/context/AuthContext', () => ({ useAuth: jest.fn() }));
 jest.mock('@/features/business/context/BusinessContext', () => ({ useBusiness: jest.fn() }));
+jest.mock('@/lib/storage', () => ({
+  storageService: { upload: jest.fn(), createSignedUrl: jest.fn() },
+}));
+jest.mock('@/features/expenses/services/receiptPicker', () => ({
+  receiptPicker: { pick: jest.fn() },
+}));
 jest.mock('@/features/expenses/services/expensesService', () => ({
   expensesService: {
     listByBusiness: jest.fn(),

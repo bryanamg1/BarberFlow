@@ -15,16 +15,22 @@ import { usableExpenseId, useExpenseLifecycle } from '../hooks/useExpenseLifecyc
 import type { ExpenseRow } from '../types/expense.types';
 
 export const ExpenseCreateScreen = () => <ManualExpenseScreen mode="create" />;
-export const ExpenseEditScreen = ({ expenseId }: { expenseId: string | null }) => (
-  <ManualExpenseScreen mode="edit" expenseId={expenseId} />
-);
+export const ExpenseEditScreen = ({
+  expenseId,
+  receiptFailed,
+}: {
+  expenseId: string | null;
+  receiptFailed?: boolean;
+}) => <ManualExpenseScreen mode="edit" expenseId={expenseId} receiptFailed={receiptFailed} />;
 
 function ManualExpenseScreen({
   mode,
   expenseId = null,
+  receiptFailed = false,
 }: {
   mode: 'create' | 'edit';
   expenseId?: string | null;
+  receiptFailed?: boolean;
 }) {
   const { scope } = useExpenseLifecycle(`expense-screen:${mode}:${expenseId}`);
   const business = useBusiness();
@@ -51,12 +57,14 @@ function ManualExpenseScreen({
                 key={JSON.stringify([scope, mode])}
                 mode="create"
                 currency={business.data.business.currency_code}
+                receiptFailed={receiptFailed}
               />
             ) : (
               <EditExpense
                 key={JSON.stringify([scope, expenseId])}
                 expenseId={expenseId}
                 currency={business.data.business.currency_code}
+                receiptFailed={receiptFailed}
               />
             )
           ) : (
@@ -68,7 +76,15 @@ function ManualExpenseScreen({
   );
 }
 
-function EditExpense({ expenseId, currency }: { expenseId: string | null; currency: string }) {
+function EditExpense({
+  expenseId,
+  currency,
+  receiptFailed,
+}: {
+  expenseId: string | null;
+  currency: string;
+  receiptFailed?: boolean;
+}) {
   const detail = useExpenseDetail(expenseId);
   // Form hydration snapshot, not a second remote cache. Keep an existing draft on read refresh errors.
   const [initial, setInitial] = useState<ExpenseRow | null>(() =>
@@ -114,7 +130,12 @@ function EditExpense({ expenseId, currency }: { expenseId: string | null; curren
         />
       )}
       {initial ? (
-        <ManualExpenseForm mode="edit" initialExpense={initial} currency={currency} />
+        <ManualExpenseForm
+          mode="edit"
+          initialExpense={initial}
+          currency={currency}
+          receiptFailed={receiptFailed}
+        />
       ) : (
         <>
           {detail.status === 'pending' || detail.status === 'success' ? (
