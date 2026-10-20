@@ -17,6 +17,7 @@ import type {
   ExpenseResult,
 } from '../types/expense.types';
 import { normalizeExpenseListParams } from '../utils/expenseListParams';
+import { expenseError } from '../utils/expenseErrors';
 
 const usableId = z.string().refine((value) => value.trim().length > 0);
 const rowSchema: z.ZodType<ExpenseRow> = z
@@ -38,16 +39,8 @@ const rowSchema: z.ZodType<ExpenseRow> = z
   })
   .refine((row) => (row.source_type === 'MANUAL') === (row.purchase_id === null));
 
-const messages: Record<ExpenseErrorCode, string> = {
-  EXPENSE_ACCESS_DENIED: 'No se pudo acceder al gasto.',
-  EXPENSE_NOT_FOUND: 'No se encontró el gasto o no está disponible.',
-  INVALID_INPUT: 'Revisa los datos del gasto.',
-  NETWORK_ERROR: 'No se pudo conectar con los gastos. Inténtalo nuevamente.',
-  UNKNOWN_ERROR: 'No se pudo completar la operación del gasto. Inténtalo nuevamente.',
-};
-
 function failure(code: ExpenseErrorCode): { data: null; error: ExpenseError } {
-  return { data: null, error: { code, message: messages[code] } };
+  return { data: null, error: expenseError(code) };
 }
 
 function errorCode(error: unknown, status?: number): ExpenseErrorCode {
