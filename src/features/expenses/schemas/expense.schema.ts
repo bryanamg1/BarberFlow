@@ -14,8 +14,7 @@ const money = z
     { error: 'El importe supera el máximo permitido.' },
   );
 
-// Application contract HD-006. The legacy expenses payment CHECK is not yet
-// compatible; these schemas alone do not enable real INSERT/UPDATE operations.
+// Application contract HD-006; BF-215 also aligned the database payment CHECK.
 export const createManualExpenseSchema = z.object({
   category_id: z
     .string({ error: 'Selecciona una categoría válida.' })
