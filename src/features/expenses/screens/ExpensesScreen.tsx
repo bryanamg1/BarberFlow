@@ -9,6 +9,7 @@ import { formatCatalogPrice } from '@/utils/formatMoney';
 
 import { ExpenseAccess } from '../components/ExpenseAccess';
 import { ExpenseCategorySelect } from '../components/ExpenseCategorySelect';
+import { GeneratedExpenseDetails } from '../components/GeneratedExpenseDetails';
 import { expensePaymentLabel, expenseStyles as styles } from '../components/expensePresentation';
 import { useExpenseLifecycle } from '../hooks/useExpenseLifecycle';
 import { useExpenses } from '../hooks/useExpenses';
@@ -125,7 +126,7 @@ function ExpenseList() {
                     }
                   />
                 ) : (
-                  <Text style={styles.hint}>Solo lectura</Text>
+                  <GeneratedExpenseDetails expense={item} />
                 )}
               </Card>
             ))
