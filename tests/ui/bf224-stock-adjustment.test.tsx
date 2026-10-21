@@ -1,6 +1,6 @@
 import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
 import { uuid } from 'expo-modules-core';
-import { useLocalSearchParams } from 'expo-router';
+import { useIsFocused, useLocalSearchParams } from 'expo-router';
 import AdjustmentRoute from '@/app/(app)/products/[id]/stock-adjustment';
 import ProductDetail from '@/app/(app)/products/[id]';
 import { useAuth } from '@/features/auth/context/AuthContext';
@@ -11,6 +11,7 @@ import {
 import { inventoryKeys } from '@/features/inventory/constants/inventoryKeys';
 import { StockAdjustmentScreen } from '@/features/inventory/screens/StockAdjustmentScreen';
 import { inventoryService } from '@/features/inventory/services/inventoryService';
+import { productsService } from '@/features/products/services/productsService';
 import type { AdjustStockInput } from '@/features/inventory/schemas/stockAdjustment.schema';
 import type { StockMovementRow } from '@/features/inventory/types/inventory.types';
 import { renderWithProviders } from '@/test/renderWithProviders';
@@ -19,12 +20,18 @@ import { resetRouterMocks, routerMock } from '@/test/routerTestUtils';
 jest.mock('@/features/auth/context/AuthContext', () => ({ useAuth: jest.fn() }));
 jest.mock('expo-router', () => {
   const { routerMock } = jest.requireActual('@/test/routerTestUtils');
-  return { router: routerMock, useLocalSearchParams: jest.fn() };
+  return { router: routerMock, useLocalSearchParams: jest.fn(), useIsFocused: jest.fn() };
 });
 jest.mock('expo-router/react-navigation', () => ({ useHeaderHeight: () => 64 }));
 jest.mock('@/features/business/context/BusinessContext', () => ({ useBusiness: jest.fn() }));
 jest.mock('@/features/inventory/services/inventoryService', () => ({
   inventoryService: { adjustStock: jest.fn(), getProductStock: jest.fn() },
+}));
+jest.mock('@/features/products/services/productsService', () => ({
+  productsService: { getById: jest.fn() },
+}));
+jest.mock('@/features/products/services/productCategoriesService', () => ({
+  productCategoriesService: { getByIds: jest.fn() },
 }));
 jest.mock('@/features/inventory/repositories/inventoryRepository', () => {
   throw new Error('UI imported repository');
@@ -94,9 +101,27 @@ async function review(quantity = '-2') {
 beforeEach(() => {
   resetRouterMocks();
   setLocalSearchParams({ id: p });
+  jest.mocked(useIsFocused).mockReturnValue(true);
   jest.spyOn(uuid, 'v4').mockReturnValue(op);
   businessMock.mockReturnValue(business());
   authMock.mockReturnValue(auth());
+  jest.mocked(productsService.getById).mockResolvedValue({
+    data: {
+      id: p,
+      business_id: b,
+      category_id: null,
+      name: 'Producto persistido',
+      description: null,
+      sku: null,
+      sale_price: 12,
+      default_purchase_cost: 6,
+      minimum_stock: 0,
+      is_active: true,
+      created_at: '2026-01-01T00:00:00Z',
+      updated_at: '2026-01-01T00:00:00Z',
+    },
+    error: null,
+  });
   service.getProductStock.mockResolvedValue({
     data: [{ product_id: p, current_stock: '10' }],
     error: null,
@@ -110,6 +135,7 @@ beforeEach(() => {
 test('thin route and detail OWNER entry target the selected product', async () => {
   expect(AdjustmentRoute).toBe(StockAdjustmentScreen);
   await renderWithProviders(<ProductDetail />);
+  await screen.findByText('Producto persistido');
   await press('Ajustar stock');
   expect(routerMock.push).toHaveBeenCalledWith({
     pathname: '/products/[id]/stock-adjustment',
