@@ -12,6 +12,7 @@ import {
   type RescheduleAppointmentInput,
   type UpdateAppointmentNotesInput,
 } from '../schemas/appointment.schema';
+import { appointmentCivilDateSchema } from '../schemas/appointmentDate.schema';
 import type {
   AppointmentAvailabilityInput,
   AppointmentRange,
@@ -26,7 +27,7 @@ import {
 const idSchema = rescheduleAppointmentSchema.shape.appointmentId;
 const availabilitySchema = z.object({
   barberMemberId: rescheduleAppointmentSchema.shape.barberMemberId,
-  date: z.iso.date().refine((value) => !value.startsWith('0000-')),
+  date: appointmentCivilDateSchema,
   durationMinutes: rescheduleAppointmentSchema.shape.durationOverride.unwrap(),
   excludeAppointmentId: idSchema.optional(),
 });
