@@ -1,4 +1,7 @@
-import { productCategoriesRepository } from '../repositories/productCategoriesRepository';
+import {
+  productCategoriesRepository,
+  type ProductCategoryRow,
+} from '../repositories/productCategoriesRepository';
 import {
   createProductCategorySchema,
   updateProductCategorySchema,
@@ -48,6 +51,22 @@ async function runOperation<T>(
 }
 
 export const productCategoriesService = {
+  getByIds(
+    businessId: string,
+    categoryIds: readonly string[],
+  ): Promise<
+    { data: ProductCategoryRow[]; error: null } | { data: null; error: ProductCategoryError }
+  > {
+    if (!usableId(businessId)) return Promise.resolve(failure('PRODUCT_CATEGORY_ACCESS_DENIED'));
+    if (!Array.isArray(categoryIds) || !categoryIds.every(usableId))
+      return Promise.resolve(failure('UNKNOWN_ERROR'));
+    const ids = [...new Set(categoryIds)];
+    if (!ids.length) return Promise.resolve({ data: [], error: null });
+    return runOperation(
+      () => productCategoriesRepository.getByIds(businessId, ids),
+      'UNKNOWN_ERROR',
+    );
+  },
   getById(businessId: string, productCategoryId: string): Promise<ProductCategoryResult> {
     if (!usableId(businessId) || !usableId(productCategoryId))
       return Promise.resolve(failure('PRODUCT_CATEGORY_NOT_FOUND'));

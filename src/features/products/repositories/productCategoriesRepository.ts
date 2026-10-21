@@ -18,6 +18,17 @@ export type ProductCategoryRow = {
 const columns = 'id, business_id, name, is_active, created_at, updated_at';
 
 export const productCategoriesRepository = {
+  getByIds(businessId: string, categoryIds: readonly string[]) {
+    const ids = [...new Set(categoryIds)];
+    if (!ids.length)
+      return Promise.resolve({ data: [] as ProductCategoryRow[], error: null, status: 200 });
+    return supabase
+      .from('product_categories')
+      .select(columns)
+      .eq('business_id', businessId)
+      .in('id', ids)
+      .overrideTypes<ProductCategoryRow[], { merge: false }>();
+  },
   getById(businessId: string, productCategoryId: string) {
     return supabase
       .from('product_categories')
