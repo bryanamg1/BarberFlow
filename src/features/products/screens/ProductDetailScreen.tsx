@@ -8,6 +8,9 @@ import { productCategoryLabel, productStyles as styles } from '../components/pro
 import { useProductCategoriesByIds } from '../hooks/useProductCategoriesByIds';
 import { useProductDetail } from '../hooks/useProductDetail';
 import { useProductLifecycle } from '../hooks/useProductLifecycle';
+import { useProductStock } from '../hooks/useProductStock';
+import { ProductStockBadge } from '../components/ProductStockBadge';
+import { selectProductStock } from '../utils/productStock';
 
 export function ProductDetailScreen({ productId }: { productId: string | null }) {
   const { scope } = useProductLifecycle('product-detail-screen');
@@ -35,6 +38,7 @@ function Detail({ productId }: { productId: string | null }) {
   const result = useProductDetail(productId);
   const business = useBusiness();
   const product = result.status === 'success' ? result.data : null;
+  const stock = useProductStock(product ? [product.id] : []);
   const categories = useProductCategoriesByIds(product?.category_id ? [product.category_id] : []);
   if (result.status === 'pending') return <LoadingState message="Cargando producto…" />;
   if (result.status === 'error')
@@ -60,6 +64,20 @@ function Detail({ productId }: { productId: string | null }) {
         label={product.is_active ? 'Activo' : 'Archivado'}
         tone={product.is_active ? 'success' : 'neutral'}
       />
+      <ProductStockBadge
+        stock={selectProductStock(stock, product.id)}
+        minimumStock={product.minimum_stock}
+      />
+      {stock.status === 'error' && (
+        <ErrorState
+          title="Stock no disponible"
+          message={stock.error.message}
+          retrying={stock.isFetching}
+          onRetry={() => {
+            void stock.refetch();
+          }}
+        />
+      )}
       <Card style={styles.section}>
         <Text style={styles.text}>
           Categoría: {productCategoryLabel(product.category_id, categories)}

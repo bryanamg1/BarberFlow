@@ -5,6 +5,7 @@ import { router, useIsFocused, useLocalSearchParams } from 'expo-router';
 import { useAuth } from '@/features/auth/context/AuthContext';
 import { useBusiness } from '@/features/business/context/BusinessContext';
 import { productsService } from '@/features/products/services/productsService';
+import { inventoryService } from '@/features/inventory/services/inventoryService';
 import { productCategoriesService } from '@/features/products/services/productCategoriesService';
 import { useProductCategoriesByIds } from '@/features/products/hooks/useProductCategoriesByIds';
 import { ProductsScreen } from '@/features/products/screens/ProductsScreen';
@@ -18,6 +19,9 @@ import { productError } from '@/features/products/utils/productErrors';
 import { createTestQueryClient } from '@/test/createTestQueryClient';
 import { cloneElement, type ReactElement } from 'react';
 jest.mock('@/features/auth/context/AuthContext', () => ({ useAuth: jest.fn() }));
+jest.mock('@/features/inventory/services/inventoryService', () => ({
+  inventoryService: { getProductStock: jest.fn() },
+}));
 jest.mock('@/features/business/context/BusinessContext', () => ({ useBusiness: jest.fn() }));
 jest.mock('expo-router', () => ({
   useIsFocused: jest.fn(),
@@ -130,6 +134,7 @@ async function mountScreen(element: ReactElement) {
   return { client, rerender: () => view.rerender(tree()), unmount: () => view.unmount() };
 }
 beforeEach(() => {
+  jest.mocked(inventoryService.getProductStock).mockResolvedValue({ data: [], error: null });
   notifyManager.setScheduler(queueMicrotask);
   context();
   jest.mocked(useIsFocused).mockReturnValue(true);
@@ -253,7 +258,7 @@ test('missing category is neutral, category errors preserve product and can retr
 test('row and category navigation use only actual routes', async () => {
   await mountScreen(<ProductsScreen />);
   await screen.findByText('Peine');
-  await userEvent.press(screen.getByRole('button', { name: 'Ver producto Peine, Archivado' }));
+  await userEvent.press(screen.getByRole('button', { name: /^Ver producto Peine, Archivado/ }));
   expect(router.push).toHaveBeenCalledWith({ pathname: '/products/[id]', params: { id: 'p2' } });
   await userEvent.press(screen.getByRole('button', { name: 'Categorías' }));
   expect(router.push).toHaveBeenLastCalledWith('/products/categories');

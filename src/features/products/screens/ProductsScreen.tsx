@@ -9,6 +9,11 @@ import { productCategoryLabel, productStyles as styles } from '../components/pro
 import { useProductCategoriesByIds } from '../hooks/useProductCategoriesByIds';
 import { useProductLifecycle } from '../hooks/useProductLifecycle';
 import { useProductList } from '../hooks/useProductList';
+import { useProductStock } from '../hooks/useProductStock';
+import { ProductStockBadge } from '../components/ProductStockBadge';
+import { productStockPresentation } from '../components/productStockPresentation';
+import { selectProductStock } from '../utils/productStock';
+import type { ProductStockValue } from '../types/productStock.types';
 import type { ProductRow } from '../types/product.types';
 
 export function ProductsScreen() {
@@ -40,6 +45,7 @@ function Catalog({ currency }: { currency: string }) {
   const [categoryId, setCategoryId] = useState<string>();
   const result = useProductList({ page, pageSize: 25, status, categoryId });
   const items = result.status === 'success' ? result.data.items : [];
+  const stock = useProductStock(items.map((product) => product.id));
   const categories = useProductCategoriesByIds(
     items.flatMap((row) => (row.category_id === null ? [] : [row.category_id])),
   );
@@ -92,6 +98,16 @@ function Catalog({ currency }: { currency: string }) {
         />
       ) : result.status === 'success' ? (
         <>
+          {stock.status === 'error' && (
+            <ErrorState
+              title="Stock no disponible"
+              message={stock.error.message}
+              retrying={stock.isFetching}
+              onRetry={() => {
+                void stock.refetch();
+              }}
+            />
+          )}
           {categories.status === 'error' && (
             <ErrorState
               title="Categorías no disponibles"
@@ -129,6 +145,7 @@ function Catalog({ currency }: { currency: string }) {
                 product={product}
                 currency={currency}
                 category={productCategoryLabel(product.category_id, categories)}
+                stock={selectProductStock(stock, product.id)}
               />
             ))
           )}
@@ -160,17 +177,19 @@ function ProductRowLink({
   product,
   currency,
   category,
+  stock,
 }: {
   product: ProductRow;
   currency: string;
   category: string;
+  stock: ProductStockValue;
 }) {
   const [focused, setFocused] = useState(false);
   const status = product.is_active ? 'Activo' : 'Archivado';
   return (
     <Pressable
       role="button"
-      aria-label={`Ver producto ${product.name}, ${status}`}
+      aria-label={`Ver producto ${product.name}, ${status}. ${productStockPresentation(stock, product.minimum_stock).label}`}
       accessibilityHint="Abre el detalle del producto"
       onFocus={() => setFocused(true)}
       onBlur={() => setFocused(false)}
@@ -183,6 +202,7 @@ function ProductRowLink({
       </Text>
       <Text style={styles.text}>{category}</Text>
       <Badge label={status} tone={product.is_active ? 'success' : 'neutral'} />
+      <ProductStockBadge stock={stock} minimumStock={product.minimum_stock} />
     </Pressable>
   );
 }
