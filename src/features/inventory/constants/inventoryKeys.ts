@@ -10,6 +10,17 @@ export const inventoryKeys = {
   ) => ['inventory', scope?.businessId ?? null, 'low-stock', scope, { page, pageSize }] as const,
   productStock: (businessId: string, productId: string) =>
     ['inventory', businessId, 'stock', productId] as const,
+  productStockBatch: (
+    scope: { businessId: string; membershipId: string; userId: string } | null,
+    productIds: readonly string[],
+  ) =>
+    [
+      'inventory',
+      scope?.businessId ?? null,
+      'product-stock-batch',
+      scope,
+      [...new Set(productIds)].sort(),
+    ] as const,
   stockMovements: (
     businessId: string | null,
     productId: string | null,
