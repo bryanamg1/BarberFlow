@@ -220,6 +220,7 @@ test('BF-103: real root renders BusinessProvider under both required providers w
   let hookCalls = 0;
   let routingCalls = 0;
   let lifecycleCalls = 0;
+  let checkoutLifecycleCalls = 0;
   const { BusinessProvider, useBusiness } = loadContext(() => {
     assert.equal(query.useQueryClient(), client, 'QueryProvider must be above BusinessProvider');
     assert.equal(React.useContext(authScope), true, 'AuthProvider must be above BusinessProvider');
@@ -244,6 +245,12 @@ test('BF-103: real root renders BusinessProvider under both required providers w
     lifecycleCalls++;
     return null;
   }
+  function CheckoutDraftLifecycle() {
+    assert.equal(useBusiness(), idle, 'BusinessProvider must wrap checkout lifecycle');
+    assert.equal(React.useContext(authScope), true, 'AuthProvider must wrap checkout lifecycle');
+    checkoutLifecycleCalls++;
+    return null;
+  }
   const layout = compile(path.join(root, 'src/app/_layout.tsx'), (name) => {
     if (name === 'react' || name === 'react/jsx-runtime') return require(name);
     if (name.startsWith('@expo-google-fonts/inter/')) return new Proxy({}, { get: () => 1 });
@@ -255,6 +262,7 @@ test('BF-103: real root renders BusinessProvider under both required providers w
     if (name === '@/features/auth/routing/AuthNavigator') return { AuthNavigator };
     if (name === '@/features/purchases/store/PurchaseDraftLifecycle')
       return { PurchaseDraftLifecycle };
+    if (name === '@/features/sales/store/CheckoutDraftLifecycle') return { CheckoutDraftLifecycle };
     if (name === '@/features/business/context/BusinessContext') return { BusinessProvider };
     if (name === '@/lib/query') return { QueryProvider };
     assert.equal(name, '@/theme/typography');
@@ -266,11 +274,13 @@ test('BF-103: real root renders BusinessProvider under both required providers w
   assert.equal(hookCalls, 1);
   assert.equal(routingCalls, 1);
   assert.equal(lifecycleCalls, 1);
+  assert.equal(checkoutLifecycleCalls, 1);
   loaded = false;
   assert.equal(renderToStaticMarkup(React.createElement(layout.default)), '');
   assert.equal(hookCalls, 1);
   assert.equal(routingCalls, 1);
   assert.equal(lifecycleCalls, 1);
+  assert.equal(checkoutLifecycleCalls, 1);
   assert.deepEqual(layout.unstable_settings, { initialRouteName: '(app)' });
 });
 
