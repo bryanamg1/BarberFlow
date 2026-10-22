@@ -27,7 +27,8 @@ BEGIN
      OR EXISTS (SELECT 1 FROM aclexplode(helper.proacl) a WHERE a.grantee <> helper.proowner OR a.is_grantable) THEN
     RAISE EXCEPTION 'BF181 unsafe internal helper metadata';
   END IF;
-  IF EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'complete_checkout')
+  IF NOT EXISTS(SELECT 1 FROM pg_proc WHERE oid='public.complete_checkout(uuid,uuid,uuid,uuid,numeric,text,jsonb)'::regprocedure
+      AND prosecdef AND prorettype='jsonb'::regtype AND pronargdefaults=0 AND proconfig=ARRAY['search_path=""']::text[])
      OR (SELECT count(*) FROM pg_policies WHERE schemaname = 'public') <> 41
      OR EXISTS (SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
                 WHERE n.nspname = 'public' AND c.relkind = 'r' AND (NOT c.relrowsecurity OR c.relforcerowsecurity)) THEN

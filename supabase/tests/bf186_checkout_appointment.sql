@@ -24,7 +24,8 @@ BEGIN
   FOREACH r IN ARRAY ARRAY['anon','authenticated','service_role'] LOOP
     IF has_function_privilege(r,fn.oid,'EXECUTE') THEN RAISE EXCEPTION 'Internal completion exposed'; END IF;
   END LOOP;
-  IF EXISTS(SELECT 1 FROM pg_proc WHERE proname='complete_checkout') THEN RAISE EXCEPTION 'BF188 exposed prematurely'; END IF;
+  IF NOT EXISTS(SELECT 1 FROM pg_proc WHERE oid='public.complete_checkout(uuid,uuid,uuid,uuid,numeric,text,jsonb)'::regprocedure
+      AND prosecdef AND prorettype='jsonb'::regtype AND pronargdefaults=0 AND proconfig=ARRAY['search_path=""']::text[]) THEN RAISE EXCEPTION 'BF188 public metadata mismatch'; END IF;
   INSERT INTO auth.users(id) VALUES(u),(barber),(stranger);
   INSERT INTO public.businesses(id,name) VALUES(b,'BF186'),(fb,'Foreign');
   INSERT INTO public.business_members(id,business_id,user_id,role) VALUES(m,b,u,'OWNER'),(gen_random_uuid(),b,barber,'BARBER');

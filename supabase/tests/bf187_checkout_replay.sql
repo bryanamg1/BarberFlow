@@ -12,7 +12,8 @@ BEGIN
   FOREACH role_name IN ARRAY ARRAY['anon','authenticated','service_role'] LOOP
     IF has_function_privilege(role_name,fn.oid,'EXECUTE') THEN RAISE EXCEPTION 'Internal replay exposed'; END IF;
   END LOOP;
-  IF EXISTS(SELECT 1 FROM pg_proc WHERE proname='complete_checkout') THEN RAISE EXCEPTION 'BF188 exposed'; END IF;
+  IF NOT EXISTS(SELECT 1 FROM pg_proc WHERE oid='public.complete_checkout(uuid,uuid,uuid,uuid,numeric,text,jsonb)'::regprocedure
+      AND prosecdef AND prorettype='jsonb'::regtype AND pronargdefaults=0 AND proconfig=ARRAY['search_path=""']::text[]) THEN RAISE EXCEPTION 'BF188 public metadata mismatch'; END IF;
 END $$;
 CREATE FUNCTION pg_temp.expect_error(statement text, expected text) RETURNS void LANGUAGE plpgsql AS $$
 BEGIN

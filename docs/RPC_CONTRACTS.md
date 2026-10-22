@@ -240,6 +240,16 @@ outcomes retain their stored state. An unknown authorized key reveals no other
 business's operation. This internal invoker helper has an empty search_path and
 no client-role EXECUTE; BF-188 still owns the public atomic orchestrator.
 
+BF-188 materializes `public.complete_checkout` with the seven required arguments
+above, hardened SECURITY DEFINER, empty search_path and EXECUTE for authenticated
+only. It uses BF-187 before any new-input validation, retains the linked appointment
+then business currency anchor before BF-181 product locks, and holds ordered shared
+service locks while computing exact server header amounts. BF-182/183/184/185 own
+their persistence; BF-186 is invoked only for a linked appointment. BF-187 builds
+and validates the final outcome on the same transaction. Any escaping failure rolls
+back the entire checkout. Private helpers, table grants and RLS are unchanged;
+no frontend checkout or sale-void operation is introduced by BF-188.
+
 Final output is exactly `{ sale, items, payments }`, containing persisted values:
 
 - SaleRow (13): id, business_id, client_id, appointment_id, operation_id, status,

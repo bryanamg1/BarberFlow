@@ -40,7 +40,8 @@ BEGIN
   FOREACH role_name IN ARRAY ARRAY['anon','authenticated','service_role'] LOOP
     IF has_function_privilege(role_name,f.oid,'EXECUTE') THEN RAISE EXCEPTION 'BF185 helper exposed'; END IF;
   END LOOP;
-  IF EXISTS(SELECT 1 FROM pg_proc WHERE proname='complete_checkout')
+  IF NOT EXISTS(SELECT 1 FROM pg_proc WHERE oid='public.complete_checkout(uuid,uuid,uuid,uuid,numeric,text,jsonb)'::regprocedure
+      AND prosecdef AND prorettype='jsonb'::regtype AND pronargdefaults=0 AND proconfig=ARRAY['search_path=""']::text[])
     OR (SELECT count(*) FROM pg_policies WHERE schemaname='public')<>41 THEN RAISE EXCEPTION 'BF185 public surface changed'; END IF;
   checks:=checks+5;
   INSERT INTO auth.users(id) SELECT unnest(u);

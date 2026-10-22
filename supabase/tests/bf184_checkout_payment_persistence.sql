@@ -38,7 +38,8 @@ BEGIN
     IF has_function_privilege(role_name,f.oid,'EXECUTE') THEN RAISE EXCEPTION 'BF184 exposed to %',role_name; END IF;
   END LOOP;
   IF NOT (SELECT convalidated FROM pg_constraint WHERE conrelid='public.payments'::regclass AND conname='payments_payment_method_check')
-     OR EXISTS(SELECT 1 FROM pg_proc WHERE proname='complete_checkout')
+     OR NOT EXISTS(SELECT 1 FROM pg_proc WHERE oid='public.complete_checkout(uuid,uuid,uuid,uuid,numeric,text,jsonb)'::regprocedure
+      AND prosecdef AND prorettype='jsonb'::regtype AND pronargdefaults=0 AND proconfig=ARRAY['search_path=""']::text[])
      OR (SELECT count(*) FROM pg_policies WHERE schemaname='public')<>41 THEN
     RAISE EXCEPTION 'BF184 unvalidated CHECK or public surface changed';
   END IF;
