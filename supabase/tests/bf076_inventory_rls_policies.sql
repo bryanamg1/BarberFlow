@@ -101,9 +101,9 @@ BEGIN
   END IF;
   IF (SELECT array_agg(p.proname::text ORDER BY p.proname) FROM pg_proc p
       JOIN pg_namespace n ON n.oid = p.pronamespace WHERE n.nspname = 'public') IS DISTINCT FROM
-      ARRAY['adjust_stock','complete_purchase','create_appointment_with_services','get_availability','get_client_stats','get_expense_summary','get_low_stock_products','get_product_stock','get_purchase_detail','has_business_role','is_business_member','prevent_stock_movement_changes','save_business_hours','set_updated_at','void_purchase']::text[]
+      ARRAY['adjust_stock','change_appointment_status','complete_purchase','create_appointment_with_services','get_availability','get_client_stats','get_expense_summary','get_low_stock_products','get_product_stock','get_purchase_detail','has_business_role','is_business_member','prevent_stock_movement_changes','reschedule_appointment','save_business_hours','set_updated_at','update_appointment_notes','void_purchase']::text[]
      OR (SELECT count(*) FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
-         WHERE n.nspname = 'public' AND p.prosecdef) <> 8 THEN
+         WHERE n.nspname = 'public' AND p.prosecdef) <> 11 THEN
     RAISE EXCEPTION 'Unexpected public function/SECURITY DEFINER';
   END IF;
   IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgrelid = 'public.stock_movements'::regclass
