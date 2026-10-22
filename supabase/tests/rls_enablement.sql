@@ -152,8 +152,8 @@ BEGIN
   END IF;
   IF (SELECT array_agg(p.proname::text ORDER BY p.proname)
       FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace WHERE n.nspname = 'public')
-     IS DISTINCT FROM ARRAY['adjust_stock','complete_purchase','create_appointment_with_services','get_availability','get_client_stats', 'get_expense_summary', 'get_low_stock_products', 'get_product_stock', 'get_purchase_detail', 'has_business_role', 'is_business_member',
-                            'prevent_stock_movement_changes', 'save_business_hours', 'set_updated_at','void_purchase']::text[]
+     IS DISTINCT FROM ARRAY['adjust_stock','change_appointment_status','complete_purchase','create_appointment_with_services','get_availability','get_client_stats', 'get_expense_summary', 'get_low_stock_products', 'get_product_stock', 'get_purchase_detail', 'has_business_role', 'is_business_member',
+                            'prevent_stock_movement_changes', 'reschedule_appointment','save_business_hours', 'set_updated_at','update_appointment_notes','void_purchase']::text[]
      OR EXISTS (SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
                 WHERE n.nspname = 'public' AND CASE
                   WHEN p.proname = 'get_expense_summary' THEN
@@ -179,6 +179,18 @@ BEGIN
                   WHEN p.proname = 'create_appointment_with_services' THEN
                     NOT p.prosecdef OR p.proretset OR p.provolatile <> 'v' OR p.pronargs<>8 OR p.pronargdefaults<>2
                     OR p.oid <> 'public.create_appointment_with_services(uuid,uuid,uuid,uuid,timestamptz,jsonb,integer,text)'::regprocedure
+                    OR p.prorettype <> 'pg_catalog.jsonb'::regtype OR p.proconfig IS DISTINCT FROM ARRAY['search_path=""']::text[]
+                  WHEN p.proname = 'reschedule_appointment' THEN
+                    NOT p.prosecdef OR p.proretset OR p.provolatile <> 'v' OR p.pronargs<>5 OR p.pronargdefaults<>1
+                    OR p.oid <> 'public.reschedule_appointment(uuid,uuid,uuid,timestamptz,integer)'::regprocedure
+                    OR p.proargnames IS DISTINCT FROM ARRAY['p_business_id','p_appointment_id','p_barber_member_id','p_start_at','p_duration_override']::text[]
+                    OR p.prorettype <> 'pg_catalog.jsonb'::regtype OR p.proconfig IS DISTINCT FROM ARRAY['search_path=""']::text[]
+                  WHEN p.proname IN ('change_appointment_status','update_appointment_notes') THEN
+                    NOT p.prosecdef OR p.proretset OR p.provolatile <> 'v' OR p.pronargs<>3 OR p.pronargdefaults<>0
+                    OR p.oid NOT IN ('public.change_appointment_status(uuid,uuid,text)'::regprocedure,
+                                    'public.update_appointment_notes(uuid,uuid,text)'::regprocedure)
+                    OR p.proargnames IS DISTINCT FROM ARRAY['p_business_id','p_appointment_id',
+                      CASE WHEN p.proname='change_appointment_status' THEN 'p_status' ELSE 'p_notes' END]::text[]
                     OR p.prorettype <> 'pg_catalog.jsonb'::regtype OR p.proconfig IS DISTINCT FROM ARRAY['search_path=""']::text[]
                   WHEN p.proname IN ('get_product_stock','get_low_stock_products') THEN
                     p.prosecdef OR NOT p.proretset OR p.provolatile <> 's' OR p.pronargdefaults <> 0
