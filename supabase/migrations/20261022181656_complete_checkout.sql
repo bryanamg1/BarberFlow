@@ -26,6 +26,8 @@ DECLARE
   price numeric;
   gross numeric;
   subtotal numeric := 0;
+  appointment_status text;
+  appointment_client uuid;
 BEGIN
   -- BF187 authorizes before lookup, retains the operation lock and rejects
   -- incomplete history. Do not validate new input or current stock on replay.
@@ -77,11 +79,28 @@ BEGIN
   -- Match182: parent before financial business lock, both before product anchors.
   --182 retains ownership of eligibility/client checks and sale persistence.
   IF p_appointment_id IS NOT NULL THEN
-    PERFORM a.id FROM public.appointments a
+    SELECT a.status,a.client_id INTO appointment_status,appointment_client FROM public.appointments a
       WHERE a.id=p_appointment_id AND a.business_id=p_business_id FOR UPDATE;
     IF NOT FOUND THEN
       RAISE EXCEPTION USING ERRCODE='22023',MESSAGE='Invalid checkout',DETAIL='INVALID_CHECKOUT';
     END IF;
+    IF auth.uid() IS DISTINCT FROM caller_id OR NOT public.has_business_role(p_business_id,ARRAY['OWNER']) THEN
+      RAISE EXCEPTION USING ERRCODE='42501',MESSAGE='Checkout access denied',DETAIL='CHECKOUT_ACCESS_DENIED';
+    END IF;
+    -- Preflight eligibility before stock so a consumed/terminal appointment is
+    -- never misreported as insufficient stock. BF182 still rechecks/persists.
+    IF appointment_status NOT IN ('PENDING','CONFIRMED','IN_PROGRESS')
+      OR EXISTS(SELECT 1 FROM public.sales s WHERE s.business_id=p_business_id
+        AND s.appointment_id=p_appointment_id AND s.status IN ('COMPLETED','VOIDED')) THEN
+      RAISE EXCEPTION USING ERRCODE='PT409',MESSAGE='Appointment is not eligible for checkout',DETAIL='INVALID_APPOINTMENT_STATUS';
+    END IF;
+    IF p_client_id IS NOT NULL AND p_client_id IS DISTINCT FROM appointment_client THEN
+      RAISE EXCEPTION USING ERRCODE='22023',MESSAGE='Invalid checkout',DETAIL='INVALID_CHECKOUT';
+    END IF;
+  END IF;
+  IF p_client_id IS NOT NULL AND NOT EXISTS(SELECT 1 FROM public.clients c
+    WHERE c.id=p_client_id AND c.business_id=p_business_id) THEN
+    RAISE EXCEPTION USING ERRCODE='22023',MESSAGE='Invalid checkout',DETAIL='INVALID_CHECKOUT';
   END IF;
   PERFORM b.id FROM public.businesses b WHERE b.id=p_business_id FOR NO KEY UPDATE;
   IF NOT FOUND THEN

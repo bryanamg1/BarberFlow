@@ -335,3 +335,16 @@ test('BF188 maximum monetary amount stays exact and service cost remains NULL', 
   assert.equal(out.payments[0].amount, 9999999999.99);
   assert.equal(out.items[0].unit_cost_snapshot, null);
 });
+
+test('BF188 new operation on consumed appointment reports state conflict even with exhausted stock', () => {
+  const f = completeCheckoutFixture();
+  const stats = execute(
+    f,
+    `DO $$ DECLARE d text; BEGIN PERFORM ${f.checkout(randomUUID())};
+    BEGIN PERFORM ${f.checkout(randomUUID())};RAISE EXCEPTION 'Missing conflict';
+    EXCEPTION WHEN SQLSTATE 'PT409' THEN GET STACKED DIAGNOSTICS d=PG_EXCEPTION_DETAIL;
+      IF d<>'INVALID_APPOINTMENT_STATUS' THEN RAISE EXCEPTION 'Wrong conflict detail';END IF;END;END $$;`,
+  ).at(-1);
+  assert.equal(stats.sales, 1);
+  assert.equal(stats.stock, 0);
+});

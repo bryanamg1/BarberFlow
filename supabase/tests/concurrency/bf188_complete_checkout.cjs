@@ -132,19 +132,27 @@ const stats = (f) => JSON.parse(query(f.stats + ';'));
       assert.equal(stats(f).sales, 1);
     },
   );
-  await run('membership lost during product wait aborts whole new public checkout', async () => {
-    const f = completeCheckoutFixture(),
-      [a, b] = await setup(f);
-    await a.sql(`RESET ROLE;SELECT id FROM public.products WHERE id='${f.product}' FOR UPDATE;`);
-    const wait = b.sql(f.expect(`PERFORM ${f.checkout(randomUUID())}`, '42501'));
-    await blocked(b, a);
-    query(`UPDATE public.business_members SET is_active=false WHERE id='${f.ownerMember}';`);
-    await a.sql('COMMIT;');
-    await wait;
-    await b.sql('COMMIT;');
-    assert.equal(stats(f).sales, 0);
-    assert.equal(stats(f).debits, 0);
-  });
+  await run(
+    'membership lost during product or terminal-appointment wait aborts before context disclosure',
+    async () => {
+      for (const anchor of ['products', 'appointments']) {
+        const f = completeCheckoutFixture(),
+          [a, b] = await setup(f);
+        const id = anchor === 'products' ? f.product : f.appointment;
+        await a.sql(`RESET ROLE;SELECT id FROM public.${anchor} WHERE id='${id}' FOR UPDATE;`);
+        const wait = b.sql(f.expect(`PERFORM ${f.checkout(randomUUID())}`, '42501'));
+        await blocked(b, a);
+        query(`UPDATE public.business_members SET is_active=false WHERE id='${f.ownerMember}';`);
+        if (anchor === 'appointments')
+          await a.sql(`UPDATE public.appointments SET status='CANCELLED' WHERE id='${id}';`);
+        await a.sql('COMMIT;');
+        await wait;
+        await b.sql('COMMIT;');
+        assert.equal(stats(f).sales, 0);
+        assert.equal(stats(f).debits, 0);
+      }
+    },
+  );
   await run(
     'same-operation replay behind advisory wait revalidates active membership',
     async () => {
