@@ -10,6 +10,7 @@ import { AuthProvider } from '@/features/auth/context/AuthContext';
 import { AuthNavigator } from '@/features/auth/routing/AuthNavigator';
 import { BusinessProvider } from '@/features/business/context/BusinessContext';
 import { PurchaseDraftLifecycle } from '@/features/purchases/store/PurchaseDraftLifecycle';
+import { CheckoutDraftLifecycle } from '@/features/sales/store/CheckoutDraftLifecycle';
 import { QueryProvider } from '@/lib/query';
 import { fontFamilies } from '@/theme/typography';
 
@@ -52,6 +53,7 @@ export default function RootLayout() {
       <AuthProvider>
         <BusinessProvider>
           <PurchaseDraftLifecycle />
+          <CheckoutDraftLifecycle />
           <AuthNavigator />
         </BusinessProvider>
       </AuthProvider>
