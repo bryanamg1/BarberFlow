@@ -221,6 +221,25 @@ The helper is SECURITY INVOKER, empty search_path, with no client-role EXECUTE.
 No stock column, payment mutation, appointment completion or public checkout is
 introduced; all checkout effects must succeed before the shared transaction commits.
 
+BF-187 provides only `private.get_checkout_replay(p_business_id uuid,
+p_operation_id uuid) RETURNS jsonb`. It authorizes an active OWNER before lookup,
+retains the existing business/operation advisory lock and locks an existing sale.
+SQL NULL means no persisted operation: continue new checkout on this same
+connection/transaction. A non-NULL result is the complete historical outcome:
+skip all new-input validation, stock preflight and stages BF-182 through BF-186.
+No payload hash or second operation identity is introduced. For a replay, the
+caller membership is locked/rechecked after waits; no product, currency, calendar
+or appointment lock is acquired and no business data is written.
+
+Legacy DRAFT and incomplete/inconsistent history are rejected without repair:
+items must exist and match the subtotal, positive totals require one full payment
+(zero totals none), and the exact PRODUCT-line stock movement multiset must exist.
+Tenant references and linked appointment completion/client consistency are checked
+without repricing, checking catalog activity or rechecking current stock. VOIDED
+outcomes retain their stored state. An unknown authorized key reveals no other
+business's operation. This internal invoker helper has an empty search_path and
+no client-role EXECUTE; BF-188 still owns the public atomic orchestrator.
+
 Final output is exactly `{ sale, items, payments }`, containing persisted values:
 
 - SaleRow (13): id, business_id, client_id, appointment_id, operation_id, status,

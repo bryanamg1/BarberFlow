@@ -75,7 +75,7 @@ BEGIN
   END LOOP;
 
   IF (SELECT count(*) FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
-      WHERE n.nspname IN ('public','private')) <> 34 THEN
+      WHERE n.nspname IN ('public','private')) <> 35 THEN
     RAISE EXCEPTION 'Unexpected helper/RPC inventory';
   END IF;
   FOR target IN SELECT p.*,n.nspname FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace

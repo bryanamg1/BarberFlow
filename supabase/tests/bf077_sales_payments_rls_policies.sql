@@ -44,7 +44,7 @@ BEGIN
      OR helper.proowner <> helper.nspowner
      OR (SELECT array_agg(p.proname::text ORDER BY p.proname) FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
          WHERE n.nspname = 'private') IS DISTINCT FROM
-          ARRAY['appointment_slot_candidates','can_read_payment','complete_checkout_appointment','guard_business_currency_change','lock_checkout_products','lock_financial_business_currency','lock_operational_appointment','persist_checkout_items','persist_checkout_payment','persist_checkout_sale','persist_checkout_stock','persist_purchase','persist_purchase_expense','persist_purchase_stock','prevent_purchase_void_changes','storage_path_uuid']::text[] THEN
+          ARRAY['appointment_slot_candidates','can_read_payment','complete_checkout_appointment','get_checkout_replay','guard_business_currency_change','lock_checkout_products','lock_financial_business_currency','lock_operational_appointment','persist_checkout_items','persist_checkout_payment','persist_checkout_sale','persist_checkout_stock','persist_purchase','persist_purchase_expense','persist_purchase_stock','prevent_purchase_void_changes','storage_path_uuid']::text[] THEN
     RAISE EXCEPTION 'Incorrect private boolean helper signature/execution context';
   END IF;
   IF NOT has_function_privilege('authenticated',helper.oid,'EXECUTE')
