@@ -19,10 +19,10 @@ export function useAppointmentDetail(
     queryFn:
       scope === null || !valid
         ? skipToken
-        : () =>
+        : ({ signal }) =>
             readAppointment(
               () => appointmentsService.getById(scope.businessId, appointmentId),
-              lifetime.isCurrent,
+              () => !signal.aborted && lifetime.isCurrent(),
             ),
     enabled: scope !== null && valid,
     retry: false,

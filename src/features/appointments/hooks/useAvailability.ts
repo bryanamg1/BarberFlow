@@ -32,10 +32,10 @@ export function useAvailability(
     queryFn:
       scope === null || params === null
         ? skipToken
-        : () =>
+        : ({ signal }) =>
             readAppointment(
               () => appointmentsService.getAvailability(scope.businessId, params),
-              lifetime.isCurrent,
+              () => !signal.aborted && lifetime.isCurrent(),
             ),
     enabled: scope !== null && params !== null,
     retry: false,

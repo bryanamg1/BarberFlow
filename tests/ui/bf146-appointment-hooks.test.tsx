@@ -399,7 +399,36 @@ test('old read does not populate cache after context A-B-A', async () => {
   context();
   await h.rerender();
   await act(async () => d.resolve({ data: [row('stale')], error: null }));
-  await waitFor(() => expect(h.hook.data?.[0]?.id).not.toBe('stale'));
+  await waitFor(() => expect(h.hook.status).toBe('success'));
+  expect(h.hook.data?.[0]?.id).toBe('a');
+});
+test('detail A-B-A starts a fresh read and ignores the abandoned request', async () => {
+  const d = deferred<Awaited<ReturnType<typeof appointmentsService.getById>>>();
+  service.getById.mockReturnValueOnce(d.promise);
+  let id = 'a';
+  const h = await mount(() => useAppointmentDetail(id));
+  id = 'b';
+  await h.rerender();
+  id = 'a';
+  await h.rerender();
+  await act(async () => d.resolve({ data: { ...detail(), notes: 'stale' }, error: null }));
+  await waitFor(() => expect(h.hook.status).toBe('success'));
+  expect(h.hook.data?.notes).toBeNull();
+});
+test('availability A-B-A starts a fresh read without stale slots or stale errors', async () => {
+  const d = deferred<Awaited<ReturnType<typeof appointmentsService.getAvailability>>>();
+  service.getAvailability.mockReturnValueOnce(d.promise);
+  let input = slot;
+  const h = await mount(() => useAvailability(input));
+  input = { ...slot, durationMinutes: 60 };
+  await h.rerender();
+  input = slot;
+  await h.rerender();
+  await act(async () =>
+    d.resolve({ data: [{ start_at: at, end_at: row().end_at, available: false }], error: null }),
+  );
+  await waitFor(() => expect(h.hook.status).toBe('success'));
+  expect(h.hook.data?.[0]?.available).toBe(true);
 });
 test('missing context prevents all writes and manual read refetch', async () => {
   jest
