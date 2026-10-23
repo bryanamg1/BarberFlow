@@ -41,7 +41,7 @@ export function useCheckoutProductItems() {
     const data = query.data;
     const product =
       data && data.business_id === scope?.businessId && data.id === line.itemId ? data : null;
-    const status = query.isError
+    const status: 'error' | 'loading' | 'ready' | 'unavailable' = query.isError
       ? 'error'
       : query.isPending || query.isFetching
         ? 'loading'
