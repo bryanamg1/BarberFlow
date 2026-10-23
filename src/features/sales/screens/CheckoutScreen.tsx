@@ -140,7 +140,7 @@ function Content({
         ) : (
           <LoadingState message="Consultando contexto de la cita…" />
         ))}
-      {!linked && draft.clientId && <Text style={styles.text}>Cliente: {draft.clientId}</Text>}
+      {!linked && <Text style={styles.text}>Cliente: {draft.clientId ?? 'Sin cliente'}</Text>}
       <CheckoutServiceItems />
       <CheckoutProductItems selector={productSelector} quantityField={productQuantityField} />
       <CheckoutSummary />
