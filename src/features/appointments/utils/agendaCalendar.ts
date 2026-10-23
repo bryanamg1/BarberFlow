@@ -89,6 +89,11 @@ export function agendaMonth(civilMonth: string, timezone: string) {
   date.setUTCMonth(date.getUTCMonth() + 1);
   return agendaPeriod(from, key(date), timezone);
 }
+export function agendaWeek(civilWeekStart: string, timezone: string) {
+  const period = agendaPeriod(civilWeekStart, shiftCivilDate(civilWeekStart, 7), timezone);
+  if (period.leading !== 0) throw new Error('Expected Monday civil week start');
+  return period;
+}
 export function groupAgenda(
   period: AgendaPeriod,
   appointments: readonly AppointmentRow[],
