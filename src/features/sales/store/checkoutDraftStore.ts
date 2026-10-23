@@ -23,6 +23,7 @@ export type CheckoutDraft = Readonly<{
   paymentMethod?: CheckoutPaymentMethod;
 }>;
 export type CheckoutDraftPatch = Partial<Pick<CheckoutDraft, 'discountAmount' | 'paymentMethod'>>;
+export type CheckoutLineEdit = Readonly<{ quantity?: string; override?: string }>;
 export type CheckoutCapture = Readonly<{
   scope: CheckoutScope;
   input: Readonly<
@@ -84,10 +85,25 @@ const validLine = (line: CheckoutLine) =>
   validCheckoutQuantity(line.quantity) &&
   (line.unitPriceOverride === undefined || validCheckoutMoney(line.unitPriceOverride));
 
+// Incomplete text is UI state, shared by item editors and summary; never part of a request.
+export function checkoutLineInput(line: CheckoutLine, edit?: CheckoutLineEdit) {
+  const quantityText = edit?.quantity ?? String(line.quantity);
+  const overrideText = edit?.override ?? line.unitPriceOverride ?? '';
+  return {
+    quantityText,
+    overrideText,
+    quantityValid: /^\d+$/.test(quantityText) && validCheckoutQuantity(Number(quantityText)),
+    overrideValid:
+      (edit?.override === undefined && line.unitPriceOverride === undefined) ||
+      validCheckoutMoney(overrideText),
+  };
+}
+
 type CheckoutDraftState = {
   scope: CheckoutScope | null;
   draft: CheckoutDraft | null;
   submission: Submission | null;
+  lineEdits: Readonly<Record<string, CheckoutLineEdit>>;
   setScope: (scope: CheckoutScope | null) => void;
   startDraft: (
     scope: CheckoutScope,
@@ -109,6 +125,13 @@ type CheckoutDraftState = {
     patch: { quantity?: number; unitPriceOverride?: string | null },
   ) => boolean;
   removeLine: (scope: CheckoutScope, operationId: string, lineId: string) => boolean;
+  editLineText: (
+    scope: CheckoutScope,
+    operationId: string,
+    lineId: string,
+    field: 'quantity' | 'override',
+    text: string,
+  ) => boolean;
   captureIntent: (scope: CheckoutScope, operationId: string) => CheckoutCapture | null;
   retryCapture: (capture: CheckoutCapture) => boolean;
   settleCapture: (
@@ -128,10 +151,11 @@ export const checkoutDraftStore = createStore<CheckoutDraftState>()((set, get) =
     scope: null,
     draft: null,
     submission: null,
+    lineEdits: Object.freeze({}),
     setScope(scope) {
       const next = validScope(scope) ? Object.freeze({ ...scope }) : null;
       if (!sameCheckoutScope(get().scope, next))
-        set({ scope: next, draft: null, submission: null });
+        set({ scope: next, draft: null, submission: null, lineEdits: Object.freeze({}) });
     },
     startDraft(scope, operationId, refs = {}) {
       if (
@@ -172,7 +196,7 @@ export const checkoutDraftStore = createStore<CheckoutDraftState>()((set, get) =
         (get().submission !== null && get().submission?.status !== 'rejected')
       )
         return false;
-      set({ draft: null, submission: null });
+      set({ draft: null, submission: null, lineEdits: Object.freeze({}) });
       return true;
     },
     addLine(scope, operationId, line, catalogBusinessId) {
@@ -206,9 +230,15 @@ export const checkoutDraftStore = createStore<CheckoutDraftState>()((set, get) =
         quantity: patch.quantity ?? line.quantity,
         ...(override !== undefined ? { unitPriceOverride: override } : {}),
       };
-      replace({
-        ...draft,
-        items: draft.items.map((item) => (item.lineId === lineId ? next : item)),
+      const edit = { ...get().lineEdits[lineId] };
+      if (patch.quantity !== undefined) delete edit.quantity;
+      if (patch.unitPriceOverride !== undefined) delete edit.override;
+      set({
+        draft: freezeDraft({
+          ...draft,
+          items: draft.items.map((item) => (item.lineId === lineId ? next : item)),
+        }),
+        lineEdits: Object.freeze({ ...get().lineEdits, [lineId]: Object.freeze(edit) }),
       });
       return true;
     },
@@ -218,9 +248,46 @@ export const checkoutDraftStore = createStore<CheckoutDraftState>()((set, get) =
         !get().draft!.items.some((item) => item.lineId === lineId)
       )
         return false;
-      replace({
-        ...get().draft!,
-        items: get().draft!.items.filter((item) => item.lineId !== lineId),
+      const edits = { ...get().lineEdits };
+      delete edits[lineId];
+      set({
+        draft: freezeDraft({
+          ...get().draft!,
+          items: get().draft!.items.filter((item) => item.lineId !== lineId),
+        }),
+        lineEdits: Object.freeze(edits),
+      });
+      return true;
+    },
+    editLineText(scope, operationId, lineId, field, text) {
+      if (
+        !editable(scope, operationId) ||
+        !['quantity', 'override'].includes(field) ||
+        typeof text !== 'string'
+      )
+        return false;
+      const draft = get().draft!;
+      const line = draft.items.find((item) => item.lineId === lineId);
+      if (!line) return false;
+      const next = {
+        ...line,
+        ...(field === 'quantity' && /^\d+$/.test(text) && validCheckoutQuantity(Number(text))
+          ? { quantity: Number(text) }
+          : {}),
+        ...(field === 'override' && validCheckoutMoney(text) ? { unitPriceOverride: text } : {}),
+      };
+      set({
+        draft: freezeDraft({
+          ...draft,
+          items: draft.items.map((item) => (item.lineId === lineId ? next : item)),
+        }),
+        lineEdits: Object.freeze({
+          ...get().lineEdits,
+          [lineId]: Object.freeze({
+            ...get().lineEdits[lineId],
+            [field]: text,
+          }),
+        }),
       });
       return true;
     },
@@ -229,6 +296,10 @@ export const checkoutDraftStore = createStore<CheckoutDraftState>()((set, get) =
       const draft = get().draft!;
       if (
         !draft.items.length ||
+        draft.items.some((line) => {
+          const input = checkoutLineInput(line, get().lineEdits[line.lineId]);
+          return !input.quantityValid || !input.overrideValid;
+        }) ||
         !validCheckoutMoney(draft.discountAmount) ||
         !validMethod(draft.paymentMethod)
       )
@@ -266,7 +337,8 @@ export const checkoutDraftStore = createStore<CheckoutDraftState>()((set, get) =
         !matches(capture.scope, capture.input.operationId)
       )
         return false;
-      if (outcome === 'success') set({ draft: null, submission: null });
+      if (outcome === 'success')
+        set({ draft: null, submission: null, lineEdits: Object.freeze({}) });
       else set({ submission: Object.freeze({ status: outcome, capture }) });
       return true;
     },

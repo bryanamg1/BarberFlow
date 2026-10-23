@@ -3,11 +3,10 @@ import { createServiceSchema } from '@/features/services/schemas/service.schema'
 
 import {
   checkoutDraftStore,
-  validCheckoutMoney,
-  validCheckoutQuantity,
   type CheckoutLine,
   type CheckoutScope,
 } from '../store/checkoutDraftStore';
+import { catalogMoneyDecimal, checkoutLineTotal } from './checkoutMoney';
 
 export function addCheckoutService(
   scope: CheckoutScope,
@@ -33,16 +32,11 @@ export function addCheckoutService(
 
 export function serviceCatalogDecimal(price: number): string | null {
   if (!createServiceSchema.shape.price.safeParse(price).success) return null;
-  const [integer, fraction = ''] = price.toString().split('.');
-  return `${integer}.${fraction.padEnd(2, '0')}`;
+  return catalogMoneyDecimal(price);
 }
 
 // Informational exact cents only, never a persisted snapshot or authoritative total.
 export function checkoutServiceEstimate(line: CheckoutLine, service: ServiceRow): string | null {
   const unit = line.unitPriceOverride ?? serviceCatalogDecimal(service.price);
-  if (unit === null || !validCheckoutMoney(unit) || !validCheckoutQuantity(line.quantity))
-    return null;
-  const cents = BigInt(unit.replace('.', '')) * BigInt(line.quantity);
-  if (cents > 999_999_999_999n) return null;
-  return `${cents / 100n}.${(cents % 100n).toString().padStart(2, '0')}`;
+  return checkoutLineTotal(unit, line.quantity);
 }

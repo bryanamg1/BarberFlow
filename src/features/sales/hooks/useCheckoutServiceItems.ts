@@ -1,5 +1,4 @@
 import { useQueries } from '@tanstack/react-query';
-import { useState } from 'react';
 import { useStore } from 'zustand';
 
 import { servicesKeys } from '@/features/services/constants/servicesKeys';
@@ -8,23 +7,15 @@ import { servicesService } from '@/features/services/services/servicesService';
 import {
   checkoutDraftStore,
   sameCheckoutScope,
-  validCheckoutMoney,
-  validCheckoutQuantity,
+  checkoutLineInput,
 } from '../store/checkoutDraftStore';
 import { useCheckoutScope } from '../store/useCheckoutScope';
 import { checkoutServiceEstimate } from '../utils/checkoutServiceItems';
 
-type Edit = { quantity?: string; override?: string };
 export function useCheckoutServiceItems() {
   const scope = useCheckoutScope();
   const state = useStore(checkoutDraftStore);
   const draft = sameCheckoutScope(scope, state.scope) && scope !== null ? state.draft : null;
-  const identity = JSON.stringify([scope, draft?.operationId]);
-  const [edits, setEdits] = useState<{ identity: string; values: Record<string, Edit> }>({
-    identity,
-    values: {},
-  });
-  const currentEdits = edits.identity === identity ? edits.values : {};
   const lines = draft?.items.filter((line) => line.itemType === 'SERVICE') ?? [];
   const uniqueIds = [...new Set(lines.map((line) => line.itemId))];
   const queries = useQueries({
@@ -57,13 +48,10 @@ export function useCheckoutServiceItems() {
         : service?.is_active
           ? 'ready'
           : 'unavailable';
-    const edit = currentEdits[line.lineId];
-    const quantityText = edit?.quantity ?? String(line.quantity);
-    const overrideText = edit?.override ?? line.unitPriceOverride ?? '';
-    const quantityValid = /^\d+$/.test(quantityText) && validCheckoutQuantity(Number(quantityText));
-    const overrideValid =
-      (edit?.override === undefined && line.unitPriceOverride === undefined) ||
-      validCheckoutMoney(overrideText);
+    const { quantityText, overrideText, quantityValid, overrideValid } = checkoutLineInput(
+      line,
+      state.lineEdits[line.lineId],
+    );
     const estimate =
       status === 'ready' && service && quantityValid && overrideValid
         ? checkoutServiceEstimate(line, service)
@@ -81,44 +69,12 @@ export function useCheckoutServiceItems() {
     };
   });
   function editLine(lineId: string, field: 'quantity' | 'override', text: string) {
-    if (
-      !scope ||
-      !draft ||
-      locked ||
-      checkoutDraftStore.getState().submission !== null ||
-      !lines.some((line) => line.lineId === lineId) ||
-      !sameCheckoutScope(scope, checkoutDraftStore.getState().scope) ||
-      checkoutDraftStore.getState().draft?.operationId !== draft.operationId
-    )
-      return;
-    setEdits((previous) => ({
-      identity,
-      values: {
-        ...(previous.identity === identity ? previous.values : {}),
-        [lineId]: {
-          ...(previous.identity === identity ? previous.values[lineId] : {}),
-          [field]: text,
-        },
-      },
-    }));
-    if (field === 'quantity' && /^\d+$/.test(text) && validCheckoutQuantity(Number(text)))
-      state.updateLine(scope, draft.operationId, lineId, { quantity: Number(text) });
-    if (field === 'override' && validCheckoutMoney(text))
-      state.updateLine(scope, draft.operationId, lineId, { unitPriceOverride: text });
+    if (scope && draft && lines.some((line) => line.lineId === lineId))
+      state.editLineText(scope, draft.operationId, lineId, field, text);
   }
   function clearOverride(lineId: string) {
-    if (
-      !scope ||
-      !draft ||
-      !state.updateLine(scope, draft.operationId, lineId, { unitPriceOverride: null })
-    )
-      return;
-    setEdits((previous) => {
-      const values = previous.identity === identity ? { ...previous.values } : {};
-      const { override: _override, ...rest } = values[lineId] ?? {};
-      values[lineId] = rest;
-      return { identity, values };
-    });
+    if (scope && draft && lines.some((line) => line.lineId === lineId))
+      state.updateLine(scope, draft.operationId, lineId, { unitPriceOverride: null });
   }
   return {
     scope,
