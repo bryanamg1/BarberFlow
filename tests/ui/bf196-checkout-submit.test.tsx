@@ -15,6 +15,9 @@ import { checkoutService } from '@/features/sales/services/checkoutService';
 import { checkoutError } from '@/features/sales/services/checkoutErrors';
 import { CheckoutScreen } from '@/features/sales/screens/CheckoutScreen';
 import type { CompleteCheckoutResult } from '@/features/sales/types/checkout.types';
+import { salesKeys } from '@/features/sales/constants/salesKeys';
+import { inventoryKeys } from '@/features/inventory/constants/inventoryKeys';
+import { appointmentsKeys } from '@/features/appointments/constants/appointmentsKeys';
 import { renderWithProviders } from '@/test/renderWithProviders';
 import {
   id,
@@ -282,7 +285,8 @@ test('confirmed replay survives invalidation and navigation failures without ano
 test('same-scope new draft survives late success and receives no stale navigation', async () => {
   const pending = deferred();
   service.mockReturnValue(pending.promise);
-  await setup();
+  const { queryClient } = await setup();
+  const invalidation = jest.spyOn(queryClient, 'invalidateQueries');
   await ready();
   let request!: ReturnType<typeof latest.submit>;
   await act(() => {
@@ -300,6 +304,57 @@ test('same-scope new draft survives late success and receives no stale navigatio
   });
   expect(state().draft?.operationId).toBe(id(92));
   expect(router.replace).not.toHaveBeenCalled();
+  expect(invalidation).not.toHaveBeenCalled();
+});
+
+test('BF198 confirmed submit invalidates only captured Sale identity and affected stock, never another actor', async () => {
+  const { queryClient } = await setup();
+  await ready();
+  const own = salesKeys.detail({ ...scope, role: 'OWNER' }, id(4));
+  const other = salesKeys.detail({ ...scope, role: 'BARBER' }, id(4));
+  const stock = inventoryKeys.productStock(scope.businessId, id(3));
+  const unrelated = inventoryKeys.productStock(scope.businessId, id(39));
+  for (const key of [own, other, stock, unrelated]) queryClient.setQueryData(key, 'existing');
+  await act(async () => {
+    await latest.submit();
+  });
+  expect(queryClient.getQueryState(own)?.isInvalidated).toBe(true);
+  expect(queryClient.getQueryData(own)).toBe('existing');
+  expect(queryClient.getQueryState(other)?.isInvalidated).toBe(false);
+  expect(queryClient.getQueryState(stock)?.isInvalidated).toBe(true);
+  expect(queryClient.getQueryState(unrelated)?.isInvalidated).toBe(false);
+  expect(router.replace).toHaveBeenCalledWith({ pathname: '/sales/[id]', params: { id: id(4) } });
+});
+
+test('BF198 SERVICE-only direct sale leaves stock and appointment caches intact', async () => {
+  state().removeLine(scope, id(1), 'local-product');
+  const result = saved();
+  result.items = result.items.filter((line) => line.item_type === 'SERVICE');
+  service.mockResolvedValue({ data: result, error: null });
+  const { queryClient } = await setup();
+  await ready();
+  const stock = inventoryKeys.productStock(scope.businessId, id(3));
+  const appointment = appointmentsKeys.detail({ ...scope, role: 'OWNER' }, id(9));
+  for (const key of [stock, appointment]) queryClient.setQueryData(key, 'existing');
+  await act(async () => {
+    await latest.submit();
+  });
+  expect(queryClient.getQueryState(stock)?.isInvalidated).toBe(false);
+  expect(queryClient.getQueryState(appointment)?.isInvalidated).toBe(false);
+  expect(latest.status).toBe('success');
+});
+
+test('BF198 unresolved cache refresh never delays navigation, restores draft or sends another checkout', async () => {
+  const { queryClient } = await setup();
+  await ready();
+  jest.spyOn(queryClient, 'invalidateQueries').mockImplementation(() => new Promise(() => {}));
+  await act(async () => {
+    await latest.submit();
+  });
+  expect(latest.status).toBe('success');
+  expect(state().draft).toBeNull();
+  expect(service).toHaveBeenCalledTimes(1);
+  expect(router.replace).toHaveBeenCalledWith({ pathname: '/sales/[id]', params: { id: id(4) } });
 });
 test('unmount pending becomes uncertain and remount retry uses exact retained capture', async () => {
   const pending = deferred();

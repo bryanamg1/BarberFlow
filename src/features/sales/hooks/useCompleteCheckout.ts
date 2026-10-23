@@ -4,12 +4,9 @@ import { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useStore } from 'zustand';
 
 import { useBusiness } from '@/features/business/context/BusinessContext';
-import { appointmentsKeys } from '@/features/appointments/constants/appointmentsKeys';
-import { inventoryKeys } from '@/features/inventory/constants/inventoryKeys';
-import { productsKeys } from '@/features/products/constants/productsKeys';
 
 import { useCheckoutPayment } from './useCheckoutPayment';
-import { salesKeys } from '../constants/salesKeys';
+import { invalidateCheckoutQueries } from '../utils/invalidateCheckoutQueries';
 import {
   checkoutDraftStore,
   sameCheckoutScope,
@@ -75,19 +72,7 @@ export function useCompleteCheckout() {
     setScoped({ epoch: lifetime.epoch, operationId: capture.input.operationId, state });
   }
   function refresh(data: CompleteCheckoutData, capture: CheckoutCapture) {
-    const keys: (readonly unknown[])[] = [salesKeys.byBusiness(capture.scope.businessId)];
-    if (data.items.some((line) => line.item_type === 'PRODUCT'))
-      keys.push(
-        inventoryKeys.byBusiness(capture.scope.businessId),
-        productsKeys.byBusiness(capture.scope.businessId),
-      );
-    if (data.sale.appointment_id) keys.push(appointmentsKeys.byBusiness(capture.scope.businessId));
-    for (const queryKey of keys) {
-      // Confirmed writes survive maintenance failures, including synchronous client errors.
-      void Promise.resolve()
-        .then(() => client.invalidateQueries({ queryKey }))
-        .catch(() => undefined);
-    }
+    void invalidateCheckoutQueries(client, capture, data).catch(() => undefined);
   }
   function send(capture: CheckoutCapture): Promise<CompleteCheckoutData> {
     if (!current(capture)) return Promise.reject(checkoutError('ACCESS_DENIED'));
