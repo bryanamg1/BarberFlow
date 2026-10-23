@@ -1,5 +1,5 @@
 import { uuid } from 'expo-modules-core';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { Badge, Button, Card, EmptyState, ErrorState, Input, LoadingState } from '@/components/ui';
@@ -10,20 +10,22 @@ import { formatCatalogPrice, formatMoney } from '@/utils/formatMoney';
 
 import { useCheckoutProductItems } from '../hooks/useCheckoutProductItems';
 import type { CheckoutServiceEligibility } from './CheckoutServiceItems';
-import { checkoutDraftStore } from '../store/checkoutDraftStore';
+import {
+  checkoutDraftStore,
+  type CheckoutDraft,
+  type CheckoutScope,
+} from '../store/checkoutDraftStore';
 import { addCheckoutProduct } from '../utils/checkoutProductItems';
 
 export function CheckoutProductItems({
   onEligibilityChange,
+  selector,
 }: {
   onEligibilityChange?: (value: CheckoutServiceEligibility) => void;
+  selector?: ReactNode;
 }) {
   const model = useCheckoutProductItems();
   const business = useBusiness();
-  const identity = JSON.stringify([model.scope, model.draft?.operationId]);
-  const [pagination, setPagination] = useState({ identity, page: 1 });
-  const page = pagination.identity === identity ? pagination.page : 1;
-  const list = useProductList({ page, pageSize: 25, status: 'active' });
   const callback = useRef(onEligibilityChange);
   const userId = model.scope?.userId;
   const businessId = model.scope?.businessId;
@@ -66,6 +68,40 @@ export function CheckoutProductItems({
           }}
         />
       ))}
+      {selector ?? (
+        <CheckoutProductCatalog
+          scope={scope}
+          draft={draft}
+          locked={model.locked}
+          currency={currency}
+        />
+      )}
+      <Text role="status" aria-live="polite" style={styles.hint}>
+        {model.eligible
+          ? 'Productos listos para revisión'
+          : 'Revisa los productos y el stock antes de continuar'}
+      </Text>
+    </View>
+  );
+}
+
+function CheckoutProductCatalog({
+  scope,
+  draft,
+  locked,
+  currency,
+}: {
+  scope: CheckoutScope;
+  draft: CheckoutDraft;
+  locked: boolean;
+  currency: string;
+}) {
+  const identity = JSON.stringify([scope, draft.operationId]);
+  const [pagination, setPagination] = useState({ identity, page: 1 });
+  const page = pagination.identity === identity ? pagination.page : 1;
+  const list = useProductList({ page, pageSize: 25, status: 'active' });
+  return (
+    <>
       {list.status === 'pending' ? (
         <LoadingState message="Cargando productos…" />
       ) : list.status === 'error' ? (
@@ -87,7 +123,7 @@ export function CheckoutProductItems({
                 <Button
                   label="Agregar"
                   accessibilityLabel={`Agregar producto: ${product.name}`}
-                  disabled={model.locked || list.isFetching}
+                  disabled={locked || list.isFetching}
                   onPress={() => {
                     addCheckoutProduct(scope, draft.operationId, uuid.v4(), product);
                   }}
@@ -118,12 +154,7 @@ export function CheckoutProductItems({
       ) : (
         <EmptyState title="Catálogo no disponible" />
       )}
-      <Text role="status" aria-live="polite" style={styles.hint}>
-        {model.eligible
-          ? 'Productos listos para revisión'
-          : 'Revisa los productos y el stock antes de continuar'}
-      </Text>
-    </View>
+    </>
   );
 }
 

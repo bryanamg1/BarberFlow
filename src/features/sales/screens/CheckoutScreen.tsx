@@ -1,6 +1,6 @@
 import { uuid } from 'expo-modules-core';
 import { router, useIsFocused } from 'expo-router';
-import { useEffect } from 'react';
+import { useEffect, type ReactNode } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useStore } from 'zustand';
@@ -28,10 +28,12 @@ export function CheckoutScreen({
   appointmentId = null,
   clientId = null,
   validContext = true,
+  productSelector,
 }: {
   appointmentId?: string | null;
   clientId?: string | null;
   validContext?: boolean;
+  productSelector?: ReactNode;
 }) {
   const scope = useCheckoutScope(),
     business = useBusiness(),
@@ -52,6 +54,7 @@ export function CheckoutScreen({
           scope={scope}
           appointmentId={appointmentId}
           clientId={clientId}
+          productSelector={productSelector}
         />
       )}
     </SafeAreaView>
@@ -61,10 +64,12 @@ function Content({
   scope,
   appointmentId,
   clientId,
+  productSelector,
 }: {
   scope: CheckoutScope;
   appointmentId: string | null;
   clientId: string | null;
+  productSelector?: ReactNode;
 }) {
   const draft = useStore(checkoutDraftStore, (state) =>
     sameCheckoutScope(state.scope, scope) ? state.draft : null,
@@ -129,7 +134,7 @@ function Content({
         ))}
       {!linked && draft.clientId && <Text style={styles.text}>Cliente: {draft.clientId}</Text>}
       <CheckoutServiceItems />
-      <CheckoutProductItems />
+      <CheckoutProductItems selector={productSelector} />
       <CheckoutSummary />
       <CheckoutDiscountField />
       <CheckoutPaymentField />

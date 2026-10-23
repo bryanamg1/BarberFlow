@@ -8,6 +8,7 @@ import { useBusiness } from '@/features/business/context/BusinessContext';
 import { theme } from '@/theme';
 
 import { CheckoutScreen } from './CheckoutScreen';
+import { DirectSaleProductSelector } from '../components/DirectSaleProductSelector';
 import { useCheckoutScope } from '../store/useCheckoutScope';
 import {
   checkoutDraftStore,
@@ -55,7 +56,13 @@ export function DirectSaleScreen({
         </View>
       </SafeAreaView>
     );
-  return <CheckoutScreen clientId={clientId} validContext={valid} />;
+  return (
+    <CheckoutScreen
+      clientId={clientId}
+      validContext={valid}
+      productSelector={<DirectSaleProductSelector />}
+    />
+  );
 }
 
 const styles = StyleSheet.create({
