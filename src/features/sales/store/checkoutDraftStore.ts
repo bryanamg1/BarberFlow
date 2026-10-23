@@ -5,8 +5,14 @@ export type CheckoutScope = Readonly<{
   businessId: string;
   membershipId: string;
 }>;
-export type CheckoutPaymentMethod =
-  'CASH' | 'BANK_TRANSFER' | 'DEBIT_CARD' | 'CREDIT_CARD' | 'DIGITAL_WALLET';
+export const checkoutPaymentMethods = Object.freeze([
+  'CASH',
+  'BANK_TRANSFER',
+  'DEBIT_CARD',
+  'CREDIT_CARD',
+  'DIGITAL_WALLET',
+] as const);
+export type CheckoutPaymentMethod = (typeof checkoutPaymentMethods)[number];
 export type CheckoutLine = Readonly<{
   lineId: string;
   itemType: 'SERVICE' | 'PRODUCT';
@@ -45,9 +51,8 @@ export const validCheckoutMoney = (value: unknown): value is string =>
   typeof value === 'string' &&
   /^\d+\.\d{2}$/.test(value) &&
   BigInt(value.replace('.', '')) <= 999_999_999_999n;
-const validMethod = (value: unknown): value is CheckoutPaymentMethod =>
-  typeof value === 'string' &&
-  ['CASH', 'BANK_TRANSFER', 'DEBIT_CARD', 'CREDIT_CARD', 'DIGITAL_WALLET'].includes(value);
+export const validCheckoutPaymentMethod = (value: unknown): value is CheckoutPaymentMethod =>
+  typeof value === 'string' && checkoutPaymentMethods.some((method) => method === value);
 export const sameCheckoutScope = (a: CheckoutScope | null, b: CheckoutScope | null) =>
   a === b ||
   (a !== null &&
@@ -180,7 +185,7 @@ export const checkoutDraftStore = createStore<CheckoutDraftState>()((set, get) =
       if (!editable(scope, operationId) || !get().draft) return false;
       if (
         (patch.discountAmount !== undefined && typeof patch.discountAmount !== 'string') ||
-        (patch.paymentMethod !== undefined && !validMethod(patch.paymentMethod))
+        (patch.paymentMethod !== undefined && !validCheckoutPaymentMethod(patch.paymentMethod))
       )
         return false;
       replace({
@@ -301,7 +306,7 @@ export const checkoutDraftStore = createStore<CheckoutDraftState>()((set, get) =
           return !input.quantityValid || !input.overrideValid;
         }) ||
         !validCheckoutMoney(draft.discountAmount) ||
-        !validMethod(draft.paymentMethod)
+        !validCheckoutPaymentMethod(draft.paymentMethod)
       )
         return null;
       // Representation for BF196; this does not validate catalog, total, permissions or submit.
