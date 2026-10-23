@@ -4,6 +4,7 @@ import {
   validCheckoutMoney,
   validCheckoutQuantity,
   type CheckoutDraft,
+  type CheckoutLineEdit,
 } from '../store/checkoutDraftStore';
 import { checkoutCents, checkoutDecimal, checkoutLineTotal } from './checkoutMoney';
 import {
@@ -31,8 +32,9 @@ export function deriveCheckoutSummary(
   reads: readonly CheckoutSummaryRead[],
   stock?: ProductStockResult,
   locked = false,
+  edits?: Readonly<Record<string, CheckoutLineEdit>>,
 ) {
-  const demands = aggregateProductDemand(draft?.items ?? []);
+  const demands = aggregateProductDemand(draft?.items ?? [], edits);
   const lines = (draft?.items ?? []).map((line) => {
     const matches = reads.filter(
       (read) =>

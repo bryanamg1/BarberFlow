@@ -9,6 +9,7 @@ import { theme } from '@/theme';
 
 import { CheckoutScreen } from './CheckoutScreen';
 import { DirectSaleProductSelector } from '../components/DirectSaleProductSelector';
+import { DirectSaleQuantityField } from '../components/DirectSaleQuantityField';
 import { useCheckoutScope } from '../store/useCheckoutScope';
 import {
   checkoutDraftStore,
@@ -61,6 +62,7 @@ export function DirectSaleScreen({
       clientId={clientId}
       validContext={valid}
       productSelector={<DirectSaleProductSelector />}
+      productQuantityField={DirectSaleQuantityField}
     />
   );
 }

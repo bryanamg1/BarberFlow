@@ -1,12 +1,16 @@
+import { useStore } from 'zustand';
+
 import { useCheckoutProductItems } from './useCheckoutProductItems';
 import { useCheckoutServiceItems } from './useCheckoutServiceItems';
 import { deriveCheckoutSummary, type CheckoutSummaryRead } from '../utils/checkoutSummary';
 import { productCatalogDecimal } from '../utils/checkoutProductItems';
 import { serviceCatalogDecimal } from '../utils/checkoutServiceItems';
+import { checkoutDraftStore } from '../store/checkoutDraftStore';
 
 export function useCheckoutSummary() {
   const services = useCheckoutServiceItems();
   const products = useCheckoutProductItems();
+  const edits = useStore(checkoutDraftStore, (state) => state.lineEdits);
   const reads: CheckoutSummaryRead[] = [
     ...services.rows.map((row) => ({
       lineId: row.line.lineId,
@@ -35,6 +39,7 @@ export function useCheckoutSummary() {
       reads,
       products.stock,
       services.locked || products.locked,
+      edits,
     ),
   };
 }

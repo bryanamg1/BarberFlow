@@ -1,5 +1,5 @@
 import { uuid } from 'expo-modules-core';
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode, type ComponentType } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { Badge, Button, Card, EmptyState, ErrorState, Input, LoadingState } from '@/components/ui';
@@ -17,12 +17,22 @@ import {
 } from '../store/checkoutDraftStore';
 import { addCheckoutProduct } from '../utils/checkoutProductItems';
 
+export type CheckoutProductQuantityProps = {
+  label: string;
+  value: string;
+  disabled: boolean;
+  error?: string;
+  onChangeText: (text: string) => void;
+};
+
 export function CheckoutProductItems({
   onEligibilityChange,
   selector,
+  quantityField,
 }: {
   onEligibilityChange?: (value: CheckoutServiceEligibility) => void;
   selector?: ReactNode;
+  quantityField?: ComponentType<CheckoutProductQuantityProps>;
 }) {
   const model = useCheckoutProductItems();
   const business = useBusiness();
@@ -57,6 +67,7 @@ export function CheckoutProductItems({
           key={`${draft.operationId}:${row.line.lineId}`}
           {...{ row, index, currency }}
           locked={model.locked}
+          quantityField={quantityField}
           onQuantity={(text) => model.editLine(row.line.lineId, 'quantity', text)}
           onOverride={(text) => model.editLine(row.line.lineId, 'override', text)}
           onClear={() => model.clearOverride(row.line.lineId)}
@@ -168,6 +179,7 @@ function ProductLine({
   onClear,
   onRemove,
   onStockRetry,
+  quantityField: QuantityField,
 }: {
   row: ReturnType<typeof useCheckoutProductItems>['rows'][number];
   index: number;
@@ -178,6 +190,7 @@ function ProductLine({
   onClear: () => void;
   onRemove: () => void;
   onStockRetry: () => void;
+  quantityField?: ComponentType<CheckoutProductQuantityProps>;
 }) {
   const label = `línea ${index + 1}`;
   const previousPrice = useRef(row.product?.sale_price);
@@ -188,6 +201,13 @@ function ProductLine({
       setChanged(true);
     previousPrice.current = row.product.sale_price;
   }, [row.product, row.status]);
+  const quantityProps = {
+    label: `Cantidad de producto de ${label}`,
+    value: row.quantityText,
+    disabled: locked,
+    onChangeText: onQuantity,
+    error: !row.quantityValid ? 'Ingresa una cantidad entera entre 1 y 2147483647.' : undefined,
+  };
   return (
     <Card style={styles.section}>
       <Text style={styles.text}>
@@ -245,15 +265,11 @@ function ProductLine({
           )}
         </>
       )}
-      <Input
-        label={`Cantidad de producto de ${label}`}
-        value={row.quantityText}
-        inputMode="numeric"
-        keyboardType="number-pad"
-        disabled={locked}
-        onChangeText={onQuantity}
-        error={!row.quantityValid ? 'Ingresa una cantidad entera entre 1 y 2147483647.' : undefined}
-      />
+      {QuantityField ? (
+        <QuantityField {...quantityProps} />
+      ) : (
+        <Input {...quantityProps} inputMode="numeric" keyboardType="number-pad" />
+      )}
       <Input
         label={`Precio unitario opcional de producto de ${label}`}
         value={row.overrideText}

@@ -1,6 +1,6 @@
 import { uuid } from 'expo-modules-core';
 import { router, useIsFocused } from 'expo-router';
-import { useEffect, type ReactNode } from 'react';
+import { useEffect, type ReactNode, type ComponentType } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useStore } from 'zustand';
@@ -11,7 +11,10 @@ import { useAppointmentDetail } from '@/features/appointments/hooks/useAppointme
 import { theme } from '@/theme';
 
 import { CheckoutServiceItems } from '../components/CheckoutServiceItems';
-import { CheckoutProductItems } from '../components/CheckoutProductItems';
+import {
+  CheckoutProductItems,
+  type CheckoutProductQuantityProps,
+} from '../components/CheckoutProductItems';
 import { CheckoutSummary } from '../components/CheckoutSummary';
 import { CheckoutDiscountField } from '../components/CheckoutDiscountField';
 import { CheckoutPaymentField } from '../components/CheckoutPaymentField';
@@ -29,11 +32,13 @@ export function CheckoutScreen({
   clientId = null,
   validContext = true,
   productSelector,
+  productQuantityField,
 }: {
   appointmentId?: string | null;
   clientId?: string | null;
   validContext?: boolean;
   productSelector?: ReactNode;
+  productQuantityField?: ComponentType<CheckoutProductQuantityProps>;
 }) {
   const scope = useCheckoutScope(),
     business = useBusiness(),
@@ -55,6 +60,7 @@ export function CheckoutScreen({
           appointmentId={appointmentId}
           clientId={clientId}
           productSelector={productSelector}
+          productQuantityField={productQuantityField}
         />
       )}
     </SafeAreaView>
@@ -65,11 +71,13 @@ function Content({
   appointmentId,
   clientId,
   productSelector,
+  productQuantityField,
 }: {
   scope: CheckoutScope;
   appointmentId: string | null;
   clientId: string | null;
   productSelector?: ReactNode;
+  productQuantityField?: ComponentType<CheckoutProductQuantityProps>;
 }) {
   const draft = useStore(checkoutDraftStore, (state) =>
     sameCheckoutScope(state.scope, scope) ? state.draft : null,
@@ -134,7 +142,7 @@ function Content({
         ))}
       {!linked && draft.clientId && <Text style={styles.text}>Cliente: {draft.clientId}</Text>}
       <CheckoutServiceItems />
-      <CheckoutProductItems selector={productSelector} />
+      <CheckoutProductItems selector={productSelector} quantityField={productQuantityField} />
       <CheckoutSummary />
       <CheckoutDiscountField />
       <CheckoutPaymentField />

@@ -35,7 +35,7 @@ export function useCheckoutProductItems() {
       retry: false,
     })),
   });
-  const demands = aggregateProductDemand(lines);
+  const demands = aggregateProductDemand(lines, state.lineEdits);
   const rows = lines.map((line) => {
     const query = queries[ids.indexOf(line.itemId)];
     const data = query.data;

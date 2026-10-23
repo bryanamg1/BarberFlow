@@ -5,8 +5,9 @@ import { selectProductStock } from '@/features/products/utils/productStock';
 
 import {
   checkoutDraftStore,
-  validCheckoutQuantity,
+  checkoutLineInput,
   type CheckoutLine,
+  type CheckoutLineEdit,
   type CheckoutScope,
 } from '../store/checkoutDraftStore';
 import { catalogMoneyDecimal, checkoutLineTotal } from './checkoutMoney';
@@ -40,14 +41,17 @@ export const checkoutProductEstimate = (line: CheckoutLine, product: ProductRow)
     line.quantity,
   );
 
-export function aggregateProductDemand(lines: readonly CheckoutLine[]) {
+export function aggregateProductDemand(
+  lines: readonly CheckoutLine[],
+  edits?: Readonly<Record<string, CheckoutLineEdit>>,
+) {
   const demand = new Map<string, bigint | null>();
   for (const line of lines) {
     if (line.itemType !== 'PRODUCT') continue;
     const previous = demand.get(line.itemId);
     demand.set(
       line.itemId,
-      previous === null || !validCheckoutQuantity(line.quantity)
+      previous === null || !checkoutLineInput(line, edits?.[line.lineId]).quantityValid
         ? null
         : (previous ?? 0n) + BigInt(line.quantity),
     );

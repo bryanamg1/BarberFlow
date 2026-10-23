@@ -68,6 +68,26 @@ const stock = (value = '10') => ({
   isFetching: false,
   refetch: async () => {},
 });
+test('BF202 summary never shows stale aggregate demand or totals from invalid raw quantity', () => {
+  const items = [line('a', 'PRODUCT'), line('b', 'PRODUCT', { quantity: 4 })];
+  const resolved = reads(items);
+  resolved[0].inputValid = false;
+  const invalid = summary(draft(items), resolved, stock('6'), false, { a: { quantity: '0' } });
+  assert.equal(invalid.subtotal, null);
+  assert.equal(invalid.total, null);
+  assert.equal(invalid.eligible, false);
+  assert(
+    invalid.lines.every((row) => row.stock.demand === null && row.stock.status === 'unavailable'),
+  );
+  items[0].quantity = 2;
+  resolved[0].inputValid = true;
+  const corrected = summary(draft(items), resolved, stock('6'), false, { a: { quantity: '2' } });
+  assert.equal(corrected.subtotal, '1.74');
+  assert.equal(corrected.eligible, true);
+  assert(
+    corrected.lines.every((row) => row.stock.demand === '6' && row.stock.status === 'sufficient'),
+  );
+});
 test('BF193 no draft is idle with no manufactured amounts', () => {
   const result = summary(null, []);
   assert.equal(result.status, 'idle');

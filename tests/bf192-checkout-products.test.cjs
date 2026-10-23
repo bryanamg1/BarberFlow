@@ -46,6 +46,25 @@ const stock = (rows = [{ product_id: 'p', current_stock: '5' }]) => ({
   isFetching: false,
   refetch: async () => {},
 });
+test('BF202 raw invalid quantity makes aggregate demand unknown across duplicate lines until corrected', () => {
+  add('a');
+  add('b');
+  state().updateLine(scope, 'op', 'b', { quantity: 4 });
+  state().editLineText(scope, 'op', 'a', 'quantity', 'invalid');
+  let demand = aggregateProductDemand(state().draft.items, state().lineEdits).get('p');
+  assert.equal(demand, null);
+  assert.equal(checkoutProductStock(stock(), 'p', demand).status, 'unavailable');
+  assert.deepEqual(
+    state().draft.items.map((line) => line.quantity),
+    [1, 4],
+  );
+  state().editLineText(scope, 'op', 'a', 'quantity', '2');
+  demand = aggregateProductDemand(state().draft.items, state().lineEdits).get('p');
+  assert.equal(demand, 6n);
+  assert.equal(checkoutProductStock(stock(), 'p', demand).status, 'insufficient');
+  state().editLineText(scope, 'op', 'a', 'override', 'invalid');
+  assert.equal(aggregateProductDemand(state().draft.items, state().lineEdits).get('p'), 6n);
+});
 beforeEach(() => {
   state().setScope(null);
   state().setScope(scope);
