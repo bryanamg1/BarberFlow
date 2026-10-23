@@ -9,6 +9,7 @@ import { inventoryKeys } from '@/features/inventory/constants/inventoryKeys';
 import { productsKeys } from '@/features/products/constants/productsKeys';
 
 import { useCheckoutPayment } from './useCheckoutPayment';
+import { salesKeys } from '../constants/salesKeys';
 import {
   checkoutDraftStore,
   sameCheckoutScope,
@@ -74,7 +75,7 @@ export function useCompleteCheckout() {
     setScoped({ epoch: lifetime.epoch, operationId: capture.input.operationId, state });
   }
   function refresh(data: CompleteCheckoutData, capture: CheckoutCapture) {
-    const keys: (readonly unknown[])[] = [];
+    const keys: (readonly unknown[])[] = [salesKeys.byBusiness(capture.scope.businessId)];
     if (data.items.some((line) => line.item_type === 'PRODUCT'))
       keys.push(
         inventoryKeys.byBusiness(capture.scope.businessId),

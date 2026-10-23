@@ -1,9 +1,8 @@
-import { Text, View } from 'react-native';
+import { useLocalSearchParams } from 'expo-router';
 
-export default function SaleDetailScreen() {
-  return (
-    <View>
-      <Text>Detalle de venta</Text>
-    </View>
-  );
+import { SaleDetailScreen } from '@/features/sales/screens/SaleDetailScreen';
+
+export default function SaleDetailRoute() {
+  const { id } = useLocalSearchParams<{ id?: string | string[] }>();
+  return <SaleDetailScreen saleId={typeof id === 'string' ? id : null} />;
 }
