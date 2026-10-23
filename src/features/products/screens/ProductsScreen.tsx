@@ -25,6 +25,9 @@ export function ProductsScreen() {
         <Text role="heading" style={styles.heading}>
           Productos
         </Text>
+        {scope && business.status === 'success' && business.data.role === 'OWNER' && (
+          <Button label="Nueva venta" onPress={() => router.push('/sales/new')} />
+        )}
         {scope && business.status === 'success' ? (
           <Catalog key={JSON.stringify(scope)} currency={business.data.business.currency_code} />
         ) : business.status === 'pending' ? (
