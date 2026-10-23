@@ -59,6 +59,7 @@ export function DirectSaleScreen({
     );
   return (
     <CheckoutScreen
+      appointmentId={null}
       clientId={clientId}
       validContext={valid}
       productSelector={<DirectSaleProductSelector />}
