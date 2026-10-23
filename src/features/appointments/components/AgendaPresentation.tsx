@@ -6,14 +6,10 @@ import { useBusiness } from '@/features/business/context/BusinessContext';
 import { businessProfileSchema } from '@/features/business/schemas/businessSettings.schema';
 import { theme } from '@/theme';
 
+import { AppointmentCard } from './AppointmentCard';
 import { useAppointmentLifecycle } from '../hooks/useAppointmentLifecycle';
-import type { AppointmentRow, AppointmentStatus } from '../types/appointment.types';
-import {
-  agendaAppointmentRange,
-  agendaDateLabel,
-  businessCivilDate,
-  type AgendaSegment,
-} from '../utils/agendaCalendar';
+import type { AppointmentRow } from '../types/appointment.types';
+import { agendaDateLabel, businessCivilDate, type AgendaSegment } from '../utils/agendaCalendar';
 
 export type AgendaViewProps = {
   appointments: readonly AppointmentRow[];
@@ -23,14 +19,6 @@ export type AgendaViewProps = {
   loading?: boolean;
   error?: string | null;
   onRetry?: () => void;
-};
-const statuses: Record<AppointmentStatus, string> = {
-  PENDING: 'Pendiente',
-  CONFIRMED: 'Confirmada',
-  IN_PROGRESS: 'En curso',
-  COMPLETED: 'Completada',
-  CANCELLED: 'Cancelada',
-  NO_SHOW: 'No asistió',
 };
 export function useAgendaPresentation(resource: string) {
   const [now, setNow] = useState(() => Date.now());
@@ -92,7 +80,7 @@ export function AgendaDayHeading({
     </View>
   );
 }
-// Compact representation only. Appointment cards/actions are owned by later tickets.
+// Compact adapter shared by month/week; the card owns presentation, never data access.
 export function AgendaAppointmentEntry({
   segment,
   timezone,
@@ -102,20 +90,13 @@ export function AgendaAppointmentEntry({
   timezone: string;
   onPress: () => void;
 }) {
-  const { appointment, continued } = segment;
-  const range = agendaAppointmentRange(appointment, timezone);
-  const label = `${continued ? 'Continúa · ' : ''}${range} · ${statuses[appointment.status]}`;
   return (
-    <Button
-      label={label}
-      accessibilityLabel={`Turno, ${label}`}
-      variant="ghost"
+    <AppointmentCard
+      appointment={segment.appointment}
+      segment={segment}
+      timezone={timezone}
+      variant="compact"
       onPress={onPress}
-      style={agendaStyles.entry}
-      textStyle={[
-        theme.typography.caption,
-        { color: theme.semanticColors.appointmentStatus[appointment.status] },
-      ]}
     />
   );
 }
@@ -134,5 +115,4 @@ export const agendaStyles = StyleSheet.create({
   },
   dayHeading: { gap: theme.spacing[4] },
   dayButton: { paddingHorizontal: theme.spacing[4], flexShrink: 1 },
-  entry: { paddingHorizontal: theme.spacing[4], justifyContent: 'flex-start' },
 });

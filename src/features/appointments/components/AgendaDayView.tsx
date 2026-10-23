@@ -4,12 +4,12 @@ import { Text, View } from 'react-native';
 import { EmptyState, ErrorState, LoadingState } from '@/components/ui';
 
 import {
-  AgendaAppointmentEntry,
   AgendaContextFeedback,
   agendaStyles,
   useAgendaPresentation,
   type AgendaViewProps,
 } from './AgendaPresentation';
+import { AppointmentCard } from './AppointmentCard';
 import {
   agendaDateLabel,
   agendaPeriod,
@@ -71,8 +71,9 @@ export function AgendaDayView({
         <EmptyState title="No hay turnos visibles en este día" />
       ) : (
         segments.map((segment) => (
-          <AgendaAppointmentEntry
+          <AppointmentCard
             key={segment.appointment.id}
+            appointment={segment.appointment}
             segment={segment}
             timezone={timezone}
             onPress={() => {
