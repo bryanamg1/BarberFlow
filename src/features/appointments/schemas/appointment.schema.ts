@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { APPOINTMENT_STATUSES } from '../types/appointment.types';
+import { appointmentInstantPrecedes } from '../utils/appointmentInstant';
 
 const id = z
   .string({ error: 'Ingresa un identificador válido.' })
@@ -51,24 +52,15 @@ export const appointmentStatusActionSchema = z.object({
     .exclude(['PENDING', 'COMPLETED']),
 });
 
-// Compare zoned whole seconds first, then decimal fractions without Date's millisecond truncation.
-function precedes(from: string, to: string): boolean {
-  const fraction = /\.(\d+)(?=Z|[+-]\d{2}:\d{2}$)/;
-  const fromSecond = Date.parse(from.replace(fraction, ''));
-  const toSecond = Date.parse(to.replace(fraction, ''));
-  if (fromSecond !== toSecond) return fromSecond < toSecond;
-  const fromFraction = from.match(fraction)?.[1] ?? '';
-  const toFraction = to.match(fraction)?.[1] ?? '';
-  const length = Math.max(fromFraction.length, toFraction.length);
-  return fromFraction.padEnd(length, '0') < toFraction.padEnd(length, '0');
-}
-
 const rangeFields = z.object({ from: instant, to: instant });
-export const appointmentRangeSchema = rangeFields.refine(({ from, to }) => precedes(from, to), {
-  path: ['to'],
-  error: 'El final del rango debe ser posterior al inicio.',
-  when: ({ value }) => rangeFields.safeParse(value).success,
-});
+export const appointmentRangeSchema = rangeFields.refine(
+  ({ from, to }) => appointmentInstantPrecedes(from, to),
+  {
+    path: ['to'],
+    error: 'El final del rango debe ser posterior al inicio.',
+    when: ({ value }) => rangeFields.safeParse(value).success,
+  },
+);
 
 export type CreateAppointmentItemInput = z.infer<typeof createAppointmentItemSchema>;
 export type CreateAppointmentInput = z.infer<typeof createAppointmentSchema>;
