@@ -1,5 +1,1 @@
-import { NavigationPlaceholder } from '@/features/navigation/components/NavigationPlaceholder';
-
-export default function AgendaScreen() {
-  return <NavigationPlaceholder label="Agenda" />;
-}
+export { AgendaScreen as default } from '@/features/appointments/screens/AgendaScreen';

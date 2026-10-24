@@ -13,8 +13,12 @@ import { SettingsEntry } from '@/features/navigation/components/SettingsEntry';
 import { renderWithProviders } from '@/test/renderWithProviders';
 import { resetRouterMocks, routerMock } from '@/test/routerTestUtils';
 import { theme } from '@/theme';
+import { useAuth } from '@/features/auth/context/AuthContext';
+import { useBusiness } from '@/features/business/context/BusinessContext';
+import { AgendaScreen } from '@/features/appointments/screens/AgendaScreen';
 
 jest.mock('expo-router', () => ({
+  useIsFocused: () => true,
   router:
     jest.requireActual<typeof import('@/test/routerTestUtils')>('@/test/routerTestUtils')
       .routerMock,
@@ -26,6 +30,10 @@ jest.mock('expo-router', () => ({
 jest.mock('expo-symbols', () => ({ SymbolView: () => null }));
 jest.mock('@/features/auth/components/LogoutButton', () => ({ LogoutButton: () => null }));
 jest.mock('@/features/business/context/BusinessContext', () => ({ useBusiness: jest.fn() }));
+jest.mock('@/features/auth/context/AuthContext', () => ({ useAuth: jest.fn() }));
+jest.mock('@/features/appointments/services/appointmentsService', () => ({
+  appointmentsService: { listByRange: jest.fn() },
+}));
 jest.mock('react-native-safe-area-context', () => ({
   ...jest.requireActual('react-native-safe-area-context/jest/mock').default,
   useSafeAreaInsets: jest.fn(),
@@ -36,10 +44,17 @@ beforeEach(() => {
   jest.clearAllMocks();
   resetRouterMocks();
   insets.mockReturnValue({ top: 0, bottom: 0, left: 0, right: 0 });
+  jest
+    .mocked(useAuth)
+    .mockReturnValue({ status: 'unauthenticated', user: null, session: null, error: null });
+  jest
+    .mocked(useBusiness)
+    .mockReturnValue({ status: 'pending', data: null, error: null, isFetching: true });
 });
 test('BF280 route adapters expose the actual navigation and protected Settings screens', () => {
   expect(TabsRoute).toBe(NavigationTabs);
   expect(SettingsRoute).toBe(SettingsScreen);
+  expect(AgendaRoute).toBe(AgendaScreen);
 });
 test.each([
   ['Inicio', HomeRoute],
@@ -52,7 +67,11 @@ test.each([
     await renderWithProviders(<Route />);
     expect(screen.getByText(label)).toHaveStyle({
       color: theme.colors.textPrimary,
-      ...(label === 'Inicio' ? theme.typography.headingLg : theme.typography.body),
+      ...(label === 'Inicio'
+        ? theme.typography.headingLg
+        : label === 'Agenda'
+          ? theme.typography.heading
+          : theme.typography.body),
     });
   },
 );
