@@ -45,14 +45,15 @@ test('existing route adapts actual screen with initial business Today/day and on
   await screen.findByRole('button', { name: /^Turno,/ });
   expect(screen.getByRole('heading', { name: 'Agenda' })).toBeTruthy();
   expect(screen.getByText('Vista actual: Día')).toBeTruthy();
-  expect(screen.getByText('Hoy')).toBeTruthy();
+  expect(screen.getAllByText('Hoy').length).toBeGreaterThan(0);
   expect(screen.getByRole('heading', { name: 'viernes, 2 de octubre de 2026' })).toBeTruthy();
   expect(appointmentsService.listByRange).toHaveBeenCalledTimes(1);
   expect(appointmentsService.listByRange).toHaveBeenCalledWith('b', {
     from: '2026-10-02T00:00:00.000Z',
     to: '2026-10-03T00:00:00.000Z',
   });
-  expect(screen.queryByRole('button', { name: /Anterior|Siguiente/ })).toBeNull();
+  expect(screen.getByRole('button', { name: 'Día anterior' })).toBeTruthy();
+  expect(screen.getByRole('button', { name: 'Día siguiente' })).toBeTruthy();
 });
 test('one active representation Day→Week→Month→Day preserves one anchor and queries only active ranges', async () => {
   await renderWithProviders(<AgendaScreen />);
@@ -97,7 +98,7 @@ test('business timezone supplies initial date and active query bounds; UTC date 
     from: '2026-10-01T03:00:00.000Z',
     to: '2026-10-02T03:00:00.000Z',
   });
-  expect(screen.getByText('Hoy')).toBeTruthy();
+  expect(screen.getAllByText('Hoy').length).toBeGreaterThan(0);
 });
 test('multiple cards use one read and selection routes only the original appointment ID', async () => {
   jest.mocked(appointmentsService.listByRange).mockResolvedValue({

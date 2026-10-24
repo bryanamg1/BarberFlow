@@ -27,6 +27,18 @@ export function shiftCivilDate(value: string, days: number) {
   if (!appointmentCivilDateSchema.safeParse(result).success) throw new Error('Invalid civil date');
   return result;
 }
+export function shiftCivilMonth(value: string, months: number) {
+  const date = civilDate(value);
+  const day = date.getUTCDate();
+  date.setUTCDate(1);
+  date.setUTCMonth(date.getUTCMonth() + months);
+  const last = new Date(date);
+  last.setUTCMonth(last.getUTCMonth() + 1, 0);
+  date.setUTCDate(Math.min(day, last.getUTCDate()));
+  const result = key(date);
+  if (!appointmentCivilDateSchema.safeParse(result).success) throw new Error('Invalid civil date');
+  return result;
+}
 function civilFormatter(timezone: string) {
   return new Intl.DateTimeFormat('en-US-u-ca-gregory-nu-latn', {
     timeZone: timezone,

@@ -7,6 +7,7 @@ import { EmptyState, ErrorState } from '@/components/ui';
 import { theme } from '@/theme';
 
 import { AgendaDayView } from '../components/AgendaDayView';
+import { AgendaDateNavigation } from '../components/AgendaDateNavigation';
 import { AgendaMonthView } from '../components/AgendaMonthView';
 import { AgendaContextFeedback, useAgendaPresentation } from '../components/AgendaPresentation';
 import { AgendaViewTabs, type AgendaView } from '../components/AgendaViewTabs';
@@ -14,6 +15,7 @@ import { AgendaWeekView } from '../components/AgendaWeekView';
 import { useAppointmentLifecycle } from '../hooks/useAppointmentLifecycle';
 import { useAppointments } from '../hooks/useAppointments';
 import { agendaViewPeriod } from '../utils/agendaViewPeriod';
+import { businessCivilDate } from '../utils/agendaCalendar';
 
 export function AgendaScreen() {
   const context = useAgendaPresentation('agenda-screen');
@@ -74,6 +76,14 @@ function ScopedAgenda({ initialDate, timezone }: { initialDate: string; timezone
         value={view}
         onChange={(next) => {
           if (lifetime.isCurrent()) setView(next);
+        }}
+      />
+      <AgendaDateNavigation
+        view={view}
+        date={date}
+        onChange={selectDate}
+        onToday={() => {
+          if (lifetime.isCurrent()) setDate(businessCivilDate(Date.now(), timezone));
         }}
       />
       {!period ? (
