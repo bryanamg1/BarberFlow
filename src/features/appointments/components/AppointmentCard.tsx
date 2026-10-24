@@ -6,7 +6,7 @@ import { theme } from '@/theme';
 import type { AppointmentRow, AppointmentStatus } from '../types/appointment.types';
 import { agendaAppointmentRange, type AgendaSegment } from '../utils/agendaCalendar';
 
-const appointmentStatusLabels: Record<AppointmentStatus, string> = {
+export const appointmentStatusLabels: Record<AppointmentStatus, string> = {
   PENDING: 'Pendiente',
   CONFIRMED: 'Confirmada',
   IN_PROGRESS: 'En curso',

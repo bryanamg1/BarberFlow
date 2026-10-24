@@ -1,9 +1,8 @@
-import { Text, View } from 'react-native';
+import { useLocalSearchParams } from 'expo-router';
 
-export default function AppointmentDetailScreen() {
-  return (
-    <View>
-      <Text>Detalle de cita</Text>
-    </View>
-  );
+import { AppointmentDetailScreen } from '@/features/appointments/screens/AppointmentDetailScreen';
+
+export default function AppointmentDetailRoute() {
+  const { id } = useLocalSearchParams<{ id?: string | string[] }>();
+  return <AppointmentDetailScreen appointmentId={typeof id === 'string' ? id : null} />;
 }
