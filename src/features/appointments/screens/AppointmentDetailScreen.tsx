@@ -9,6 +9,7 @@ import { theme } from '@/theme';
 import { formatCatalogPrice } from '@/utils/formatMoney';
 
 import { appointmentStatusLabels } from '../components/AppointmentCard';
+import { AppointmentActions } from '../components/AppointmentActions';
 import { useAppointmentClient } from '../hooks/useAppointmentClient';
 import { useAppointmentDetail } from '../hooks/useAppointmentDetail';
 import { usableAppointmentId, useAppointmentLifecycle } from '../hooks/useAppointmentLifecycle';
@@ -200,6 +201,7 @@ function Information({
           }}
         />
       )}
+      <AppointmentActions appointment={appointment} />
     </View>
   );
 }

@@ -136,14 +136,9 @@ test.each<[AppointmentStatus, string, boolean]>([
     expect(Boolean(screen.queryByRole('button', { name: 'Ir al checkout de esta cita' }))).toBe(
       checkout,
     );
-    for (const name of [
-      'Editar',
-      'Reprogramar',
-      'Cancelar cita',
-      'No asistió',
-      'Iniciar cita',
-      'Completar cita',
-    ])
+    expect(Boolean(screen.queryByRole('button', { name: 'Editar cita' }))).toBe(checkout);
+    expect(Boolean(screen.queryByRole('button', { name: 'Cancelar cita' }))).toBe(checkout);
+    for (const name of ['Editar', 'Reprogramar', 'No asistió', 'Iniciar cita', 'Completar cita'])
       expect(screen.queryByRole('button', { name })).toBeNull();
   },
 );
