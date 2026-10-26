@@ -17,6 +17,8 @@ import { AppointmentNotesField } from '../components/AppointmentNotesField';
 import { AppointmentProfessionalField } from '../components/AppointmentProfessionalField';
 import { AppointmentServiceSelector } from '../components/AppointmentServiceSelector';
 import { AppointmentSlotSelector } from '../components/AppointmentSlotSelector';
+import { AppointmentConflictFeedback } from '../components/AppointmentConflictFeedback';
+import { useAppointmentConflictRecovery } from '../hooks/useAppointmentConflictRecovery';
 import { useAppointmentLifecycle } from '../hooks/useAppointmentLifecycle';
 import { useAppointmentDuration } from '../hooks/useAppointmentDuration';
 import { useWorkingMembers } from '../hooks/useWorkingMembers';
@@ -83,6 +85,14 @@ function CreateAppointmentForm({ timezone }: { timezone: string }) {
           values.durationOverride,
         )
       : null;
+  const outcome = useAppointmentLifecycle(JSON.stringify(['create-outcome', timezone]));
+  const conflict = useAppointmentConflictRecovery(
+    duration !== null && values.barberMemberId && values.date
+      ? { date: values.date, barberMemberId: values.barberMemberId, durationMinutes: duration }
+      : null,
+    timezone,
+    JSON.stringify([values.date, values.barberMemberId, items, values.durationOverride]),
+  );
   const [busy, setBusy] = useState(false);
   const [uncertain, setUncertain] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -123,16 +133,20 @@ function CreateAppointmentForm({ timezone }: { timezone: string }) {
     if (!lifetime.isCurrent()) return;
     try {
       const saved = retry ? await mutation.retry() : await mutation.mutateAsync(input);
-      if (lifetime.isCurrent()) {
+      if (outcome.isCurrent()) {
         confirmed.current = true;
         setCompleted(true);
         router.replace({ pathname: '/appointments/[id]', params: { id: saved.id } });
       }
     } catch (reason) {
-      if (lifetime.isCurrent()) {
+      if (outcome.isCurrent()) {
         const safe = safeAppointmentHookError(reason);
-        setError(safe.message);
+        setError(safe.code === 'APPOINTMENT_CONFLICT' ? null : safe.message);
         setUncertain(safe.code === 'NETWORK_ERROR' || safe.code === 'UNKNOWN_ERROR');
+        if (safe.code === 'APPOINTMENT_CONFLICT') {
+          setValue('slot', null);
+          await conflict.recover();
+        }
       }
     }
   }
@@ -148,7 +162,7 @@ function CreateAppointmentForm({ timezone }: { timezone: string }) {
       await send(input);
     })().finally(() => {
       pending.current = false;
-      if (lifetime.isCurrent()) setBusy(false);
+      if (outcome.isCurrent()) setBusy(false);
     });
   }
   if (completed)
@@ -229,7 +243,10 @@ function CreateAppointmentForm({ timezone }: { timezone: string }) {
                   // Automatic selection invalidation must not create a new request identity.
                   if (!pending.current && lifetime.isCurrent()) {
                     if (slot === null) field.onChange(null);
-                    else edit(() => field.onChange(slot));
+                    else {
+                      edit(() => field.onChange(slot));
+                      conflict.reset();
+                    }
                   }
                 }}
               />
@@ -248,6 +265,12 @@ function CreateAppointmentForm({ timezone }: { timezone: string }) {
         </>
       )}
       {busy && <LoadingState message="Guardando cita…" />}
+      {!busy && conflict.conflicted && (
+        <AppointmentConflictFeedback
+          refreshError={conflict.refreshError}
+          onRetryReads={conflict.retryReads}
+        />
+      )}
       {Object.entries(formState.errors).map(([field, issue]) => (
         <Text key={field} role="alert" style={styles.text}>
           {issue.message}
@@ -273,7 +296,7 @@ function CreateAppointmentForm({ timezone }: { timezone: string }) {
               setBusy(true);
               void send(captured.current, true).finally(() => {
                 pending.current = false;
-                if (lifetime.isCurrent()) setBusy(false);
+                if (outcome.isCurrent()) setBusy(false);
               });
             }}
           />

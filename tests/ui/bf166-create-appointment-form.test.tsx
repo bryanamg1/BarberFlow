@@ -393,3 +393,79 @@ test('successful create invalidates existing scoped Agenda, availability and sav
   ]);
   expect(invalidation).toHaveBeenCalledTimes(1);
 });
+
+test('BF167 definitive create conflict clears rejected slot, refreshes only exact availability and recovers with explicit new slot', async () => {
+  jest.mocked(appointmentsService.create).mockResolvedValueOnce({
+    data: null,
+    error: { code: 'APPOINTMENT_CONFLICT', message: 'competing-client-private' },
+  });
+  const ui = await renderWithProviders(<NewRoute />);
+  await fill();
+  await fireEvent.changeText(screen.getByLabelText('Notas'), '  retener notas  ');
+  const later = { ...slot, start_at: '2026-10-05T11:00:00Z', end_at: '2026-10-05T11:30:00Z' };
+  jest
+    .mocked(appointmentsService.getAvailability)
+    .mockResolvedValue({ data: [{ ...slot, available: false }, later], error: null });
+  const invalidate = jest.spyOn(ui.queryClient, 'invalidateQueries');
+  await fireEvent.press(screen.getByRole('button', { name: 'Crear cita' }));
+  await screen.findByText('El horario solicitado no está disponible. Selecciona otro horario.');
+  await screen.findByText('Sin horario seleccionado');
+  expect(screen.getByLabelText('Notas').props.value).toBe('  retener notas  ');
+  expect(screen.getByLabelText('Fecha del turno (YYYY-MM-DD)').props.value).toBe('2026-10-05');
+  expect(routerMock.replace).not.toHaveBeenCalled();
+  expect(screen.queryByText('competing-client-private')).toBeNull();
+  expect(appointmentsService.create).toHaveBeenCalledTimes(1);
+  expect(invalidate).toHaveBeenCalledWith({
+    queryKey: [
+      'appointments',
+      'b',
+      { businessId: 'b', membershipId: 'm', userId: 'u', role: 'OWNER' },
+      'availability',
+      {
+        date: '2026-10-05',
+        barberMemberId: 'm',
+        durationMinutes: 30,
+        excludeAppointmentId: undefined,
+      },
+      'UTC',
+    ],
+    exact: true,
+    refetchType: 'none',
+  });
+  await fireEvent.press(screen.getByRole('button', { name: 'Crear cita' }));
+  expect(appointmentsService.create).toHaveBeenCalledTimes(1);
+  await fireEvent.press(
+    await screen.findByRole('button', { name: /Horario:.*11:00:00.*Disponible/ }),
+  );
+  await fireEvent.press(screen.getByRole('button', { name: 'Crear cita' }));
+  await waitFor(() => expect(routerMock.replace).toHaveBeenCalled());
+  expect(jest.mocked(appointmentsService.create).mock.calls[1][1]).toEqual(
+    expect.objectContaining({
+      startAt: later.start_at,
+      clientId: 'c',
+      barberMemberId: 'm',
+      notes: '  retener notas  ',
+      items: [{ serviceId: 's', quantity: 1 }],
+    }),
+  );
+});
+
+test('BF167 failed availability refresh is not empty success; explicit reader retry never retries creation', async () => {
+  jest
+    .mocked(appointmentsService.create)
+    .mockResolvedValue({ data: null, error: { code: 'APPOINTMENT_CONFLICT', message: 'private' } });
+  await renderWithProviders(<NewRoute />);
+  await fill();
+  jest.mocked(appointmentsService.getAvailability).mockResolvedValue({
+    data: null,
+    error: { code: 'NETWORK_ERROR', message: 'private availability' },
+  });
+  await fireEvent.press(screen.getByRole('button', { name: 'Crear cita' }));
+  await screen.findByText('El horario solicitado no está disponible. Selecciona otro horario.');
+  await screen.findByRole('button', { name: 'Reintentar' });
+  expect(screen.queryByText('No hay horarios disponibles para esta fecha y duración')).toBeNull();
+  jest.mocked(appointmentsService.getAvailability).mockResolvedValue({ data: [slot], error: null });
+  await fireEvent.press(screen.getByRole('button', { name: 'Reintentar' }));
+  await screen.findByRole('button', { name: /Horario:.*Disponible/ });
+  expect(appointmentsService.create).toHaveBeenCalledTimes(1);
+});

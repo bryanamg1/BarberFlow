@@ -12,6 +12,8 @@ import { AppointmentDateField } from '../components/AppointmentDateField';
 import { AppointmentNotesField } from '../components/AppointmentNotesField';
 import { AppointmentProfessionalField } from '../components/AppointmentProfessionalField';
 import { AppointmentSlotSelector } from '../components/AppointmentSlotSelector';
+import { AppointmentConflictFeedback } from '../components/AppointmentConflictFeedback';
+import { useAppointmentConflictRecovery } from '../hooks/useAppointmentConflictRecovery';
 import { useAppointmentDetail } from '../hooks/useAppointmentDetail';
 import { useAppointmentLifecycle, usableAppointmentId } from '../hooks/useAppointmentLifecycle';
 import { useRescheduleAppointment } from '../hooks/useRescheduleAppointment';
@@ -249,6 +251,18 @@ function RescheduleEditor({
     JSON.stringify(['reschedule-editor', appointment.id, timezone]),
   );
   const duration = values.durationOverride ?? persistedAppointmentMinutes(appointment);
+  const conflict = useAppointmentConflictRecovery(
+    duration !== null && values.barberMemberId
+      ? {
+          date,
+          durationMinutes: duration,
+          barberMemberId: values.barberMemberId,
+          excludeAppointmentId: appointment.id,
+        }
+      : null,
+    timezone,
+    JSON.stringify([appointment.id, date, values.barberMemberId, values.durationOverride]),
+  );
   function clear() {
     setSlot(null);
     setValue('startAt', '');
@@ -266,7 +280,15 @@ function RescheduleEditor({
       await mutation.mutateAsync(input);
       onSaved();
     } catch (reason) {
-      if (lifetime.isCurrent()) setError(safeAppointmentHookError(reason).message);
+      if (lifetime.isCurrent()) {
+        const safe = safeAppointmentHookError(reason);
+        setError(safe.code === 'APPOINTMENT_CONFLICT' ? null : safe.message);
+        if (safe.code === 'APPOINTMENT_CONFLICT') {
+          setSlot(null);
+          setValue('startAt', '');
+          await conflict.recover();
+        }
+      }
     }
   });
   return (
@@ -323,6 +345,7 @@ function RescheduleEditor({
                 mutation.reset();
                 setSlot(next);
                 setValue('startAt', next?.start_at ?? '');
+                if (next !== null) conflict.reset();
               }
             }}
           />
@@ -332,6 +355,12 @@ function RescheduleEditor({
         <Text role="alert" style={styles.text}>
           {error}
         </Text>
+      )}
+      {!busy && conflict.conflicted && (
+        <AppointmentConflictFeedback
+          refreshError={conflict.refreshError}
+          onRetryReads={conflict.retryReads}
+        />
       )}
       <Button
         label="Guardar reprogramación"

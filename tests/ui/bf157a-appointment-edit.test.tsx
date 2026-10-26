@@ -111,6 +111,38 @@ test.each(['COMPLETED', 'CANCELLED', 'NO_SHOW'] as AppointmentStatus[])(
     expect(screen.queryByRole('button')).toBeNull();
   },
 );
+
+test('BF167 reschedule conflict leaves original appointment intact, refreshes own-excluded availability and explicitly recovers', async () => {
+  const original = { ...stored };
+  jest.mocked(appointmentsService.reschedule).mockResolvedValueOnce({
+    data: null,
+    error: { code: 'APPOINTMENT_CONFLICT', message: 'other-client-private' },
+  });
+  await renderWithProviders(<EditRoute />);
+  await fireEvent.press(await screen.findByRole('button', { name: 'Reprogramar cita' }));
+  await fireEvent.press(await screen.findByRole('button', { name: /Horario:.*Disponible/ }));
+  const next = { ...slot, start_at: '2026-10-05T12:00:00Z', end_at: '2026-10-05T13:00:00Z' };
+  jest
+    .mocked(appointmentsService.getAvailability)
+    .mockResolvedValue({ data: [{ ...slot, available: false }, next], error: null });
+  await fireEvent.press(screen.getByRole('button', { name: 'Guardar reprogramación' }));
+  await screen.findByText('El horario solicitado no está disponible. Selecciona otro horario.');
+  await screen.findByText('Sin horario seleccionado');
+  expect(stored).toEqual(original);
+  expect(routerMock.replace).not.toHaveBeenCalled();
+  expect(screen.queryByText('other-client-private')).toBeNull();
+  expect(appointmentsService.reschedule).toHaveBeenCalledTimes(1);
+  expect(appointmentsService.getAvailability).toHaveBeenLastCalledWith(
+    'b',
+    expect.objectContaining({ excludeAppointmentId: 'a', durationMinutes: 60 }),
+  );
+  await fireEvent.press(
+    await screen.findByRole('button', { name: /Horario:.*12:00:00.*Disponible/ }),
+  );
+  await fireEvent.press(screen.getByRole('button', { name: 'Guardar reprogramación' }));
+  await waitFor(() => expect(routerMock.replace).toHaveBeenCalled());
+  expect(jest.mocked(appointmentsService.reschedule).mock.calls[1][1].startAt).toBe(next.start_at);
+});
 test('BARBER assigned allowed, foreign assignment and business denied', async () => {
   agendaContext({ role: 'BARBER' });
   const ui = await renderWithProviders(<AppointmentActions appointment={stored} />);
