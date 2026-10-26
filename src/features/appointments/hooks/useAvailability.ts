@@ -22,13 +22,19 @@ const schema = z.object({
 });
 export function useAvailability(
   input: AppointmentAvailabilityInput | null,
+  contextKey?: string | null,
 ): AppointmentQueryResult<AppointmentAvailabilitySlot[]> {
   const parsed = schema.safeParse(input);
   const params = parsed.success ? parsed.data : null;
-  const lifetime = useAppointmentLifecycle(JSON.stringify({ availability: params }));
+  const lifetime = useAppointmentLifecycle(JSON.stringify({ availability: params, contextKey }));
   const { scope } = lifetime;
   const query = useQuery<AppointmentAvailabilitySlot[], AppointmentServiceError>({
-    queryKey: appointmentsKeys.availability(scope, params),
+    // Optional configuration scope invalidates a consumer's cached availability when its
+    // business timezone changes. It is never an RPC argument; existing consumers keep their key.
+    queryKey:
+      contextKey === undefined
+        ? appointmentsKeys.availability(scope, params)
+        : [...appointmentsKeys.availability(scope, params), contextKey],
     queryFn:
       scope === null || params === null
         ? skipToken
