@@ -143,6 +143,61 @@ test('BF167 reschedule conflict leaves original appointment intact, refreshes ow
   await waitFor(() => expect(routerMock.replace).toHaveBeenCalled());
   expect(jest.mocked(appointmentsService.reschedule).mock.calls[1][1].startAt).toBe(next.start_at);
 });
+
+test.each(['business', 'timezone', 'logout'])(
+  'BF300 late reschedule conflict has no stale alert, refresh or navigation after %s change',
+  async (change) => {
+    let finish!: (v: Awaited<ReturnType<typeof appointmentsService.reschedule>>) => void;
+    jest.mocked(appointmentsService.reschedule).mockReturnValue(
+      new Promise((resolve) => {
+        finish = resolve;
+      }),
+    );
+    const ui = await renderWithProviders(<EditRoute />);
+    await fireEvent.press(await screen.findByRole('button', { name: 'Reprogramar cita' }));
+    await fireEvent.changeText(screen.getByLabelText('Fecha del turno (YYYY-MM-DD)'), '2026-10-05');
+    await fireEvent.press(await screen.findByRole('button', { name: /Horario:.*Disponible/ }));
+    await fireEvent.press(screen.getByRole('button', { name: 'Guardar reprogramación' }));
+    const invalidate = jest.spyOn(ui.queryClient, 'invalidateQueries');
+    if (change === 'business') agendaContext({ businessId: 'new' });
+    if (change === 'timezone') agendaContext({ timezone: 'America/New_York' });
+    if (change === 'logout') {
+      const { useAuth } = jest.requireMock(
+        '@/features/auth/context/AuthContext',
+      ) as typeof import('@/features/auth/context/AuthContext');
+      jest
+        .mocked(useAuth)
+        .mockReturnValue({ status: 'unauthenticated', user: null, session: null, error: null });
+    }
+    await ui.rerender(<EditRoute />);
+    await act(() =>
+      finish({
+        data: null,
+        error: { code: 'APPOINTMENT_CONFLICT', message: 'private stale conflict' },
+      }),
+    );
+    expect(
+      screen.queryByText('El horario solicitado no está disponible. Selecciona otro horario.'),
+    ).toBeNull();
+    expect(invalidate).not.toHaveBeenCalled();
+    expect(routerMock.replace).not.toHaveBeenCalled();
+    expect(appointmentsService.reschedule).toHaveBeenCalledTimes(1);
+  },
+);
+
+test('BF300 confirmed reschedule plus conflict-shaped refresh failure never retries or enters conflict recovery', async () => {
+  const ui = await renderWithProviders(<EditRoute />);
+  await fireEvent.press(await screen.findByRole('button', { name: 'Reprogramar cita' }));
+  await fireEvent.press(await screen.findByRole('button', { name: /Horario:.*Disponible/ }));
+  const cancel = jest.spyOn(ui.queryClient, 'cancelQueries');
+  jest
+    .spyOn(ui.queryClient, 'invalidateQueries')
+    .mockRejectedValueOnce({ code: 'APPOINTMENT_CONFLICT', message: 'read error only' });
+  await fireEvent.press(screen.getByRole('button', { name: 'Guardar reprogramación' }));
+  await waitFor(() => expect(routerMock.replace).toHaveBeenCalled());
+  expect(cancel).not.toHaveBeenCalled();
+  expect(appointmentsService.reschedule).toHaveBeenCalledTimes(1);
+});
 test('BARBER assigned allowed, foreign assignment and business denied', async () => {
   agendaContext({ role: 'BARBER' });
   const ui = await renderWithProviders(<AppointmentActions appointment={stored} />);

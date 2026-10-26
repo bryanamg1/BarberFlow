@@ -469,3 +469,70 @@ test('BF167 failed availability refresh is not empty success; explicit reader re
   await screen.findByRole('button', { name: /Horario:.*Disponible/ });
   expect(appointmentsService.create).toHaveBeenCalledTimes(1);
 });
+
+test.each(['user', 'business', 'membership', 'role', 'timezone', 'logout'])(
+  'BF300 late definitive conflict cannot clear the new form, alert or invalidate after %s switch',
+  async (change) => {
+    let finish!: (v: Awaited<ReturnType<typeof appointmentsService.create>>) => void;
+    jest.mocked(appointmentsService.create).mockReturnValue(
+      new Promise((resolve) => {
+        finish = resolve;
+      }),
+    );
+    const ui = await renderWithProviders(<NewRoute />);
+    await fill();
+    await fireEvent.press(screen.getByRole('button', { name: 'Crear cita' }));
+    await screen.findByText('Guardando cita…');
+    const invalidate = jest.spyOn(ui.queryClient, 'invalidateQueries');
+    if (change === 'user') agendaContext({ userId: 'new' });
+    if (change === 'business') agendaContext({ businessId: 'new' });
+    if (change === 'membership') agendaContext({ membershipId: 'new' });
+    if (change === 'role') agendaContext({ role: 'BARBER' });
+    if (change === 'timezone') agendaContext({ timezone: 'America/New_York' });
+    if (change === 'logout')
+      jest
+        .mocked(useAuth)
+        .mockReturnValue({ status: 'unauthenticated', session: null, user: null, error: null });
+    await ui.rerender(<NewRoute />);
+    if (change !== 'logout')
+      await fireEvent.changeText(
+        screen.getByLabelText('Fecha del turno (YYYY-MM-DD)'),
+        '2026-12-01',
+      );
+    await act(() =>
+      finish({
+        data: null,
+        error: { code: 'APPOINTMENT_CONFLICT', message: 'previous-business-private' },
+      }),
+    );
+    expect(
+      screen.queryByText('El horario solicitado no está disponible. Selecciona otro horario.'),
+    ).toBeNull();
+    expect(invalidate).not.toHaveBeenCalled();
+    expect(routerMock.replace).not.toHaveBeenCalled();
+    if (change !== 'logout')
+      expect(screen.getByLabelText('Fecha del turno (YYYY-MM-DD)').props.value).toBe('2026-12-01');
+    expect(appointmentsService.create).toHaveBeenCalledTimes(1);
+  },
+);
+
+test('BF300 a conflict-shaped read-refresh rejection after confirmed creation is still success, no conflict recovery or retry', async () => {
+  const ui = await renderWithProviders(<NewRoute />);
+  await fill();
+  const cancel = jest.spyOn(ui.queryClient, 'cancelQueries');
+  jest
+    .spyOn(ui.queryClient, 'invalidateQueries')
+    .mockRejectedValueOnce({ code: 'APPOINTMENT_CONFLICT', message: 'read failure only' });
+  await fireEvent.press(screen.getByRole('button', { name: 'Crear cita' }));
+  await waitFor(() =>
+    expect(routerMock.replace).toHaveBeenCalledWith({
+      pathname: '/appointments/[id]',
+      params: { id: requestId },
+    }),
+  );
+  expect(cancel).not.toHaveBeenCalled();
+  expect(appointmentsService.create).toHaveBeenCalledTimes(1);
+  expect(
+    screen.queryByText('El horario solicitado no está disponible. Selecciona otro horario.'),
+  ).toBeNull();
+});
