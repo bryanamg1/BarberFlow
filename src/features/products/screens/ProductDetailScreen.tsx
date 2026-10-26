@@ -105,6 +105,14 @@ function Detail({ productId }: { productId: string | null }) {
       )}
       {business.data.role === 'OWNER' && (
         <Button
+          label="Editar producto"
+          onPress={() =>
+            router.push({ pathname: '/products/[id]/edit', params: { id: product.id } })
+          }
+        />
+      )}
+      {business.data.role === 'OWNER' && (
+        <Button
           label="Ajustar stock"
           onPress={() =>
             router.push({ pathname: '/products/[id]/stock-adjustment', params: { id: product.id } })

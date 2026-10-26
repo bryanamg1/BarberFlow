@@ -163,7 +163,7 @@ test('list populated resolves active/archived page categories once, null exclude
   expect(categoryService.listByBusiness).not.toHaveBeenCalled();
   for (const id of ['e', 'b', 'archived-201']) expect(screen.queryByText(id)).toBeNull();
   expect(screen.queryByText(/Stock actual/)).toBeNull();
-  expect(screen.queryByRole('button', { name: /Crear producto|Editar producto/ })).toBeNull();
+  expect(screen.getByRole('button', { name: 'Crear producto' })).toBeTruthy();
 });
 test('list pending then empty, no batch read without category IDs', async () => {
   const d = deferred<Awaited<ReturnType<typeof productsService.listByBusiness>>>();
@@ -275,7 +275,15 @@ for (const role of ['OWNER', 'BARBER'] as const)
     expect(screen.getByText('Stock mínimo: 0')).toBeTruthy();
     expect(screen.getByText('SKU: No especificado')).toBeTruthy();
     expect(screen.queryByText(/Stock actual/)).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Editar producto' })).toBeNull();
+    if (role === 'OWNER') {
+      await userEvent.press(screen.getByRole('button', { name: 'Editar producto' }));
+      expect(router.push).toHaveBeenLastCalledWith({
+        pathname: '/products/[id]/edit',
+        params: { id: 'e' },
+      });
+    } else {
+      expect(screen.queryByRole('button', { name: 'Editar producto' })).toBeNull();
+    }
     if (role === 'OWNER') {
       await userEvent.press(screen.getByRole('button', { name: 'Ajustar stock' }));
       expect(router.push).toHaveBeenLastCalledWith({

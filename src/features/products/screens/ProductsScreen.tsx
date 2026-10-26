@@ -26,7 +26,10 @@ export function ProductsScreen() {
           Productos
         </Text>
         {scope && business.status === 'success' && business.data.role === 'OWNER' && (
-          <Button label="Nueva venta" onPress={() => router.push('/sales/new')} />
+          <View style={styles.controls}>
+            <Button label="Crear producto" onPress={() => router.push('/products/new')} />
+            <Button label="Nueva venta" onPress={() => router.push('/sales/new')} />
+          </View>
         )}
         {scope && business.status === 'success' ? (
           <Catalog key={JSON.stringify(scope)} currency={business.data.business.currency_code} />

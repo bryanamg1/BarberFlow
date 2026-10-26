@@ -1,9 +1,4 @@
-import { Text, View } from 'react-native';
-
+import { ProductFormScreen } from '@/features/products/screens/ProductFormScreen';
 export default function NewProductScreen() {
-  return (
-    <View>
-      <Text>Nuevo producto</Text>
-    </View>
-  );
+  return <ProductFormScreen />;
 }
