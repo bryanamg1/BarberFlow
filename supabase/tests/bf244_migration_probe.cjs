@@ -1,0 +1,66 @@
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const { randomUUID } = require('node:crypto');
+const { query } = require('./helpers/local-postgres.cjs');
+const { completeCheckoutFixture } = require('./helpers/complete-checkout-fixture.cjs');
+
+const f = completeCheckoutFixture();
+const migration = fs
+  .readFileSync('supabase/migrations/20261027040000_top_products.sql', 'utf8')
+  .replace(/^([\s\S]*?)BEGIN;\s*/, '')
+  .replace(/\s*COMMIT;\s*$/, '');
+const result = query(`BEGIN;${f.sql}
+  UPDATE public.services SET price=7.50 WHERE id='${f.service}';
+  UPDATE public.products SET sale_price=12.34,default_purchase_cost=3.21 WHERE id='${f.product}';
+  ${f.identity()} SET LOCAL ROLE authenticated;
+  SELECT ${f.checkout(randomUUID())};
+  RESET ROLE;
+  CREATE TEMP TABLE before244 AS SELECT
+    (SELECT jsonb_agg(to_jsonb(s) ORDER BY id) FROM public.sales s WHERE business_id='${f.business}') sales,
+    (SELECT jsonb_agg(to_jsonb(i) ORDER BY i.id) FROM public.sale_items i JOIN public.sales s ON s.id=i.sale_id WHERE s.business_id='${f.business}') items,
+    (SELECT jsonb_agg(to_jsonb(m) ORDER BY id) FROM public.stock_movements m WHERE business_id='${f.business}') ledger,
+    (SELECT jsonb_agg(to_jsonb(p) ORDER BY schemaname,tablename,policyname) FROM pg_policies p WHERE schemaname IN ('public','storage')) policies,
+    (SELECT jsonb_agg(jsonb_build_array(p.oid,p.prosrc,p.proacl,p.prosecdef,p.proconfig) ORDER BY p.oid)
+      FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
+      WHERE n.nspname IN ('public','private') AND p.proname<>'get_top_products') functions;
+  DROP FUNCTION public.get_top_products(uuid,timestamptz,timestamptz,integer);
+  ${migration}
+  SET LOCAL ROLE authenticated;
+  SELECT jsonb_build_object('rows',(SELECT COALESCE(jsonb_agg(to_jsonb(r)),'[]'::jsonb)
+      FROM public.get_top_products('${f.business}',NULL,NULL) AS r),
+    'expected_name',(SELECT item_name_snapshot FROM public.sale_items WHERE product_id='${f.product}' ORDER BY id DESC LIMIT 1));
+  RESET ROLE;
+  DO $$ BEGIN
+    IF (SELECT jsonb_agg(to_jsonb(s) ORDER BY id) FROM public.sales s WHERE business_id='${f.business}') IS DISTINCT FROM (SELECT sales FROM before244)
+      OR (SELECT jsonb_agg(to_jsonb(i) ORDER BY i.id) FROM public.sale_items i JOIN public.sales s ON s.id=i.sale_id WHERE s.business_id='${f.business}') IS DISTINCT FROM (SELECT items FROM before244)
+      OR (SELECT jsonb_agg(to_jsonb(m) ORDER BY id) FROM public.stock_movements m WHERE business_id='${f.business}') IS DISTINCT FROM (SELECT ledger FROM before244)
+      OR (SELECT jsonb_agg(to_jsonb(p) ORDER BY schemaname,tablename,policyname) FROM pg_policies p WHERE schemaname IN ('public','storage')) IS DISTINCT FROM (SELECT policies FROM before244)
+      OR (SELECT jsonb_agg(jsonb_build_array(p.oid,p.prosrc,p.proacl,p.prosecdef,p.proconfig) ORDER BY p.oid)
+        FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
+        WHERE n.nspname IN ('public','private') AND p.proname<>'get_top_products') IS DISTINCT FROM (SELECT functions FROM before244)
+      THEN RAISE EXCEPTION 'BF244 changed history/policies/existing functions or ACL'; END IF;
+  END $$;
+  SELECT 'BF244 populated upgrade preserved history/policies/existing functions';
+  ROLLBACK;`);
+const rows = result
+  .split('\n')
+  .filter((line) => line.startsWith('{'))
+  .map(JSON.parse);
+assert.equal(rows[0].sale.total, 32.18);
+assert.deepEqual(rows[1].rows, [
+  {
+    product_id: f.product,
+    name: rows[1].expected_name,
+    quantity: 2,
+    net_revenue: '24.68',
+    cogs: '6.42',
+    gross_profit: '18.26',
+  },
+]);
+assert.equal(
+  result.split('\n').at(-1),
+  'BF244 populated upgrade preserved history/policies/existing functions',
+);
+console.log(
+  'PASS BF244 populated migration probe: actual authenticated checkout, exact product row, historical COGS/profit, unchanged history/ledger/policies/existing function bodies and ACL.',
+);

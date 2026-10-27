@@ -152,10 +152,16 @@ BEGIN
   END IF;
   IF (SELECT array_agg(p.proname::text ORDER BY p.proname)
       FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace WHERE n.nspname = 'public')
-     IS DISTINCT FROM ARRAY['adjust_stock','change_appointment_status','complete_checkout','complete_purchase','create_appointment_with_services','get_availability','get_client_stats', 'get_dashboard_summary', 'get_expense_summary', 'get_low_stock_products', 'get_product_stock', 'get_purchase_detail', 'get_revenue_by_day','get_top_services', 'has_business_role', 'is_business_member',
+     IS DISTINCT FROM ARRAY['adjust_stock','change_appointment_status','complete_checkout','complete_purchase','create_appointment_with_services','get_availability','get_client_stats', 'get_dashboard_summary', 'get_expense_summary', 'get_low_stock_products', 'get_product_stock', 'get_purchase_detail', 'get_revenue_by_day','get_top_products','get_top_services', 'has_business_role', 'is_business_member',
                             'prevent_stock_movement_changes', 'reschedule_appointment','save_business_hours', 'set_updated_at','update_appointment_notes','void_purchase']::text[]
      OR EXISTS (SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
                 WHERE n.nspname = 'public' AND CASE
+                  WHEN p.proname = 'get_top_products' THEN
+                    p.prosecdef OR NOT p.proretset OR p.provolatile <> 's' OR p.pronargs <> 4 OR p.pronargdefaults <> 1
+                    OR p.oid <> 'public.get_top_products(uuid,timestamptz,timestamptz,integer)'::regprocedure
+                    OR p.prorettype <> 'pg_catalog.record'::regtype OR p.proconfig IS DISTINCT FROM ARRAY['search_path=""']::text[]
+                    OR p.proargnames IS DISTINCT FROM ARRAY['p_business_id','p_from','p_to','p_limit','product_id','name','quantity','net_revenue','cogs','gross_profit']::text[]
+                    OR p.proallargtypes IS DISTINCT FROM ARRAY['uuid'::regtype,'timestamptz'::regtype,'timestamptz'::regtype,'integer'::regtype,'uuid'::regtype,'text'::regtype,'bigint'::regtype,'text'::regtype,'text'::regtype,'text'::regtype]::oid[]
                   WHEN p.proname = 'get_top_services' THEN
                     p.prosecdef OR NOT p.proretset OR p.provolatile <> 's' OR p.pronargs <> 4 OR p.pronargdefaults <> 1
                     OR p.oid <> 'public.get_top_services(uuid,timestamptz,timestamptz,integer)'::regprocedure
