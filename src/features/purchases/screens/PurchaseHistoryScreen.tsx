@@ -24,7 +24,14 @@ export function PurchaseHistoryScreen() {
         <Text role="heading" style={styles.heading}>
           Compras
         </Text>
-        {scope ? <History key={JSON.stringify(scope)} /> : <PurchaseAccess />}
+        {scope ? (
+          <>
+            <Button label="Nueva compra" onPress={() => router.push('/purchases/new')} />
+            <History key={JSON.stringify(scope)} />
+          </>
+        ) : (
+          <PurchaseAccess />
+        )}
       </ScrollView>
     </SafeAreaView>
   );
