@@ -152,10 +152,14 @@ BEGIN
   END IF;
   IF (SELECT array_agg(p.proname::text ORDER BY p.proname)
       FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace WHERE n.nspname = 'public')
-     IS DISTINCT FROM ARRAY['adjust_stock','change_appointment_status','complete_checkout','complete_purchase','create_appointment_with_services','get_availability','get_client_stats', 'get_expense_summary', 'get_low_stock_products', 'get_product_stock', 'get_purchase_detail', 'has_business_role', 'is_business_member',
+     IS DISTINCT FROM ARRAY['adjust_stock','change_appointment_status','complete_checkout','complete_purchase','create_appointment_with_services','get_availability','get_client_stats', 'get_dashboard_summary', 'get_expense_summary', 'get_low_stock_products', 'get_product_stock', 'get_purchase_detail', 'has_business_role', 'is_business_member',
                             'prevent_stock_movement_changes', 'reschedule_appointment','save_business_hours', 'set_updated_at','update_appointment_notes','void_purchase']::text[]
      OR EXISTS (SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
                 WHERE n.nspname = 'public' AND CASE
+                  WHEN p.proname = 'get_dashboard_summary' THEN
+                    p.prosecdef OR p.proretset OR p.provolatile <> 's' OR p.pronargs <> 3 OR p.pronargdefaults <> 0
+                    OR p.oid <> 'public.get_dashboard_summary(uuid,timestamptz,timestamptz)'::regprocedure
+                    OR p.prorettype <> 'pg_catalog.jsonb'::regtype OR p.proconfig IS DISTINCT FROM ARRAY['search_path=""']::text[]
                   WHEN p.proname = 'get_expense_summary' THEN
                     p.prosecdef OR p.proretset OR p.provolatile <> 's' OR p.pronargs <> 3 OR p.pronargdefaults <> 0
                     OR p.oid <> 'public.get_expense_summary(uuid,timestamptz,timestamptz)'::regprocedure

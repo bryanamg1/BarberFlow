@@ -75,7 +75,7 @@ BEGIN
   END LOOP;
 
   IF (SELECT count(*) FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
-      WHERE n.nspname IN ('public','private')) <> 36 THEN
+      WHERE n.nspname IN ('public','private')) <> 37 THEN
     RAISE EXCEPTION 'Unexpected helper/RPC inventory';
   END IF;
   FOR target IN SELECT p.*,n.nspname FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
@@ -87,8 +87,8 @@ BEGIN
     END IF;
     FOREACH role_name IN ARRAY ARRAY['anon','authenticated','service_role'] LOOP
       expected := CASE role_name WHEN 'anon' THEN false
-        WHEN 'authenticated' THEN target.proname IN ('is_business_member','has_business_role','can_read_payment','get_client_stats','get_expense_summary','get_product_stock','get_low_stock_products','save_business_hours','get_availability','appointment_slot_candidates','create_appointment_with_services','change_appointment_status','reschedule_appointment','update_appointment_notes','adjust_stock','complete_checkout','complete_purchase','void_purchase','get_purchase_detail','storage_path_uuid')
-        ELSE target.nspname='public' AND target.proname NOT IN ('get_client_stats','get_expense_summary','get_product_stock','get_low_stock_products','save_business_hours','get_availability','create_appointment_with_services','change_appointment_status','reschedule_appointment','update_appointment_notes','adjust_stock','complete_checkout','complete_purchase','void_purchase','get_purchase_detail') END;
+        WHEN 'authenticated' THEN target.proname IN ('is_business_member','has_business_role','can_read_payment','get_client_stats','get_dashboard_summary','get_expense_summary','get_product_stock','get_low_stock_products','save_business_hours','get_availability','appointment_slot_candidates','create_appointment_with_services','change_appointment_status','reschedule_appointment','update_appointment_notes','adjust_stock','complete_checkout','complete_purchase','void_purchase','get_purchase_detail','storage_path_uuid')
+        ELSE target.nspname='public' AND target.proname NOT IN ('get_client_stats','get_dashboard_summary','get_expense_summary','get_product_stock','get_low_stock_products','save_business_hours','get_availability','create_appointment_with_services','change_appointment_status','reschedule_appointment','update_appointment_notes','adjust_stock','complete_checkout','complete_purchase','void_purchase','get_purchase_detail') END;
       IF has_function_privilege(role_name,target.oid,'EXECUTE') IS DISTINCT FROM expected THEN
         RAISE EXCEPTION 'Wrong function EXECUTE: % %',role_name,target.proname;
       END IF;
