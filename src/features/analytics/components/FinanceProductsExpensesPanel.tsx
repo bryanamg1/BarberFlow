@@ -14,6 +14,7 @@ import type { FinanceExpensesResult, FinanceProductsResult } from '../types/fina
 export type FinanceProductsExpensesPanelProps = {
   productsResult: FinanceProductsResult;
   expensesResult: FinanceExpensesResult;
+  mode?: 'products' | 'expenses' | 'both';
 };
 
 function displayAmount(value: unknown, currency: string, signed = false): string | null {
@@ -191,6 +192,7 @@ function Expenses({
 export function FinanceProductsExpensesPanel({
   productsResult,
   expensesResult,
+  mode = 'both',
 }: FinanceProductsExpensesPanelProps) {
   const auth = useAuth();
   const business = useBusiness();
@@ -206,18 +208,22 @@ export function FinanceProductsExpensesPanel({
   const wide = width >= 768;
   return (
     <View style={styles.panel}>
-      <View style={styles.list}>
-        <Text role="heading" style={styles.heading}>
-          Productos
-        </Text>
-        <Products result={productsResult} currency={currency} wide={wide} />
-      </View>
-      <View style={styles.list}>
-        <Text role="heading" style={styles.heading}>
-          Gastos
-        </Text>
-        <Expenses result={expensesResult} currency={currency} wide={wide} />
-      </View>
+      {mode !== 'expenses' && (
+        <View style={styles.list}>
+          <Text role="heading" style={styles.heading}>
+            Productos
+          </Text>
+          <Products result={productsResult} currency={currency} wide={wide} />
+        </View>
+      )}
+      {mode !== 'products' && (
+        <View style={styles.list}>
+          <Text role="heading" style={styles.heading}>
+            Gastos
+          </Text>
+          <Expenses result={expensesResult} currency={currency} wide={wide} />
+        </View>
+      )}
     </View>
   );
 }

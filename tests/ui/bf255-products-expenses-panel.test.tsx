@@ -332,3 +332,32 @@ const invalidProps: React.ComponentProps<typeof FinanceProductsExpensesPanel> = 
   limit: 10,
 };
 void invalidProps;
+
+test.each(['products', 'expenses', 'both'] as const)(
+  'BF256 optional mode %s preserves only selected sections',
+  async (mode) => {
+    await render(
+      <FinanceProductsExpensesPanel
+        mode={mode}
+        productsResult={products()}
+        expensesResult={expenses()}
+      />,
+    );
+    expect(screen.queryByRole('heading', { name: 'Productos' }) !== null).toBe(mode !== 'expenses');
+    expect(screen.queryByRole('heading', { name: 'Gastos' }) !== null).toBe(mode !== 'products');
+  },
+);
+test.each(['products', 'expenses'] as const)(
+  'BF256 mode %s ignores hidden result errors',
+  async (mode) => {
+    await render(
+      <FinanceProductsExpensesPanel
+        mode={mode}
+        productsResult={mode === 'expenses' ? { status: 'error' } : products()}
+        expensesResult={mode === 'products' ? { status: 'error' } : expenses()}
+      />,
+    );
+    expect(screen.queryByText(/No pudimos cargar/)).toBeNull();
+    expect(screen.getAllByRole('group').length).toBeGreaterThan(0);
+  },
+);

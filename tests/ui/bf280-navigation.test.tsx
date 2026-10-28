@@ -19,6 +19,7 @@ import { AgendaScreen } from '@/features/appointments/screens/AgendaScreen';
 
 jest.mock('expo-router', () => ({
   useIsFocused: () => true,
+  useFocusEffect: () => undefined,
   router:
     jest.requireActual<typeof import('@/test/routerTestUtils')>('@/test/routerTestUtils')
       .routerMock,
@@ -33,6 +34,15 @@ jest.mock('@/features/business/context/BusinessContext', () => ({ useBusiness: j
 jest.mock('@/features/auth/context/AuthContext', () => ({ useAuth: jest.fn() }));
 jest.mock('@/features/appointments/services/appointmentsService', () => ({
   appointmentsService: { listByRange: jest.fn() },
+}));
+jest.mock('@/features/analytics/services/analyticsService', () => ({
+  analyticsService: {
+    getDashboardSummary: jest.fn(),
+    getRevenueByDay: jest.fn(),
+    getExpenseSummary: jest.fn(),
+    getTopServices: jest.fn(),
+    getTopProducts: jest.fn(),
+  },
 }));
 jest.mock('react-native-safe-area-context', () => ({
   ...jest.requireActual('react-native-safe-area-context/jest/mock').default,
@@ -67,7 +77,7 @@ test.each([
     await renderWithProviders(<Route />);
     expect(screen.getByText(label)).toHaveStyle({
       color: theme.colors.textPrimary,
-      ...(label === 'Inicio'
+      ...(label === 'Inicio' || label === 'Finanzas'
         ? theme.typography.headingLg
         : label === 'Agenda'
           ? theme.typography.heading

@@ -1,5 +1,22 @@
 import type { FinancePeriod } from '../utils/financePeriod';
 
+export type AnalyticsResource = 'summary' | 'revenue' | 'expenses' | 'services' | 'products';
+export type AnalyticsRange = { from: string | null; to: string | null };
+export type AnalyticsScope = {
+  userId: string;
+  businessId: string;
+  membershipId: string;
+  timezone: string;
+};
+export type AnalyticsError = {
+  code: 'ACCESS_DENIED' | 'INVALID_INPUT' | 'INVALID_DATA' | 'NETWORK_ERROR' | 'UNKNOWN_ERROR';
+  message: string;
+};
+export type AnalyticsResult<T> = { data: T; error: null } | { data: null; error: AnalyticsError };
+export type FinanceRevenueResult =
+  | { status: 'loading' | 'error' | 'unavailable' }
+  | { status: 'success'; data: readonly FinanceRevenuePoint[] };
+
 // BF243 projection mapped losslessly by BF256 into contextual presentation data.
 export type FinanceServiceRow = {
   service_id: string;
