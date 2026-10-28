@@ -1,5 +1,19 @@
 import type { FinancePeriod } from '../utils/financePeriod';
 
+// BF243 projection mapped losslessly by BF256 into contextual presentation data.
+export type FinanceServiceRow = {
+  service_id: string;
+  name: string;
+  quantity: string;
+  net_revenue: string;
+};
+
+export type FinanceServicesResult =
+  | { status: 'loading' }
+  | { status: 'error' }
+  | { status: 'unavailable' }
+  | { status: 'success'; data: readonly FinanceServiceRow[] };
+
 // Exact BF241 daily projection; these decimal strings remain authoritative.
 export type FinanceRevenuePoint = {
   date: string;
