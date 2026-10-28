@@ -2,16 +2,19 @@
 export function formatMoney(value: string, currency: string): string {
   const [integer, cents] = value.split('.');
   try {
-    return new Intl.NumberFormat('es-AR', {
-      style: 'currency',
-      currency,
-      currencyDisplay: 'code',
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    })
-      .formatToParts(BigInt(integer))
-      .map((part) => (part.type === 'fraction' ? cents : part.value))
-      .join('');
+    return (
+      new Intl.NumberFormat('es-AR', {
+        style: 'currency',
+        currency,
+        currencyDisplay: 'code',
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })
+        // BigInt('-0') loses the minus of a negative fractional amount.
+        .formatToParts(integer === '-0' ? -0 : BigInt(integer))
+        .map((part) => (part.type === 'fraction' ? cents : part.value))
+        .join('')
+    );
   } catch {
     return 'Importe no disponible';
   }
