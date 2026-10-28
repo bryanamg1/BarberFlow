@@ -1,5 +1,13 @@
 import type { FinancePeriod } from '../utils/financePeriod';
 
+// Exact BF241 daily projection; these decimal strings remain authoritative.
+export type FinanceRevenuePoint = {
+  date: string;
+  service_revenue: string;
+  product_revenue: string;
+  total_revenue: string;
+};
+
 // Exact BF240 projection. Adapters/query orchestration remain owned by BF256.
 export type FinanceDashboardSummary = {
   total_revenue: string;
