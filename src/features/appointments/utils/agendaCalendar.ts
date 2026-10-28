@@ -75,6 +75,10 @@ function boundary(date: string, formatter: Intl.DateTimeFormat) {
   }
   return new Date(low).toISOString();
 }
+// Reuse the canonical civil-day engine for other business-calendar consumers.
+export function businessCivilBoundary(date: string, timezone: string) {
+  return boundary(date, civilFormatter(timezone));
+}
 export function agendaPeriod(from: string, to: string, timezone: string): AgendaPeriod {
   civilDate(from);
   civilDate(to);
