@@ -14,6 +14,35 @@ export type FinanceServicesResult =
   | { status: 'unavailable' }
   | { status: 'success'; data: readonly FinanceServiceRow[] };
 
+// BF244 and BF242 projections; BF256 owns transport and contextual status mapping.
+export type FinanceProductRow = {
+  product_id: string;
+  name: string;
+  quantity: string;
+  net_revenue: string;
+  cogs: string;
+  gross_profit: string;
+};
+
+export type FinanceProductsResult =
+  | { status: 'loading' }
+  | { status: 'error' }
+  | { status: 'unavailable' }
+  | { status: 'success'; data: readonly FinanceProductRow[] };
+
+export type FinanceExpenseSummary = {
+  manual_total: string;
+  purchase_total: string;
+  total: string;
+  by_category: readonly { category_id: string | null; amount: string }[];
+};
+
+export type FinanceExpensesResult =
+  | { status: 'loading' }
+  | { status: 'error' }
+  | { status: 'unavailable' }
+  | { status: 'success'; data: FinanceExpenseSummary };
+
 // Exact BF241 daily projection; these decimal strings remain authoritative.
 export type FinanceRevenuePoint = {
   date: string;
