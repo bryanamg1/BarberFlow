@@ -44,6 +44,9 @@ jest.mock('@/features/analytics/services/analyticsService', () => ({
     getTopProducts: jest.fn(),
   },
 }));
+jest.mock('@/features/analytics/services/homeService', () => ({
+  homeService: { getNextAppointment: jest.fn() },
+}));
 jest.mock('react-native-safe-area-context', () => ({
   ...jest.requireActual('react-native-safe-area-context/jest/mock').default,
   useSafeAreaInsets: jest.fn(),

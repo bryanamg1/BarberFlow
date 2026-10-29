@@ -1,1 +1,1 @@
-export { HomeStockScreen as default } from '@/features/analytics/screens/HomeStockScreen';
+export { HomeScreen as default } from '@/features/analytics/screens/HomeScreen';

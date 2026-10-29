@@ -1,5 +1,4 @@
 import { fireEvent, screen } from '@testing-library/react-native';
-import HomeRoute from '@/app/(app)/(tabs)/index';
 import { useAuth } from '@/features/auth/context/AuthContext';
 import {
   useBusiness,
@@ -61,9 +60,9 @@ beforeEach(() => {
   businessMock.mockReturnValue(business());
   hook.mockReturnValue(success());
 });
-test('thin Home route consumes BF225 producer and shared badge/list without data-layer imports', async () => {
-  expect(HomeRoute).toBe(HomeStockScreen);
-  await renderWithProviders(<HomeRoute />);
+// BF265 owns the current route; keep BF263 isolated on its unchanged stock-only producer.
+test('isolated Home stock screen consumes BF225 producer and shared badge/list without data-layer imports', async () => {
+  await renderWithProviders(<HomeStockScreen />);
   expect(hook).toHaveBeenCalledWith(1);
   expect(screen.getByRole('heading', { name: 'Inicio' })).toBeOnTheScreen();
   expect(screen.getByRole('heading', { name: 'Stock bajo' })).toBeOnTheScreen();
@@ -75,7 +74,7 @@ test.each(['OWNER', 'BARBER'] as const)(
   '%s may navigate to Products without adjustment action',
   async (role) => {
     businessMock.mockReturnValue(business('a', role));
-    await renderWithProviders(<HomeRoute />);
+    await renderWithProviders(<HomeStockScreen />);
     await fireEvent.press(screen.getByRole('button', { name: 'Ver productos' }));
     expect(routerMock.push).toHaveBeenCalledWith('/products');
     expect(screen.queryByRole('button', { name: 'Ajustar stock' })).toBeNull();
@@ -83,13 +82,13 @@ test.each(['OWNER', 'BARBER'] as const)(
 );
 test('empty success is explicit without pretending to know the global count', async () => {
   hook.mockReturnValue(success([]));
-  await renderWithProviders(<HomeRoute />);
+  await renderWithProviders(<HomeStockScreen />);
   expect(screen.getByText('No hay productos con stock bajo')).toBeOnTheScreen();
   expect(screen.queryByText('Stock: 0')).toBeNull();
 });
 test('one alert preserves huge integer stock string without local filtering', async () => {
   hook.mockReturnValue(success([{ ...rows[0], current_stock: '9007199254740993' }]));
-  await renderWithProviders(<HomeRoute />);
+  await renderWithProviders(<HomeStockScreen />);
   expect(screen.getByText('Stock: 9007199254740993')).toBeOnTheScreen();
   expect(screen.queryByText('Peine')).toBeNull();
 });
@@ -97,7 +96,7 @@ test.each(['pending', 'disabled', 'idle'] as const)(
   '%s displays its own state, not zero alerts',
   async (status) => {
     hook.mockReturnValue({ status, data: null, error: null, isFetching: false, retry });
-    await renderWithProviders(<HomeRoute />);
+    await renderWithProviders(<HomeStockScreen />);
     expect(
       screen.getByText(
         status === 'pending'
@@ -118,7 +117,7 @@ test('independent section error retries via producer and preserves Home heading/
     isFetching: false,
     retry,
   });
-  await renderWithProviders(<HomeRoute />);
+  await renderWithProviders(<HomeStockScreen />);
   await fireEvent.press(screen.getByRole('button', { name: 'Reintentar' }));
   expect(retry).toHaveBeenCalledTimes(1);
   expect(screen.getByRole('heading', { name: 'Inicio' })).toBeOnTheScreen();
@@ -126,16 +125,16 @@ test('independent section error retries via producer and preserves Home heading/
 });
 test('pagination uses producer params and resets to page one after business switch', async () => {
   hook.mockImplementation((page) => success(rows, page, true));
-  const view = await renderWithProviders(<HomeRoute />);
+  const view = await renderWithProviders(<HomeStockScreen />);
   await fireEvent.press(screen.getByRole('button', { name: 'Siguiente' }));
   expect(hook).toHaveBeenLastCalledWith(2);
   businessMock.mockReturnValue(business('b'));
-  await view.rerender(<HomeRoute />);
+  await view.rerender(<HomeStockScreen />);
   expect(hook).toHaveBeenLastCalledWith(1);
 });
 test('actor change also resets paging, using the hook for data isolation', async () => {
   hook.mockImplementation((page) => success(rows, page, true));
-  const view = await renderWithProviders(<HomeRoute />);
+  const view = await renderWithProviders(<HomeStockScreen />);
   await fireEvent.press(screen.getByRole('button', { name: 'Siguiente' }));
   authMock.mockReturnValue({
     status: 'authenticated',
@@ -143,6 +142,6 @@ test('actor change also resets paging, using the hook for data isolation', async
     session: {},
     error: null,
   } as ReturnType<typeof useAuth>);
-  await view.rerender(<HomeRoute />);
+  await view.rerender(<HomeStockScreen />);
   expect(hook).toHaveBeenLastCalledWith(1);
 });

@@ -201,7 +201,7 @@ test('BF261 keys partition tenant, actor, membership, role and timezone without 
   assert.notDeepEqual(homeKeys.nextAppointment(scope, 'America/New_York'), key);
   assert(!JSON.stringify(key).includes('period'));
 });
-test('BF261 architecture has no enrichment, additional RPC, Router in component or final Home composition changes', () => {
+test('BF261 architecture has no enrichment, additional RPC, Router or final Home composition ownership in component', () => {
   const repo = fs.readFileSync(
     path.join(root, 'features/analytics/repositories/homeRepository.ts'),
     'utf8',
@@ -216,9 +216,10 @@ test('BF261 architecture has no enrichment, additional RPC, Router in component 
     'utf8',
   );
   assert(!/supabase|expo-router|clientsRepository|servicesRepository|membersRepository/.test(ui));
-  assert.equal(
-    fs.readFileSync(path.join(root, 'app/(app)/(tabs)/index.tsx'), 'utf8').trim(),
-    "export { HomeStockScreen as default } from '@/features/analytics/screens/HomeStockScreen';",
+  // BF265 now owns the route. Next remains an isolated presentational producer.
+  assert.doesNotMatch(
+    ui,
+    /HomeScreen|HomeKpis|HomeTodayAppointments|HomeFinanceSummary|HomeLowStock/,
   );
 });
 
