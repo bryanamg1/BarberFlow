@@ -2,6 +2,7 @@ import { QueryClientProvider, notifyManager, defaultScheduler } from '@tanstack/
 import { act, render, screen, waitFor } from '@testing-library/react-native';
 import { useIsFocused } from 'expo-router';
 import { HomeKpis } from '@/features/analytics/components/HomeKpis';
+import { HomeFinanceSummary } from '@/features/analytics/components/HomeFinanceSummary';
 import { useHomeDashboardSummary } from '@/features/analytics/hooks/useHomeDashboardSummary';
 import { analyticsKeys } from '@/features/analytics/constants/analyticsKeys';
 import { createTestQueryClient } from '@/test/createTestQueryClient';
@@ -114,4 +115,53 @@ test('equivalent pre-existing Analytics summary cache is reused without a parall
   );
   await waitFor(() => expect(screen.getByLabelText('Turnos de hoy: 2')).toBeTruthy());
   expect(http).not.toHaveBeenCalled();
+});
+
+test('BF260 and BF264 consumers share one real SDK HTTP request/cache while repeating revenue intentionally', async () => {
+  let resolve!: (value: Response) => void;
+  http.mockImplementation(
+    () =>
+      new Promise<Response>((r) => {
+        resolve = r;
+      }),
+  );
+  const client = createTestQueryClient();
+  client.setDefaultOptions({ queries: { retry: false, staleTime: Infinity, gcTime: Infinity } });
+  const onOpen = jest.fn();
+  function KpisConsumer() {
+    const result = useHomeDashboardSummary();
+    return <HomeKpis result={result} />;
+  }
+  function FinanceConsumer() {
+    const result = useHomeDashboardSummary();
+    return <HomeFinanceSummary result={result} onOpenFinances={onOpen} />;
+  }
+  await render(
+    <QueryClientProvider client={client}>
+      <KpisConsumer />
+      <FinanceConsumer />
+    </QueryClientProvider>,
+  );
+  await waitFor(() => expect(http).toHaveBeenCalledTimes(1));
+  await act(async () => resolve(response()));
+  await waitFor(() => expect(screen.getByLabelText('Turnos de hoy: 2')).toBeTruthy());
+  expect(screen.getByLabelText('Clientes activos: 3')).toBeTruthy();
+  expect(screen.getByRole('heading', { name: 'Resumen financiero' })).toBeTruthy();
+  expect(screen.getByLabelText(/^Ingresos de hoy:/)).toBeTruthy();
+  expect(screen.getByLabelText(/^Ingresos:/)).toBeTruthy();
+  expect(screen.getByLabelText(/^Ganancia:/)).toBeTruthy();
+  expect(http).toHaveBeenCalledTimes(1);
+  expect(
+    client
+      .getQueryCache()
+      .getAll()
+      .filter((q) => q.state.status === 'success'),
+  ).toHaveLength(1);
+  expect(
+    client
+      .getQueryCache()
+      .getAll()
+      .filter((q) => q.state.status === 'success')[0]
+      .getObserversCount(),
+  ).toBe(2);
 });
