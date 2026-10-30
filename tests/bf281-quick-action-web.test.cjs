@@ -18,6 +18,9 @@ for (const width of [390, 1400])
         assert.equal(css.width, '56px');
         assert.equal(css.height, '56px');
         assert.equal(css.transform, '');
+        const cell = window.getComputedStyle(trigger.parentElement);
+        assert.equal(cell.alignItems, 'center');
+        assert.equal(cell.justifyContent, 'center');
         const labels = [...document.querySelectorAll('[role="tab"],[role="button"]')].map((n) =>
           n.getAttribute('aria-label'),
         );

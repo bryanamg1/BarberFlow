@@ -162,6 +162,11 @@ export function NavigationTabs() {
               tabBarAccessibilityLabel: label,
               // Keep the legacy file registered, but never invoke its tab action or expose a link.
               ...(name === 'quick-action' && {
+                tabBarItemStyle: {
+                  minHeight: theme.sizing.touchTarget,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                },
                 tabBarButton: () =>
                   validContext ? (
                     <CenterQuickActionButton

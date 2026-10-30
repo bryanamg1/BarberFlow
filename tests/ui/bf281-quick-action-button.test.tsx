@@ -111,6 +111,13 @@ test.each(['OWNER', 'BARBER'] as const)(
       ),
     ).toEqual(['index', 'agenda', 'quick-action', 'clients', 'finances']);
     expect(screen.queryByRole('tab', { name: 'Quick Action' })).toBeNull();
+    expect(quickProps().options).toMatchObject({
+      tabBarItemStyle: {
+        minHeight: theme.sizing.touchTarget,
+        alignItems: 'center',
+        justifyContent: 'center',
+      },
+    });
     const trigger = screen.getByRole('button', { name: 'Acciones rápidas', expanded: false });
     expect(trigger.props.href).toBeUndefined();
     await fireEvent.press(trigger);

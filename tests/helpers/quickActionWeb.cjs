@@ -54,7 +54,16 @@ module.exports = function navigationWeb() {
       React.Children.toArray(children).map((child) => {
         const { name, options } = child.props;
         if (options.tabBarButton)
-          return React.createElement(RN.View, { key: name }, options.tabBarButton());
+          // Match the installed BottomTabItem wrapper: its cell receives item
+          // styles; a custom button does not inherit the default button styles.
+          return React.createElement(
+            RN.View,
+            {
+              key: name,
+              style: [{ flex: 1 }, props.screenOptions.tabBarItemStyle, options.tabBarItemStyle],
+            },
+            options.tabBarButton(),
+          );
         return React.createElement(
           RN.Pressable,
           {
