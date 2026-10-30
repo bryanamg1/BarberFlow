@@ -21,7 +21,7 @@ BEGIN
   IF (SELECT count(*) FROM pg_policies WHERE schemaname='public')<>41
     OR EXISTS(SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
       WHERE n.nspname='public' AND c.relkind='r' AND (NOT c.relrowsecurity OR c.relforcerowsecurity))
-    OR EXISTS(SELECT 1 FROM pg_proc WHERE proname='void_sale') THEN RAISE EXCEPTION 'BF188 exceeded scope';END IF;
+    THEN RAISE EXCEPTION 'BF188 security boundary changed';END IF;
 END $$;
 DO $$
 DECLARE u uuid:=gen_random_uuid();b uuid:=gen_random_uuid();s uuid:=gen_random_uuid();op uuid:=gen_random_uuid();outcome jsonb;

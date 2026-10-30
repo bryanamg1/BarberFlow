@@ -101,9 +101,9 @@ BEGIN
   END IF;
   IF (SELECT array_agg(p.proname::text ORDER BY p.proname) FROM pg_proc p
       JOIN pg_namespace n ON n.oid = p.pronamespace WHERE n.nspname = 'public') IS DISTINCT FROM
-      ARRAY['adjust_stock','change_appointment_status','complete_checkout','complete_purchase','create_appointment_with_services','get_availability','get_client_stats','get_dashboard_summary','get_expense_summary','get_low_stock_products','get_next_appointment','get_product_stock','get_purchase_detail','get_revenue_by_day','get_top_products','get_top_services','has_business_role','is_business_member','prevent_stock_movement_changes','reschedule_appointment','save_business_hours','set_updated_at','update_appointment_notes','void_purchase']::text[]
+      ARRAY['adjust_stock','change_appointment_status','complete_checkout','complete_purchase','create_appointment_with_services','get_availability','get_client_stats','get_dashboard_summary','get_expense_summary','get_low_stock_products','get_next_appointment','get_product_stock','get_purchase_detail','get_revenue_by_day','get_sale_correction_detail','get_top_products','get_top_services','has_business_role','is_business_member','prevent_stock_movement_changes','reschedule_appointment','save_business_hours','set_updated_at','update_appointment_notes','void_purchase','void_sale']::text[]
      OR (SELECT count(*) FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
-         WHERE n.nspname = 'public' AND p.prosecdef) <> 12 THEN
+         WHERE n.nspname = 'public' AND p.prosecdef) <> 14 THEN
     RAISE EXCEPTION 'Unexpected public function/SECURITY DEFINER';
   END IF;
   IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgrelid = 'public.stock_movements'::regclass
