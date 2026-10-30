@@ -18,6 +18,7 @@ import { useBusiness } from '@/features/business/context/BusinessContext';
 import { AgendaScreen } from '@/features/appointments/screens/AgendaScreen';
 
 jest.mock('expo-router', () => ({
+  usePathname: () => '/',
   useIsFocused: () => true,
   useFocusEffect: () => undefined,
   router:

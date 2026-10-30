@@ -29,11 +29,26 @@ function layout(filename) {
     }).outputText;
     vm.runInThisContext(`(function(require,module,exports){${code}\n})`, { filename: file })(
       (name) => {
-        if (name === 'expo-router') return { Tabs, Stack: Tabs };
+        if (name === 'expo-router') return { Tabs, Stack: Tabs, usePathname: () => '/agenda' };
+        if (name === 'react')
+          return { ...React, useState: (initial) => [initial, () => undefined] };
+        // This test discovers real routes/configuration, not host lifecycle behavior.
+        // BF281's component/Web tests exercise those hooks without this boundary stub.
+        if (name === '@/features/appointments/hooks/useAppointmentLifecycle')
+          return {
+            useAppointmentLifecycle: () => ({
+              scope: { role: 'OWNER' },
+              epoch: Symbol(),
+              isCurrent: () => true,
+            }),
+          };
+        if (name === '@/features/business/context/BusinessContext')
+          return { useBusiness: () => ({ status: 'success', isFetching: false }) };
         if (name === 'expo-symbols') return { SymbolView: function SymbolView() {} };
         if (name === 'react-native')
           return {
             View: function View() {},
+            StyleSheet: { create: (styles) => styles },
             Platform: { OS: 'web', select: (values) => values.web ?? values.default },
           };
         if (name === 'react-native-safe-area-context')
@@ -77,7 +92,7 @@ function routeTree() {
   });
 }
 
-test('BF-097/BF-280 regression: five tabs and protected stack Settings remain reachable in the real route tree', () => {
+test('BF-097/BF-280 regression: four destinations, center control and protected Settings preserve the real route tree', () => {
   const tree = layout(path.join(appRoot, '(app)/(tabs)/_layout.tsx'));
   const screens = React.Children.toArray(tree.props.children).map((child) => child.props);
   assert.deepEqual(
@@ -99,6 +114,18 @@ test('BF-097/BF-280 regression: five tabs and protected stack Settings remain re
       screen.name,
     );
     assert.notEqual(screen.options.href, null);
+    if (screen.name === 'quick-action') {
+      assert.equal(typeof screen.options.tabBarButton, 'function');
+      assert.equal(screen.options.tabBarButton().props.open, false);
+      let prevented = false;
+      screen.listeners.tabPress({
+        preventDefault: () => {
+          prevented = true;
+        },
+      });
+      assert.equal(prevented, true);
+      continue; // The legacy file is registered, but the control never jumps to it.
+    }
     assert.equal(screen.options.tabBarButton, undefined);
     assert.notEqual(screen.options.tabBarShowLabel, false);
     assert.notEqual(screen.options.tabBarItemStyle?.display, 'none');
