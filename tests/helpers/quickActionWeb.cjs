@@ -43,6 +43,7 @@ module.exports = function navigationWeb() {
     bottom: 0,
   };
   const navigation = [];
+  const navigationTasks = [];
   let root, lastTabsProps;
   function Tabs({ children, ...props }) {
     lastTabsProps = { children, ...props };
@@ -72,12 +73,20 @@ module.exports = function navigationWeb() {
     return null;
   };
   const router = {
-    push: (target) =>
+    push: (target) => {
       navigation.push({
         target,
         dialogPresent: !!document.querySelector('[role="dialog"]'),
         focusedLabel: document.activeElement?.getAttribute('aria-label'),
-      }),
+      });
+      if (state.destinationFocus) {
+        const destination = document.createElement('button');
+        destination.setAttribute('data-destination', 'true');
+        destination.textContent = 'Destination focus';
+        document.body.appendChild(destination);
+        destination.focus();
+      }
+    },
   };
   function load(file) {
     if (cache.has(file)) return cache.get(file).exports;
@@ -91,7 +100,9 @@ module.exports = function navigationWeb() {
         jsx: ts.JsxEmit.ReactJSX,
       },
     }).outputText;
-    vm.runInThisContext(`(function(require,module,exports){${code}\n})`, { filename: file })(
+    vm.runInThisContext(`(function(require,module,exports,queueMicrotask){${code}\n})`, {
+      filename: file,
+    })(
       (name) => {
         if (name === 'react-native') return RN;
         if (name === 'expo-symbols')
@@ -131,6 +142,8 @@ module.exports = function navigationWeb() {
         if (name === '@/components/ui')
           return {
             IconButton: load(path.join(rootDir, 'components/ui/IconButton.tsx')).IconButton,
+            Button: load(path.join(rootDir, 'components/ui/Button.tsx')).Button,
+            BottomSheet: load(path.join(rootDir, 'components/ui/BottomSheet.tsx')).BottomSheet,
           };
         assert(
           !/supabase|repositories|services/.test(name),
@@ -148,6 +161,11 @@ module.exports = function navigationWeb() {
       },
       module,
       module.exports,
+      (callback) => {
+        if (file.endsWith('NavigationTabs.tsx') && state.holdNavigation)
+          navigationTasks.push(callback);
+        else queueMicrotask(callback);
+      },
     );
     return module.exports;
   }
@@ -158,6 +176,9 @@ module.exports = function navigationWeb() {
   return {
     state,
     navigation,
+    async flushNavigation() {
+      await React.act(async () => navigationTasks.splice(0).forEach((callback) => callback()));
+    },
     React,
     RN,
     load,
@@ -187,6 +208,7 @@ module.exports = function navigationWeb() {
         await React.act(async () => root.unmount());
         root = null;
       }
+      document.querySelectorAll('[data-destination]').forEach((node) => node.remove());
     },
     close() {
       dom.window.close();

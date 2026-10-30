@@ -31,7 +31,12 @@ function layout(filename) {
       (name) => {
         if (name === 'expo-router') return { Tabs, Stack: Tabs, usePathname: () => '/agenda' };
         if (name === 'react')
-          return { ...React, useState: (initial) => [initial, () => undefined] };
+          return {
+            ...React,
+            useState: (initial) => [initial, () => undefined],
+            useRef: (initial) => ({ current: initial }),
+            useEffect: () => undefined,
+          };
         // This test discovers real routes/configuration, not host lifecycle behavior.
         // BF281's component/Web tests exercise those hooks without this boundary stub.
         if (name === '@/features/appointments/hooks/useAppointmentLifecycle')
@@ -74,7 +79,10 @@ function layout(filename) {
     );
     return module.exports;
   }
-  return load(filename).default();
+  const result = load(filename).default();
+  return result.type === React.Fragment
+    ? React.Children.toArray(result.props.children).find((child) => child.type === Tabs)
+    : result;
 }
 
 function routeTree() {
