@@ -189,6 +189,11 @@ test('BF197 reader has no current catalog, audit, correction or privileged call'
     path.join(__dirname, '../src/features/sales/repositories/salesRepository.ts'),
     'utf8',
   );
-  assert(!/\.rpc\(|\.insert\(|\.update\(|service.role|audit|products\(|services\(/.test(source));
+  // BF198A extends this repository with approved RPC adapters. The BF197 reader remains normal RLS.
+  const reader = source.slice(
+    source.indexOf('  getById('),
+    source.indexOf('  getCorrectionDetail('),
+  );
+  assert(!/\.rpc\(|\.insert\(|\.update\(|service.role|audit|products\(|services\(/.test(reader));
   assert(source.includes('.maybeSingle()'));
 });

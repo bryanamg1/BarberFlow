@@ -25,6 +25,13 @@ export function ProductsScreen() {
         <Text role="heading" style={styles.heading}>
           Productos
         </Text>
+        {scope && business.status === 'success' && (
+          <Button
+            label="Historial de ventas"
+            variant="secondary"
+            onPress={() => router.push('/sales')}
+          />
+        )}
         {scope && business.status === 'success' && business.data.role === 'OWNER' && (
           <View style={styles.controls}>
             <Button label="Crear producto" onPress={() => router.push('/products/new')} />

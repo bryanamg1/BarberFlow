@@ -151,6 +151,21 @@ beforeEach(() => {
   }));
 });
 afterEach(() => notifyManager.setScheduler(defaultScheduler));
+
+test.each(['OWNER', 'BARBER'] as const)(
+  'BF198A %s has history entry without granting checkout/admin writes',
+  async (role) => {
+    context('b', 'u', 'm', role);
+    await mountScreen(<ProductsScreen />);
+    await screen.findByText('Sin clasificar');
+    await userEvent.press(screen.getByRole('button', { name: 'Historial de ventas' }));
+    expect(router.push).toHaveBeenCalledWith('/sales');
+    if (role === 'BARBER') {
+      expect(screen.queryByRole('button', { name: 'Nueva venta' })).toBeNull();
+      expect(screen.queryByRole('button', { name: 'Crear producto' })).toBeNull();
+    }
+  },
+);
 test('list populated resolves active/archived page categories once, null excluded, no per-row lookup/IDs/stock/admin', async () => {
   await mountScreen(<ProductsScreen />);
   await screen.findByText('Sin clasificar');

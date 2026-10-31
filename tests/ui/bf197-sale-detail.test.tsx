@@ -22,7 +22,7 @@ jest.mock('expo-router', () => ({
 }));
 jest.mock('@/features/sales/services/salesService', () => ({
   ...jest.requireActual('@/features/sales/services/salesService'),
-  salesService: { getById: jest.fn() },
+  salesService: { getById: jest.fn(), getCorrectionDetail: jest.fn(), voidSale: jest.fn() },
 }));
 jest.mock('@/features/sales/repositories/salesRepository', () => ({
   salesRepository: { getById: jest.fn() },
@@ -46,6 +46,10 @@ beforeEach(() => {
   notifyManager.setScheduler(queueMicrotask);
   context();
   current = detail();
+  jest.mocked(salesService.getCorrectionDetail).mockResolvedValue({
+    data: null,
+    error: { code: 'INCOMPLETE_HISTORY', message: 'El historial de la venta está incompleto.' },
+  });
   jest
     .mocked(salesService.getById)
     .mockImplementation(async () => ({ data: current, error: null }));
@@ -76,7 +80,7 @@ test('route displays persisted sale identity, status, snapshots, quantities, pri
   expect(screen.getByText(`Total: ${money(110)}`)).toBeTruthy();
   expect(screen.getByText('Venta directa')).toBeTruthy();
   expect(screen.getByText('Método: Transferencia bancaria')).toBeTruthy();
-  expect(screen.queryByRole('button', { name: /Anular|Corregir/ })).toBeNull();
+  expect(screen.getByRole('button', { name: 'Anular venta' })).toBeTruthy();
   expect(salesService.getById).toHaveBeenCalledWith(scope.businessId, id(4));
 });
 test('snapshot presentation never requests catalog or overwrites historical prices', async () => {

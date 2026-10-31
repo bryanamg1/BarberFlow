@@ -3,7 +3,7 @@ const { test } = require('node:test');
 const { QueryClient, QueryObserver } = require('@tanstack/react-query');
 const { load, id, b, input, data } = require('./helpers/bf196.cjs');
 const dependencies = Object.fromEntries(
-  ['appointments', 'clients', 'inventory', 'products'].map((feature) => [
+  ['appointments', 'clients', 'inventory', 'products', 'analytics'].map((feature) => [
     `@/features/${feature}/constants/${feature}Keys`,
     load(`../${feature}/constants/${feature}Keys`),
   ]),
