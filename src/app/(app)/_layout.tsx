@@ -26,6 +26,7 @@ export default function AppLayout() {
       <Stack.Screen name="settings/profile" options={{ title: 'Perfil y cuenta' }} />
       <Stack.Screen name="appointments/new" options={{ title: 'Nueva cita' }} />
       <Stack.Screen name="appointments/[id]" options={{ title: 'Detalle de cita' }} />
+      <Stack.Screen name="appointments/[id]/edit" options={{ title: 'Editar cita' }} />
       <Stack.Screen name="clients/new" options={{ title: 'Nuevo cliente' }} />
       <Stack.Screen name="clients/[id]" options={{ title: 'Detalle de cliente' }} />
       <Stack.Screen name="clients/[id]/edit" options={{ title: 'Editar cliente' }} />
@@ -35,7 +36,11 @@ export default function AppLayout() {
       <Stack.Screen name="services/[id]/edit" options={{ title: 'Editar servicio' }} />
       <Stack.Screen name="products/new" options={{ title: 'Nuevo producto' }} />
       <Stack.Screen name="products/[id]" options={{ title: 'Detalle de producto' }} />
+      <Stack.Screen name="products/[id]/edit" options={{ title: 'Editar producto' }} />
       <Stack.Screen name="products/[id]/stock-adjustment" options={{ title: 'Ajustar stock' }} />
+      <Stack.Screen name="products/categories/index" options={{ title: 'Categorías' }} />
+      <Stack.Screen name="products/categories/new" options={{ title: 'Crear categoría' }} />
+      <Stack.Screen name="products/categories/[id]/edit" options={{ title: 'Editar categoría' }} />
       <Stack.Screen name="expenses/index" options={{ title: 'Gastos' }} />
       <Stack.Screen name="expenses/new" options={{ title: 'Nuevo gasto' }} />
       <Stack.Screen name="expenses/[id]/edit" options={{ title: 'Editar gasto' }} />
@@ -49,8 +54,10 @@ export default function AppLayout() {
         options={{ title: 'Editar categoría de gastos' }}
       />
       <Stack.Screen name="purchases/index" options={{ title: 'Compras' }} />
+      <Stack.Screen name="purchases/new" options={{ title: 'Nueva compra' }} />
       <Stack.Screen name="purchases/[id]" options={{ title: 'Detalle de compra' }} />
       <Stack.Screen name="sales/new" options={{ title: 'Nueva venta' }} />
+      <Stack.Screen name="sales/index" options={{ title: 'Historial de ventas' }} />
       <Stack.Screen name="sales/[id]" options={{ title: 'Detalle de venta' }} />
     </Stack>
   );
