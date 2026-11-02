@@ -4,6 +4,7 @@ import { radius } from './radius';
 import { shadows } from './shadows';
 import { sizing } from './sizing';
 import { spacing } from './spacing';
+import { layout } from './layout';
 import { fontFamilies, fontWeights, typography } from './typography';
 
 export const theme = {
@@ -14,6 +15,7 @@ export const theme = {
   fontWeights,
   typography,
   spacing,
+  layout,
   radius,
   sizing,
   shadows,
