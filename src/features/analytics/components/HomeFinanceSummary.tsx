@@ -1,4 +1,6 @@
-import { StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
+
+import { useWideLayout } from '@/components/layout/useWideLayout';
 
 import { Button, Card, EmptyState, ErrorState, LoadingState } from '@/components/ui';
 import { useAuth } from '@/features/auth/context/AuthContext';
@@ -15,7 +17,7 @@ export type HomeFinanceSummaryProps = {
 export function HomeFinanceSummary({ result, onOpenFinances }: HomeFinanceSummaryProps) {
   const auth = useAuth();
   const business = useBusiness();
-  const { width } = useWindowDimensions();
+  const wide = useWideLayout();
   if (
     auth.status !== 'authenticated' ||
     business.status !== 'success' ||
@@ -37,7 +39,7 @@ export function HomeFinanceSummary({ result, onOpenFinances }: HomeFinanceSummar
       <Text role="heading" style={styles.heading}>
         Resumen financiero
       </Text>
-      <View style={[styles.values, width >= 768 && styles.wide]}>
+      <View style={[styles.values, wide && styles.wide]}>
         {[
           ['Ingresos', revenue],
           ['Ganancia', profit],

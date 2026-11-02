@@ -1,4 +1,6 @@
-import { StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
+
+import { useWideLayout } from '@/components/layout/useWideLayout';
 
 import { Card, EmptyState, ErrorState, LoadingState } from '@/components/ui';
 import { useAuth } from '@/features/auth/context/AuthContext';
@@ -12,7 +14,7 @@ export type HomeKpisProps = { result: HomeDashboardSummaryResult };
 export function HomeKpis({ result }: HomeKpisProps) {
   const auth = useAuth();
   const business = useBusiness();
-  const { width } = useWindowDimensions();
+  const wide = useWideLayout();
   if (
     auth.status !== 'authenticated' ||
     business.status !== 'success' ||
@@ -32,14 +34,14 @@ export function HomeKpis({ result }: HomeKpisProps) {
     ['Clientes activos', result.data.active_clients],
   ];
   return (
-    <View style={[styles.container, width >= 768 && styles.wide]}>
+    <View style={[styles.container, wide && styles.wide]}>
       {cards.map(([label, value]) => (
         <Card
           key={label}
           role="group"
           accessible
           accessibilityLabel={`${label}: ${value}`}
-          style={[styles.card, width >= 768 && styles.wideCard]}
+          style={[styles.card, wide && styles.wideCard]}
         >
           <Text accessible={false} aria-hidden style={styles.label}>
             {label}

@@ -1,8 +1,10 @@
 import { router } from 'expo-router';
-import { ScrollView, StyleSheet, Text } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { EmptyState, ErrorState, LoadingState } from '@/components/ui';
+import { ResponsiveContainer } from '@/components/layout/ResponsiveContainer';
+import { useWideLayout } from '@/components/layout/useWideLayout';
 import { useAuth } from '@/features/auth/context/AuthContext';
 import {
   usableAppointmentId,
@@ -20,6 +22,7 @@ import { useHomeDashboardSummary } from '../hooks/useHomeDashboardSummary';
 import { useNextAppointment } from '../hooks/useNextAppointment';
 
 export function HomeScreen() {
+  const wide = useWideLayout();
   const auth = useAuth();
   const business = useBusiness();
   const lifecycle = useAppointmentLifecycle(JSON.stringify(['home-screen', business.isFetching]));
@@ -58,23 +61,40 @@ export function HomeScreen() {
 
   return (
     <SafeAreaView edges={['left', 'right', 'bottom']} style={styles.screen}>
-      <ScrollView contentContainerStyle={styles.content}>
-        <Text role="heading" style={styles.heading}>
-          Inicio
-        </Text>
-        {!validContext ? (
-          contextFeedback
-        ) : (
-          <>
-            {role === 'OWNER' && <HomeKpis result={summaryResult} />}
-            <HomeNextAppointment result={nextResult} onOpen={handleOpenAppointment} />
-            <HomeTodayAppointments />
-            {role === 'OWNER' && (
-              <HomeFinanceSummary result={summaryResult} onOpenFinances={handleOpenFinances} />
-            )}
-            <HomeLowStock />
-          </>
-        )}
+      <ScrollView>
+        <ResponsiveContainer style={styles.content}>
+          <Text role="heading" style={styles.heading}>
+            Inicio
+          </Text>
+          {!validContext ? (
+            contextFeedback
+          ) : (
+            <>
+              {role === 'OWNER' && <HomeKpis result={summaryResult} />}
+              <View style={[styles.sections, wide && styles.wideSections]}>
+                <View style={[styles.section, wide && styles.wideSection]}>
+                  <HomeNextAppointment result={nextResult} onOpen={handleOpenAppointment} />
+                </View>
+                <View style={[styles.section, wide && styles.wideSection]}>
+                  <HomeTodayAppointments />
+                </View>
+              </View>
+              <View style={[styles.sections, wide && styles.wideSections]}>
+                {role === 'OWNER' && (
+                  <View style={[styles.section, wide && styles.wideSection]}>
+                    <HomeFinanceSummary
+                      result={summaryResult}
+                      onOpenFinances={handleOpenFinances}
+                    />
+                  </View>
+                )}
+                <View style={[styles.section, wide && styles.wideSection]}>
+                  <HomeLowStock />
+                </View>
+              </View>
+            </>
+          )}
+        </ResponsiveContainer>
       </ScrollView>
     </SafeAreaView>
   );
@@ -83,11 +103,12 @@ export function HomeScreen() {
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: theme.colors.background },
   content: {
-    width: '100%',
-    maxWidth: 1200,
-    alignSelf: 'center',
-    padding: theme.spacing[16],
+    paddingVertical: theme.spacing[16],
     gap: theme.spacing[24],
   },
+  sections: { gap: theme.spacing[24] },
+  wideSections: { flexDirection: 'row' },
+  section: { minWidth: 0 },
+  wideSection: { flex: 1 },
   heading: { ...theme.typography.headingLg, color: theme.colors.textPrimary },
 });

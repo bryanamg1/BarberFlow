@@ -304,21 +304,20 @@ test('revalidation completion permits fresh callbacks but never revives an old c
   });
 });
 
-test('host content uses approved width cap/padding/gap and default single-column order', async () => {
+test('shared host container preserves gutters, section spacing and widget reading order', async () => {
   await render(<HomeScreen />);
-  const scrolls = screen.root?.queryAll((n) => n.props.contentContainerStyle !== undefined);
-  expect(scrolls).toHaveLength(1);
-  const content = scrolls![0];
-  expect(content).toBeTruthy();
-  expect(RN.StyleSheet.flatten(content.props.contentContainerStyle)).toEqual({
+  const contents = screen.root!.queryAll((n) => {
+    const style = RN.StyleSheet.flatten(n.props.style);
+    return style?.width === '100%' && style.paddingHorizontal === theme.spacing[16];
+  });
+  expect(contents).toHaveLength(1);
+  expect(RN.StyleSheet.flatten(contents[0].props.style)).toMatchObject({
     width: '100%',
-    maxWidth: 1200,
     alignSelf: 'center',
-    padding: theme.spacing[16],
+    paddingHorizontal: theme.spacing[16],
+    paddingVertical: theme.spacing[16],
     gap: theme.spacing[24],
   });
-  expect(content.props.refreshControl).toBeUndefined();
-  expect(content.props.horizontal).toBeUndefined();
   expect(order()).toEqual([
     'widget-kpis',
     'widget-next',

@@ -1,6 +1,7 @@
 import { QueryClientProvider, notifyManager, defaultScheduler } from '@tanstack/react-query';
 import { act, render, screen, waitFor } from '@testing-library/react-native';
 import { useIsFocused } from 'expo-router';
+import { Dimensions } from 'react-native';
 import { HomeScreen } from '@/features/analytics/screens/HomeScreen';
 import { analyticsKeys } from '@/features/analytics/constants/analyticsKeys';
 import { useNextAppointment } from '@/features/analytics/hooks/useNextAppointment';
@@ -68,7 +69,11 @@ beforeEach(() => {
   jest.spyOn(Date, 'now').mockReturnValue(Date.parse('2026-10-29T12:00:00Z'));
   notifyManager.setScheduler(queueMicrotask);
 });
-afterEach(() => notifyManager.setScheduler(defaultScheduler));
+const originalDimensions = Dimensions.get('window');
+afterEach(async () => {
+  notifyManager.setScheduler(defaultScheduler);
+  await act(() => Dimensions.set({ window: originalDimensions }));
+});
 
 test('real HomeScreen financial consumers share exactly one BF240 HTTP request and canonical cache entry', async () => {
   let resolve!: (value: Response) => void;
@@ -85,6 +90,11 @@ test('real HomeScreen financial consumers share exactly one BF240 HTTP request a
     </QueryClientProvider>,
   );
   await waitFor(() => expect(http).toHaveBeenCalledTimes(1));
+  // Resize while the shared read is pending; neither consumer may remount/refetch.
+  for (const width of [320, 390, 767, 768, 1024, 1200, 1280]) {
+    await act(() => Dimensions.set({ window: { ...originalDimensions, width } }));
+    expect(http).toHaveBeenCalledTimes(1);
+  }
   const [url, init] = http.mock.calls[0] as [string, RequestInit];
   expect(new URL(url).pathname).toBe('/rest/v1/rpc/get_dashboard_summary');
   expect(JSON.parse(init.body as string)).toEqual({
@@ -101,6 +111,11 @@ test('real HomeScreen financial consumers share exactly one BF240 HTTP request a
   expect(screen.getByText('Today operativo')).toBeTruthy();
   expect(screen.getByText('Stock operativo')).toBeTruthy();
   expect(http).toHaveBeenCalledTimes(1);
+  for (const width of [767, 768, 320]) {
+    await act(() => Dimensions.set({ window: { ...originalDimensions, width } }));
+    expect(http).toHaveBeenCalledTimes(1);
+    expect(screen.getByLabelText(/^Ingresos de hoy:/)).toBeTruthy();
+  }
   const key = analyticsKeys.resource(
     'summary',
     { userId: 'u', businessId: 'b', membershipId: 'm', timezone: 'UTC' },

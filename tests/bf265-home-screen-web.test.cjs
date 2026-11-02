@@ -144,15 +144,20 @@ function load(file) {
   return module.exports;
 }
 const { HomeScreen } = load(path.join(sourceRoot, 'features/analytics/screens/HomeScreen.tsx'));
-for (const width of [390, 1400])
+for (const width of [320, 390, 767, 768, 1024, 1200, 1280])
   for (const actor of ['OWNER', 'BARBER'])
-    test(`BF265 Web DOM ${actor} ${width}: ordered single-column composition and host callbacks`, async () => {
+    test(`Home Web DOM ${actor} ${width}: responsive composition, reading order and host callbacks`, async () => {
       role = actor;
       summaryCalls = 0;
       nextCalls = 0;
       navigation.length = 0;
       for (const key of Object.keys(props)) delete props[key];
       Object.defineProperty(window, 'innerWidth', { value: width, configurable: true });
+      Object.defineProperty(document.documentElement, 'clientWidth', {
+        value: width,
+        configurable: true,
+      });
+      window.dispatchEvent(new window.Event('resize'));
       const container = document.getElementById('root'),
         root = createRoot(container);
       try {
@@ -174,14 +179,19 @@ for (const width of [390, 1400])
           expected,
         );
         assert.equal(container.querySelector('[role="heading"]').textContent, 'Inicio');
-        const content = container.querySelector(
-          '[data-testid="widget-HomeNextAppointment"]',
-        ).parentElement;
+        const content = container.querySelector('[role="heading"]').parentElement;
         const style = window.getComputedStyle(content);
-        assert.equal(style.maxWidth, '1200px');
-        assert.equal(style.padding, '16px');
+        assert.equal(style.maxWidth, width >= 768 ? '1200px' : '');
+        assert.equal(style.paddingLeft, '16px');
+        assert.equal(style.paddingRight, '16px');
+        assert.equal(style.paddingTop, '16px');
+        assert.equal(style.paddingBottom, '16px');
         assert.equal(style.gap, '24px');
         assert.equal(style.flexDirection, 'column');
+        const pair = container.querySelector('[data-testid="widget-HomeNextAppointment"]')
+          .parentElement.parentElement;
+        assert.equal(window.getComputedStyle(pair).flexDirection, width >= 768 ? 'row' : 'column');
+        assert.equal(window.getComputedStyle(pair).gap, '24px');
         assert.equal(summaryCalls, 1);
         assert.equal(nextCalls, 1);
         assert.equal(props.HomeNextAppointment.result, next);
