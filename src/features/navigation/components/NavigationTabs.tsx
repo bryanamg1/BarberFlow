@@ -5,6 +5,7 @@ import { Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { theme } from '@/theme';
+import { useWideLayout } from '@/components/layout/useWideLayout';
 import { useAppointmentLifecycle } from '@/features/appointments/hooks/useAppointmentLifecycle';
 import { useBusiness } from '@/features/business/context/BusinessContext';
 
@@ -45,6 +46,7 @@ const destinations = [
 ] as const;
 
 export function NavigationTabs() {
+  const wide = useWideLayout();
   const insets = useSafeAreaInsets();
   const pathname = usePathname();
   const business = useBusiness();
@@ -138,7 +140,7 @@ export function NavigationTabs() {
           tabBarActiveTintColor: theme.semanticColors.navigation.active,
           tabBarInactiveTintColor: theme.semanticColors.navigation.inactive,
           tabBarLabelStyle: { ...theme.typography.caption, fontWeight: theme.fontWeights.regular },
-          tabBarLabelPosition: 'below-icon',
+          tabBarLabelPosition: wide ? 'beside-icon' : 'below-icon',
           tabBarItemStyle: {
             minHeight: theme.sizing.touchTarget,
           },
@@ -147,6 +149,11 @@ export function NavigationTabs() {
             borderTopColor: theme.colors.border,
             borderTopWidth: theme.borderWidths.thin,
             height: theme.sizing.touchTarget + theme.spacing[32] + insets.bottom,
+            ...(wide && {
+              width: '100%' as const,
+              maxWidth: theme.layout.contentMaxWidth,
+              alignSelf: 'center' as const,
+            }),
           },
         }}
       >

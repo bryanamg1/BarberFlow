@@ -50,7 +50,7 @@ module.exports = function navigationWeb() {
     const [selected, setSelected] = React.useState('agenda');
     return React.createElement(
       RN.View,
-      { style: props.screenOptions.tabBarStyle, 'data-testid': 'bar' },
+      { style: props.screenOptions.tabBarStyle, testID: 'bar' },
       React.Children.toArray(children).map((child) => {
         const { name, options } = child.props;
         if (options.tabBarButton)
