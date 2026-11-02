@@ -1,4 +1,6 @@
-import { StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
+
+import { useWideLayout } from '@/components/layout/useWideLayout';
 
 import { Card } from '@/components/ui/Card';
 import { EmptyState } from '@/components/ui/EmptyState';
@@ -17,7 +19,7 @@ export type FinanceServicesPanelProps = { result: FinanceServicesResult };
 export function FinanceServicesPanel({ result }: FinanceServicesPanelProps) {
   const auth = useAuth();
   const business = useBusiness();
-  const { width } = useWindowDimensions();
+  const wide = useWideLayout();
   const unavailable = <EmptyState title="Servicios financieros no disponibles" />;
   if (
     auth.status !== 'authenticated' ||
@@ -53,7 +55,6 @@ export function FinanceServicesPanel({ result }: FinanceServicesPanelProps) {
     rows.push({ id: row.service_id, name: row.name, quantity: row.quantity, revenue });
   }
   if (!rows.length) return <EmptyState title="Sin servicios con ventas en este período" />;
-  const wide = width >= 768;
 
   return (
     <View style={styles.panel}>
@@ -108,7 +109,12 @@ export function FinanceServicesPanel({ result }: FinanceServicesPanelProps) {
 }
 
 const styles = StyleSheet.create({
-  panel: { width: '100%', maxWidth: 1200, alignSelf: 'center', gap: theme.spacing[12] },
+  panel: {
+    width: '100%',
+    maxWidth: theme.layout.contentMaxWidth,
+    alignSelf: 'center',
+    gap: theme.spacing[12],
+  },
   row: { gap: theme.spacing[16] },
   wideRow: { flexDirection: 'row', flexWrap: 'wrap' },
   cell: { minWidth: 0, gap: theme.spacing[4] },

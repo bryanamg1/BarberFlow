@@ -43,7 +43,12 @@ export function FinancePeriodFilter({ value, onChange }: FinancePeriodFilterProp
 }
 
 const styles = StyleSheet.create({
-  section: { width: '100%', maxWidth: 1200, alignSelf: 'center', gap: theme.spacing[8] },
+  section: {
+    width: '100%',
+    maxWidth: theme.layout.contentMaxWidth,
+    alignSelf: 'center',
+    gap: theme.spacing[8],
+  },
   options: { flexDirection: 'row', flexWrap: 'wrap', gap: theme.spacing[8] },
   caption: { ...theme.typography.caption, color: theme.colors.textSecondary },
 });

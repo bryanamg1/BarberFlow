@@ -1,4 +1,6 @@
-import { StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
+
+import { useWideLayout } from '@/components/layout/useWideLayout';
 
 import { Card } from '@/components/ui/Card';
 import { EmptyState } from '@/components/ui/EmptyState';
@@ -42,7 +44,7 @@ export type FinanceKpiCardsProps = {
 export function FinanceKpiCards({ period, result, onRetry }: FinanceKpiCardsProps) {
   const auth = useAuth();
   const business = useBusiness();
-  const { width } = useWindowDimensions();
+  const wide = useWideLayout();
   const unavailable = <EmptyState title="Resumen financiero no disponible" />;
   if (auth.status !== 'authenticated' || business.status !== 'success') return unavailable;
   if (business.data.role !== 'OWNER') return unavailable;
@@ -86,7 +88,7 @@ export function FinanceKpiCards({ period, result, onRetry }: FinanceKpiCardsProp
           role="group"
           accessible
           accessibilityLabel={`${label}: ${values[index]}`}
-          style={[styles.card, width >= 768 && styles.wideCard]}
+          style={[styles.card, wide && styles.wideCard]}
         >
           <Text accessible={false} aria-hidden style={styles.label}>
             {label}
@@ -103,7 +105,7 @@ export function FinanceKpiCards({ period, result, onRetry }: FinanceKpiCardsProp
 const styles = StyleSheet.create({
   grid: {
     width: '100%',
-    maxWidth: 1200,
+    maxWidth: theme.layout.contentMaxWidth,
     alignSelf: 'center',
     flexDirection: 'row',
     flexWrap: 'wrap',

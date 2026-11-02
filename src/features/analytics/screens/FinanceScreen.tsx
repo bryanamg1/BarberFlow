@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { EmptyState, ErrorState, LoadingState } from '@/components/ui';
+import { ResponsiveContainer } from '@/components/layout/ResponsiveContainer';
 import { theme } from '@/theme';
 import { FinanceKpiCards } from '../components/FinanceKpiCards';
 import { FinancePeriodFilter } from '../components/FinancePeriodFilter';
@@ -19,8 +20,8 @@ export function FinanceScreen() {
   const result = useFinanceQueries(tab, period);
   return (
     <SafeAreaView edges={['left', 'right', 'bottom']} style={styles.screen}>
-      <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.panel}>
+      <ScrollView>
+        <ResponsiveContainer style={styles.panel}>
           <Text role="heading" style={styles.title}>
             Finanzas
           </Text>
@@ -65,14 +66,13 @@ export function FinanceScreen() {
               )}
             </>
           )}
-        </View>
+        </ResponsiveContainer>
       </ScrollView>
     </SafeAreaView>
   );
 }
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: theme.colors.background },
-  content: { padding: theme.spacing[16] },
-  panel: { width: '100%', maxWidth: 1200, alignSelf: 'center', gap: theme.spacing[24] },
+  panel: { paddingVertical: theme.spacing[16], gap: theme.spacing[24] },
   title: { ...theme.typography.headingLg, color: theme.colors.textPrimary },
 });

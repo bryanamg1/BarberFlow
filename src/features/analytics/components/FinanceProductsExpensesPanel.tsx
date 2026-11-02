@@ -1,4 +1,6 @@
-import { StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
+
+import { useWideLayout } from '@/components/layout/useWideLayout';
 
 import { Card } from '@/components/ui/Card';
 import { EmptyState } from '@/components/ui/EmptyState';
@@ -196,7 +198,7 @@ export function FinanceProductsExpensesPanel({
 }: FinanceProductsExpensesPanelProps) {
   const auth = useAuth();
   const business = useBusiness();
-  const { width } = useWindowDimensions();
+  const wide = useWideLayout();
   if (
     auth.status !== 'authenticated' ||
     business.status !== 'success' ||
@@ -205,7 +207,6 @@ export function FinanceProductsExpensesPanel({
   )
     return <EmptyState title="Panel financiero no disponible" />;
   const currency = business.data.business.currency_code;
-  const wide = width >= 768;
   return (
     <View style={styles.panel}>
       {mode !== 'expenses' && (
@@ -229,7 +230,12 @@ export function FinanceProductsExpensesPanel({
 }
 
 const styles = StyleSheet.create({
-  panel: { width: '100%', maxWidth: 1200, alignSelf: 'center', gap: theme.spacing[24] },
+  panel: {
+    width: '100%',
+    maxWidth: theme.layout.contentMaxWidth,
+    alignSelf: 'center',
+    gap: theme.spacing[24],
+  },
   list: { gap: theme.spacing[12] },
   row: { gap: theme.spacing[16] },
   wideRow: { flexDirection: 'row', flexWrap: 'wrap' },

@@ -1,5 +1,7 @@
 import { useMemo, useState } from 'react';
-import { Platform, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
+
+import { useWideLayout } from '@/components/layout/useWideLayout';
 
 import { Card } from '@/components/ui/Card';
 import { EmptyState } from '@/components/ui/EmptyState';
@@ -19,7 +21,7 @@ const columnSlot = theme.sizing.touchTarget + theme.spacing[16];
 export function FinanceRevenueChart({ points }: FinanceRevenueChartProps) {
   const auth = useAuth();
   const business = useBusiness();
-  const { width } = useWindowDimensions();
+  const wide = useWideLayout();
   const [availableWidth, setAvailableWidth] = useState(0);
   const geometry = useMemo(() => financeRevenueGeometry(points), [points]);
   const unavailable = <EmptyState title="Gráfico de ingresos no disponible" />;
@@ -35,7 +37,7 @@ export function FinanceRevenueChart({ points }: FinanceRevenueChartProps) {
   const maximumLabel = formatMoney(geometry.maxTotal, currency);
   if (maximumLabel === 'Importe no disponible') return unavailable;
   if (!points.length) return <EmptyState title="Sin ingresos en este período" />;
-  const plotHeight = theme.sizing.touchTarget * (width >= 768 ? 5 : 4);
+  const plotHeight = theme.sizing.touchTarget * (wide ? 5 : 4);
   const plotWidth = Math.max(availableWidth, points.length * columnSlot);
 
   return (
@@ -101,7 +103,12 @@ export function FinanceRevenueChart({ points }: FinanceRevenueChartProps) {
 }
 
 const styles = StyleSheet.create({
-  card: { width: '100%', maxWidth: 1200, alignSelf: 'center', gap: theme.spacing[16] },
+  card: {
+    width: '100%',
+    maxWidth: theme.layout.contentMaxWidth,
+    alignSelf: 'center',
+    gap: theme.spacing[16],
+  },
   title: { ...theme.typography.heading, color: theme.colors.textPrimary },
   legend: { flexDirection: 'row', flexWrap: 'wrap', gap: theme.spacing[16] },
   label: { ...theme.typography.bodyMedium, color: theme.colors.textPrimary },
