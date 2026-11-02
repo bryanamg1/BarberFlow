@@ -6,6 +6,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Badge, Button, EmptyState, ErrorState, LoadingState, SearchInput } from '@/components/ui';
 import { useBusiness } from '@/features/business/context/BusinessContext';
+import { ResponsiveColumns } from '@/components/layout/ResponsiveColumns';
+import { useWideLayout } from '@/components/layout/useWideLayout';
+import { ResponsiveContainer } from '@/components/layout/ResponsiveContainer';
 import { theme } from '@/theme';
 
 import { clientsKeys } from '../constants/clientsKeys';
@@ -25,29 +28,35 @@ export function ClientsScreen() {
   const business = useBusiness();
   return (
     <SafeAreaView edges={['left', 'right', 'bottom']} style={styles.screen}>
-      <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}>
-        <Text role="heading" style={styles.heading}>
-          Clientes
-        </Text>
-        {business.status === 'pending' ? (
-          <LoadingState message="Cargando negocio…" />
-        ) : business.status === 'error' ? (
-          <ErrorState message={business.error.message} />
-        ) : business.status === 'success' ? (
-          // A new business owns fresh controls; no previous result is copied into local state.
-          <BusinessClients key={business.data.business.id} businessId={business.data.business.id} />
-        ) : (
-          <EmptyState
-            title="Negocio no disponible"
-            message="Necesitas un negocio disponible para ver clientes."
-          />
-        )}
+      <ScrollView keyboardShouldPersistTaps="handled">
+        <ResponsiveContainer style={styles.content}>
+          <Text role="heading" style={styles.heading}>
+            Clientes
+          </Text>
+          {business.status === 'pending' ? (
+            <LoadingState message="Cargando negocio…" />
+          ) : business.status === 'error' ? (
+            <ErrorState message={business.error.message} />
+          ) : business.status === 'success' ? (
+            // A new business owns fresh controls; no previous result is copied into local state.
+            <BusinessClients
+              key={business.data.business.id}
+              businessId={business.data.business.id}
+            />
+          ) : (
+            <EmptyState
+              title="Negocio no disponible"
+              message="Necesitas un negocio disponible para ver clientes."
+            />
+          )}
+        </ResponsiveContainer>
       </ScrollView>
     </SafeAreaView>
   );
 }
 
 function BusinessClients({ businessId }: { businessId: string }) {
+  const wide = useWideLayout();
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState<ClientListStatus>('active');
   const [page, setPage] = useState(1);
@@ -56,30 +65,36 @@ function BusinessClients({ businessId }: { businessId: string }) {
 
   return (
     <View style={styles.section}>
-      <Button label="Crear cliente" onPress={() => router.push('/clients/new')} />
-      <SearchInput
-        label="Buscar clientes"
-        placeholder="Escribe al menos 2 caracteres"
-        value={search}
-        onChangeText={(value) => {
-          if (value.trim() !== term) setPage(1);
-          setSearch(value);
-        }}
+      <Button
+        label="Crear cliente"
+        style={wide && styles.createAction}
+        onPress={() => router.push('/clients/new')}
       />
-      <View style={styles.controls}>
-        {statuses.map((option) => (
-          <Button
-            key={option.value}
-            label={option.label}
-            variant={status === option.value ? 'primary' : 'outline'}
-            accessibilityState={{ selected: status === option.value }}
-            onPress={() => {
-              if (status !== option.value) setPage(1);
-              setStatus(option.value);
-            }}
-          />
-        ))}
-      </View>
+      <ResponsiveColumns>
+        <SearchInput
+          label="Buscar clientes"
+          placeholder="Escribe al menos 2 caracteres"
+          value={search}
+          onChangeText={(value) => {
+            if (value.trim() !== term) setPage(1);
+            setSearch(value);
+          }}
+        />
+        <View style={styles.controls}>
+          {statuses.map((option) => (
+            <Button
+              key={option.value}
+              label={option.label}
+              variant={status === option.value ? 'primary' : 'outline'}
+              accessibilityState={{ selected: status === option.value }}
+              onPress={() => {
+                if (status !== option.value) setPage(1);
+                setStatus(option.value);
+              }}
+            />
+          ))}
+        </View>
+      </ResponsiveColumns>
       {term.length >= 2 ? (
         <SearchResults
           businessId={businessId}
@@ -209,6 +224,7 @@ function Results({
 }
 
 function ClientListItem({ client }: { client: ClientRow }) {
+  const wide = useWideLayout();
   const [focused, setFocused] = useState(false);
   const name =
     client.last_name === null ? client.first_name : `${client.first_name} ${client.last_name}`;
@@ -224,6 +240,7 @@ function ClientListItem({ client }: { client: ClientRow }) {
       onBlur={() => setFocused(false)}
       style={({ pressed }) => [
         styles.row,
+        wide && styles.wideRow,
         pressed && styles.pressedRow,
         focused && styles.focusedRow,
       ]}
@@ -237,12 +254,8 @@ function ClientListItem({ client }: { client: ClientRow }) {
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: theme.colors.background },
   content: {
-    padding: theme.spacing[16],
+    paddingVertical: theme.spacing[16],
     gap: theme.spacing[24],
-    width: '100%',
-    // HD-007 approved bound; shared responsive infrastructure belongs to BF-290.
-    maxWidth: 1200,
-    alignSelf: 'center',
   },
   heading: { ...theme.typography.headingLg, color: theme.colors.textPrimary },
   section: { gap: theme.spacing[16] },
@@ -258,7 +271,9 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.surfaceRaised,
     ...theme.shadows.raised,
   },
-  name: { ...theme.typography.bodyLg, color: theme.colors.textPrimary },
+  createAction: { alignSelf: 'flex-end' },
+  wideRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  name: { ...theme.typography.bodyLg, color: theme.colors.textPrimary, flexShrink: 1, minWidth: 0 },
   pressedRow: { backgroundColor: theme.colors.surfaceStrong },
   focusedRow: {
     borderColor: theme.colors.primary,

@@ -4,6 +4,7 @@ import { Controller, useForm, useWatch } from 'react-hook-form';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { Badge, Button, Modal } from '@/components/ui';
+import { ResponsiveColumns } from '@/components/layout/ResponsiveColumns';
 import { theme } from '@/theme';
 
 import { useUpdateClient } from '../hooks/useUpdateClient';
@@ -80,29 +81,31 @@ export function ClientEditForm({
 
   return (
     <View style={styles.form}>
-      {clientTextFields.map((field, index) => (
-        <Controller
-          key={field.name}
-          name={field.name}
-          control={control}
-          render={({ field: { ref, value, onChange, onBlur }, fieldState: { error } }) => (
-            <ClientTextField
-              field={field}
-              value={value}
-              onChange={onChange}
-              onBlur={onBlur}
-              inputRef={ref}
-              error={error?.message}
-              disabled={blocked}
-              onNext={
-                clientTextFields[index + 1]
-                  ? () => setFocus(clientTextFields[index + 1].name)
-                  : undefined
-              }
-            />
-          )}
-        />
-      ))}
+      <ResponsiveColumns>
+        {clientTextFields.map((field, index) => (
+          <Controller
+            key={field.name}
+            name={field.name}
+            control={control}
+            render={({ field: { ref, value, onChange, onBlur }, fieldState: { error } }) => (
+              <ClientTextField
+                field={field}
+                value={value}
+                onChange={onChange}
+                onBlur={onBlur}
+                inputRef={ref}
+                error={error?.message}
+                disabled={blocked}
+                onNext={
+                  clientTextFields[index + 1]
+                    ? () => setFocus(clientTextFields[index + 1].name)
+                    : undefined
+                }
+              />
+            )}
+          />
+        ))}
+      </ResponsiveColumns>
       <Badge label={active ? 'Activo' : 'Archivado'} tone={active ? 'success' : 'neutral'} />
       <Button
         label={active ? 'Archivar cliente' : 'Restaurar cliente'}

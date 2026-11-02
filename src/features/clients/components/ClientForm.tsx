@@ -4,6 +4,7 @@ import { Controller, useForm } from 'react-hook-form';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { Button } from '@/components/ui';
+import { ResponsiveColumns } from '@/components/layout/ResponsiveColumns';
 import { theme } from '@/theme';
 
 import { useCreateClient } from '../hooks/useCreateClient';
@@ -71,25 +72,27 @@ function CreateClientForm({ onSuccess, onCancel }: Extract<ClientFormProps, { mo
 
   return (
     <View style={styles.form}>
-      {fields.map((field, index) => (
-        <Controller
-          key={field.name}
-          control={control}
-          name={field.name}
-          render={({ field: { ref, value, onChange, onBlur }, fieldState: { error } }) => (
-            <ClientTextField
-              field={field}
-              inputRef={ref}
-              value={value}
-              onBlur={onBlur}
-              onChange={onChange}
-              error={error?.message}
-              disabled={blocked}
-              onNext={fields[index + 1] ? () => setFocus(fields[index + 1].name) : undefined}
-            />
-          )}
-        />
-      ))}
+      <ResponsiveColumns>
+        {fields.map((field, index) => (
+          <Controller
+            key={field.name}
+            control={control}
+            name={field.name}
+            render={({ field: { ref, value, onChange, onBlur }, fieldState: { error } }) => (
+              <ClientTextField
+                field={field}
+                inputRef={ref}
+                value={value}
+                onBlur={onBlur}
+                onChange={onChange}
+                error={error?.message}
+                disabled={blocked}
+                onNext={fields[index + 1] ? () => setFocus(fields[index + 1].name) : undefined}
+              />
+            )}
+          />
+        ))}
+      </ResponsiveColumns>
       {mutation.status === 'error' && (
         <Text role="alert" aria-live="assertive" style={styles.error}>
           {mutation.error.message}

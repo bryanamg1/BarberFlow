@@ -5,6 +5,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Badge, Button, Card, EmptyState, ErrorState, LoadingState } from '@/components/ui';
 import { useBusiness } from '@/features/business/context/BusinessContext';
+import { ResponsiveColumns } from '@/components/layout/ResponsiveColumns';
+import { ResponsiveContainer } from '@/components/layout/ResponsiveContainer';
 import { theme } from '@/theme';
 
 import { clientsKeys } from '../constants/clientsKeys';
@@ -18,50 +20,52 @@ export function ClientDetailScreen({ clientId }: { clientId: string | null }) {
 
   return (
     <SafeAreaView edges={['left', 'right', 'bottom']} style={styles.screen}>
-      <ScrollView contentContainerStyle={styles.content}>
-        <Text role="heading" style={styles.heading}>
-          Detalle de cliente
-        </Text>
-        <Button
-          label="Volver a clientes"
-          variant="secondary"
-          onPress={() => {
-            if (router.canGoBack()) router.back();
-            else router.replace('/clients');
-          }}
-        />
-        {result.status === 'pending' ? (
-          <LoadingState message="Cargando cliente…" />
-        ) : result.status === 'idle' ? (
-          <EmptyState title="Cliente no disponible" />
-        ) : result.status === 'error' ? (
-          result.error.code === 'CLIENT_NOT_FOUND' ? (
-            <EmptyState title="Cliente no encontrado" message={result.error.message} />
-          ) : (
-            <ErrorState
-              message={result.error.message}
-              retrying={result.isFetching}
-              onRetry={
-                business.status === 'success' && clientId !== null
-                  ? () => {
-                      void queryClient.invalidateQueries({
-                        queryKey: clientsKeys.detail(business.data.business.id, clientId),
-                        exact: true,
-                      });
-                    }
-                  : undefined
-              }
-            />
-          )
-        ) : business.status === 'success' ? (
-          <ClientInformation
-            result={result}
-            timezone={business.data.business.timezone}
-            clientId={clientId}
+      <ScrollView>
+        <ResponsiveContainer style={styles.content}>
+          <Text role="heading" style={styles.heading}>
+            Detalle de cliente
+          </Text>
+          <Button
+            label="Volver a clientes"
+            variant="secondary"
+            onPress={() => {
+              if (router.canGoBack()) router.back();
+              else router.replace('/clients');
+            }}
           />
-        ) : (
-          <EmptyState title="Cliente no disponible" />
-        )}
+          {result.status === 'pending' ? (
+            <LoadingState message="Cargando cliente…" />
+          ) : result.status === 'idle' ? (
+            <EmptyState title="Cliente no disponible" />
+          ) : result.status === 'error' ? (
+            result.error.code === 'CLIENT_NOT_FOUND' ? (
+              <EmptyState title="Cliente no encontrado" message={result.error.message} />
+            ) : (
+              <ErrorState
+                message={result.error.message}
+                retrying={result.isFetching}
+                onRetry={
+                  business.status === 'success' && clientId !== null
+                    ? () => {
+                        void queryClient.invalidateQueries({
+                          queryKey: clientsKeys.detail(business.data.business.id, clientId),
+                          exact: true,
+                        });
+                      }
+                    : undefined
+                }
+              />
+            )
+          ) : business.status === 'success' ? (
+            <ClientInformation
+              result={result}
+              timezone={business.data.business.timezone}
+              clientId={clientId}
+            />
+          ) : (
+            <EmptyState title="Cliente no disponible" />
+          )}
+        </ResponsiveContainer>
       </ScrollView>
     </SafeAreaView>
   );
@@ -89,14 +93,16 @@ function ClientInformation({
         tone={client.is_active ? 'success' : 'neutral'}
       />
       <Card style={styles.section}>
-        <InfoRow label="Nombre" value={client.first_name} />
-        <InfoRow label="Apellido" value={client.last_name} />
-        <InfoRow label="Teléfono" value={client.phone} />
-        <InfoRow label="Email" value={client.email} />
-        <InfoRow label="Instagram" value={client.instagram} />
-        <InfoRow label="Fecha de nacimiento" value={client.birth_date} />
-        <InfoRow label="Notas" value={client.notes} />
-        <InfoRow label="Preferencias" value={client.preferences} />
+        <ResponsiveColumns>
+          <InfoRow label="Nombre" value={client.first_name} />
+          <InfoRow label="Apellido" value={client.last_name} />
+          <InfoRow label="Teléfono" value={client.phone} />
+          <InfoRow label="Email" value={client.email} />
+          <InfoRow label="Instagram" value={client.instagram} />
+          <InfoRow label="Fecha de nacimiento" value={client.birth_date} />
+          <InfoRow label="Notas" value={client.notes} />
+          <InfoRow label="Preferencias" value={client.preferences} />
+        </ResponsiveColumns>
       </Card>
       <ClientStats clientId={clientId} />
       <Button
@@ -161,10 +167,7 @@ function auditDate(value: string, timezone: string): string {
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: theme.colors.background },
   content: {
-    width: '100%',
-    maxWidth: 1200,
-    alignSelf: 'center',
-    padding: theme.spacing[16],
+    paddingVertical: theme.spacing[16],
     gap: theme.spacing[24],
   },
   heading: { ...theme.typography.headingLg, color: theme.colors.textPrimary },
