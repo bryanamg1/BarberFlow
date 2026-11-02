@@ -4,6 +4,8 @@ import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { EmptyState, ErrorState } from '@/components/ui';
+import { ResponsiveContainer } from '@/components/layout/ResponsiveContainer';
+import { ResponsiveColumns } from '@/components/layout/ResponsiveColumns';
 import { theme } from '@/theme';
 
 import { AgendaDayView } from '../components/AgendaDayView';
@@ -21,19 +23,21 @@ export function AgendaScreen() {
   const context = useAgendaPresentation('agenda-screen');
   return (
     <SafeAreaView edges={['left', 'right', 'bottom']} style={styles.screen}>
-      <ScrollView contentContainerStyle={styles.content}>
-        <Text role="heading" style={styles.heading}>
-          Agenda
-        </Text>
-        {context.scope && context.timezone && context.today ? (
-          <ScopedAgenda
-            key={JSON.stringify([context.scope, context.timezone])}
-            initialDate={context.today}
-            timezone={context.timezone}
-          />
-        ) : (
-          <AgendaContextFeedback context={context} />
-        )}
+      <ScrollView>
+        <ResponsiveContainer style={styles.content}>
+          <Text role="heading" style={styles.heading}>
+            Agenda
+          </Text>
+          {context.scope && context.timezone && context.today ? (
+            <ScopedAgenda
+              key={JSON.stringify([context.scope, context.timezone])}
+              initialDate={context.today}
+              timezone={context.timezone}
+            />
+          ) : (
+            <AgendaContextFeedback context={context} />
+          )}
+        </ResponsiveContainer>
       </ScrollView>
     </SafeAreaView>
   );
@@ -72,20 +76,22 @@ function ScopedAgenda({ initialDate, timezone }: { initialDate: string; timezone
   };
   return (
     <View style={styles.section}>
-      <AgendaViewTabs
-        value={view}
-        onChange={(next) => {
-          if (lifetime.isCurrent()) setView(next);
-        }}
-      />
-      <AgendaDateNavigation
-        view={view}
-        date={date}
-        onChange={selectDate}
-        onToday={() => {
-          if (lifetime.isCurrent()) setDate(businessCivilDate(Date.now(), timezone));
-        }}
-      />
+      <ResponsiveColumns>
+        <AgendaViewTabs
+          value={view}
+          onChange={(next) => {
+            if (lifetime.isCurrent()) setView(next);
+          }}
+        />
+        <AgendaDateNavigation
+          view={view}
+          date={date}
+          onChange={selectDate}
+          onToday={() => {
+            if (lifetime.isCurrent()) setDate(businessCivilDate(Date.now(), timezone));
+          }}
+        />
+      </ResponsiveColumns>
       {!period ? (
         <ErrorState message="El período de la agenda no es válido." />
       ) : result.status === 'idle' ? (
@@ -112,7 +118,7 @@ function ScopedAgenda({ initialDate, timezone }: { initialDate: string; timezone
 }
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: theme.colors.background },
-  content: { padding: theme.spacing[16], gap: theme.spacing[16] },
+  content: { paddingVertical: theme.spacing[16], gap: theme.spacing[16] },
   section: { gap: theme.spacing[16] },
   heading: { ...theme.typography.heading, color: theme.colors.textPrimary },
 });
