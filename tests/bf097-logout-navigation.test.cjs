@@ -49,6 +49,7 @@ function layout(filename) {
           };
         if (name === '@/features/business/context/BusinessContext')
           return { useBusiness: () => ({ status: 'success', isFetching: false }) };
+        if (name === '@/components/layout/useWideLayout') return { useWideLayout: () => false };
         if (name === 'expo-symbols') return { SymbolView: function SymbolView() {} };
         if (name === 'react-native')
           return {
