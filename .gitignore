@@ -12,6 +12,7 @@ build/
 .env
 .env.*
 !.env.example
+!tests/e2e/.env.e2e.example
 
 # Local Supabase state; migrations, seed and configuration stay tracked
 supabase/.temp/

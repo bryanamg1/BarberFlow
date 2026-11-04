@@ -1,0 +1,11 @@
+{
+  "environmentId": "barberflow-e2e-bf305",
+  "mode": "local-only",
+  "baseUrl": "http://127.0.0.1:8095",
+  "supabaseUrl": "http://127.0.0.1:55431",
+  "dbContainer": "supabase_db_barberflow-e2e-bf305",
+  "dbPort": 55432,
+  "accountDomain": "example.test",
+  "accountPrefix": "bf305.owner-",
+  "authCallback": "http://127.0.0.1:8095/auth/recovery"
+}

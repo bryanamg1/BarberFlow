@@ -1,0 +1,11 @@
+# Skeleton: run only with an attested E2E build and runtime-injected synthetic credentials.
+appId: ${E2E_NATIVE_APP_ID}
+---
+- launchApp:
+    clearState: true
+- tapOn: Correo electrónico
+- inputText: ${E2E_OWNER_EMAIL}
+- tapOn: Contraseña
+- inputText: ${E2E_OWNER_PASSWORD}
+- tapOn: Iniciar sesión
+- assertVisible: Inicio

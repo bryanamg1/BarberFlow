@@ -1,0 +1,6 @@
+# Requires the authenticated E2E test installation. No production application ID fallback.
+appId: ${E2E_NATIVE_APP_ID}
+---
+- tapOn: Configuración
+- tapOn: Cerrar sesión
+- assertVisible: Iniciar sesión

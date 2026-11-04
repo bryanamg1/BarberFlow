@@ -1,0 +1,6 @@
+# Requires a successful login in the same test installation; no state clearing here.
+appId: ${E2E_NATIVE_APP_ID}
+---
+- stopApp
+- launchApp
+- assertVisible: Inicio
