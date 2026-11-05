@@ -12,7 +12,7 @@ const {
 } = require('../../tests/e2e/helpers/environment.cjs');
 const local = require('./local.cjs');
 const { stop, terminated, cleanup } = require('./process.cjs');
-const { webCommand } = require('./web.cjs');
+const { webCommand, webSpec } = require('./web.cjs');
 const { record } = require('../../tests/e2e/helpers/evidence.cjs');
 const { sanitize, writeDiagnostic } = require('../../tests/e2e/helpers/diagnostics.cjs');
 
@@ -82,9 +82,16 @@ async function main() {
   guard();
   const mode = process.argv[2];
   assert.ok(
-    ['preflight', 'reset', 'server', 'failure', 'smoke', 'owner-b', 'web'].includes(mode),
+    ['preflight', 'reset', 'server', 'failure', 'smoke', 'owner-b', 'web', 'auth'].includes(mode),
     'Unknown E2E command',
   );
+  const authControl = require('./auth-control.cjs');
+  if (mode === 'auth') {
+    assert.equal(process.env.E2E_AUTH_PROFILE, undefined);
+    process.env.E2E_AUTH_PROFILE = authControl.profile.name;
+  } else {
+    assert.equal(process.env.E2E_AUTH_PROFILE, undefined, 'Auth profile requires auth mode');
+  }
   const release = local.acquire();
   const runId = `${new Date().toISOString().replaceAll(/[:.]/g, '-')}-${randomUUID().slice(0, 8)}`;
   const directory = path.join(privateRoot, 'runs', runId);
@@ -111,6 +118,7 @@ async function main() {
       'studio,imgproxy,logflare,vector,supavisor,edge-runtime,realtime',
     ]);
     local.verifyContainer();
+    if (mode === 'auth') authControl.observeContainer(local, authControl.profile.jwtExpiry);
     event('isolation', 'PASS');
     stage = 'full-reset';
     local.fullReset();
@@ -181,7 +189,7 @@ async function main() {
         'test',
         '--config',
         path.join(root, 'tests/e2e/playwright.config.cjs'),
-        mode === 'smoke' ? 'smoke.spec.cjs' : 'session.spec.cjs',
+        webSpec(mode),
         ...(mode === 'owner-b' ? ['--grep', 'BF305-06'] : []),
       ],
       {
@@ -193,6 +201,7 @@ async function main() {
         E2E_GIT_SHA: sha,
         E2E_RUN_DIRECTORY: directory,
         E2E_ACCOUNTS: JSON.stringify(users),
+        ...(mode === 'auth' ? { E2E_AUTH_PROFILE: authControl.profile.name } : {}),
       },
     );
     // Reporter output is allowlisted; expose case IDs/status only.
@@ -248,6 +257,29 @@ async function main() {
           },
         ],
         ['port-release', () => freePort(8095)],
+        [
+          'auth-config-restore',
+          () => {
+            if (mode !== 'auth') return;
+            delete process.env.E2E_AUTH_PROFILE;
+            local.prepare();
+            if (!started) return;
+            // Verify the actual restored Auth process as well as the generated config file.
+            try {
+              local.cli([
+                'start',
+                '--workdir',
+                workdir,
+                '--exclude',
+                'studio,imgproxy,logflare,vector,supavisor,edge-runtime,realtime',
+              ]);
+              authControl.observeContainer(local, 3600);
+              local.baseline();
+            } finally {
+              local.cli(['stop', '--workdir', workdir]);
+            }
+          },
+        ],
       ]);
       event('cleanup', 'PASS', 'PASS');
     } catch {

@@ -65,7 +65,7 @@
     "lint": "expo lint",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "test:unit": "node --test tests/*.test.cjs tests/e2e/native/guards.test.cjs",
+    "test:unit": "node --test tests/*.test.cjs tests/e2e/native/*.test.cjs",
     "test:ui": "jest --runInBand",
     "test": "npm run test:unit && npm run test:ui",
     "e2e:web:preflight": "node scripts/e2e/run.cjs preflight",

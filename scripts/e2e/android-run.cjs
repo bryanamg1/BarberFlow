@@ -1,4 +1,5 @@
 const assert = require('node:assert/strict');
+const { Buffer } = require('node:buffer');
 const fs = require('node:fs');
 const path = require('node:path');
 const net = require('node:net');
@@ -14,6 +15,8 @@ const {
 } = require('../../tests/e2e/helpers/environment.cjs');
 const native = require('./android.cjs');
 const local = require('./local.cjs');
+const authControl = require('./auth-control.cjs');
+const nativeAuth = require('./android-auth.cjs');
 const { cleanup, stop } = require('./process.cjs');
 const { sanitize } = require('../../tests/e2e/helpers/diagnostics.cjs');
 
@@ -25,7 +28,7 @@ const directory = path.join(
 );
 const app = path.join(privateRoot, 'app');
 const canary = 'BF305NonCredentialCanary';
-let tool, release, server, key, users, launcherComponent;
+let tool, release, server, key, users, launcherComponent, authRuntime;
 let stage = 'preflight';
 let started = false,
   resetReady = false,
@@ -312,9 +315,14 @@ async function privacy() {
   record('privacy', 'PASS');
 }
 
-async function login(name, user) {
+async function login(name, user, launch = true) {
   accountGuard(user.email);
-  flow(`${name}-email-focus`, 'login.yaml');
+  if (launch) flow(`${name}-email-focus`, 'login.yaml');
+  else
+    maestro(
+      `${name}-email-focus`,
+      yaml('- assertVisible: Iniciar sesión\n- tapOn: Correo electrónico'),
+    );
   type(user.email);
   flow(`${name}-password-focus`, 'password.yaml');
   type(user.password);
@@ -335,7 +343,9 @@ async function logout(name, user) {
 
 async function main() {
   guard();
-  assert.ok(['suite', 'canary'].includes(process.argv[2] || 'suite'));
+  assert.ok(['suite', 'canary', 'auth'].includes(process.argv[2] || 'suite'));
+  assert.equal(process.env.E2E_AUTH_PROFILE, undefined);
+  if (process.argv[2] === 'auth') process.env.E2E_AUTH_PROFILE = authControl.profile.name;
   assert.equal(
     local.exec('git', ['branch', '--show-current']),
     'bryan/test/bf305-login-session-e2e',
@@ -359,6 +369,8 @@ async function main() {
     'studio,imgproxy,logflare,vector,supavisor,edge-runtime,realtime',
   ]);
   local.verifyContainer();
+  if (process.argv[2] === 'auth')
+    authControl.observeContainer(local, authControl.profile.jwtExpiry);
   stage = 'reset';
   local.fullReset();
   resetReady = true;
@@ -440,6 +452,82 @@ async function main() {
   assert.equal(sessionCount(users.b), '0');
   clearApp();
   record('native-pre-run-reset', 'PASS');
+  if (process.argv[2] === 'auth') {
+    stage = 'auth-refresh-success';
+    await login('auth-a', users.a);
+    tenant('auth-tenant-a', users.a, users.b);
+    const authPid = adb(['shell', 'pidof', target.appId]);
+    authRuntime = await nativeAuth.connect();
+    await nativeAuth.observe(authRuntime);
+    const before = await nativeAuth.snapshot(authRuntime, users.a);
+    assert.ok(before.sameUser && before.privateQueryCount > 0);
+    const refreshed = await authRuntime.evaluate(`(async () => {
+      const runtime = globalThis.__bf305Lifecycle;
+      const remembered = runtime.queryClient.getQueryCache().getAll()
+        .filter(query => query.state.data !== undefined).map(query => ({ query, data: query.state.data }));
+      const { data, error } = await runtime.client.auth.refreshSession();
+      const current = runtime.queryClient.getQueryCache().getAll();
+      return { success: !error && !!data.session, preserved: remembered.length > 0 &&
+        remembered.every(({ query, data }) => current.includes(query) && query.state.data === data) };
+    })()`);
+    assert.deepEqual(refreshed, { success: true, preserved: true });
+    const afterRefresh = await nativeAuth.snapshot(authRuntime, users.a);
+    assert.ok(afterRefresh.sameUser);
+    assert.equal(afterRefresh.signedOutEvents, before.signedOutEvents);
+    record('auth-refresh-success-cache-preserved', 'PASS');
+    stage = 'auth-expired-rejection';
+    await authRuntime.evaluate(
+      '(() => { globalThis.__bf305Lifecycle.client.auth.stopAutoRefresh(); return true; })()',
+    );
+    const expiry = (await nativeAuth.snapshot(authRuntime, users.a)).expiresAt;
+    assert.ok(Number.isInteger(expiry) && expiry * 1000 - Date.now() <= 21000);
+    local.softReset({ a: users.a });
+    await wait(() => Date.now() >= expiry * 1000 + 250, 25000);
+    const rejection = await authRuntime.evaluate(`(async () => {
+      const { data, error } = await globalThis.__bf305Lifecycle.client.auth.refreshSession();
+      return { rejected: !!error, hasSession: !!data.session, code: error?.code };
+    })()`);
+    assert.deepEqual(rejection, {
+      rejected: true,
+      hasSession: false,
+      code: 'refresh_token_not_found',
+    });
+    authRuntime.close();
+    authRuntime = undefined;
+    maestro(
+      'auth-expired-login',
+      yaml(
+        '- assertVisible: Iniciar sesión\n- assertNotVisible: BF305 Client A\n- assertNotVisible: BF305 Client B',
+      ),
+    );
+    authRuntime = await nativeAuth.connect();
+    const expired = await nativeAuth.snapshot(authRuntime, users.a);
+    assert.equal(expired.persistedSession, false);
+    assert.equal(expired.privateQueryCount, 0);
+    assert.ok(expired.signedOutEvents > 0);
+    authRuntime.close();
+    authRuntime = undefined;
+    adb(native.protectedArgs());
+    flow('auth-protected-expired', 'protected.yaml');
+    fs.writeFileSync(
+      path.join(directory, 'auth-observation.json'),
+      JSON.stringify({ before, afterRefresh, expired, rejection }, null, 2),
+    );
+    record('auth-expired-rejection-cache-zero', 'PASS');
+    stage = 'auth-smoke-b';
+    await login('auth-smoke-b', users.b, false);
+    tenant('auth-smoke-tenant-b', users.b, users.a);
+    assert.equal(adb(['shell', 'pidof', target.appId]), authPid);
+    authRuntime = await nativeAuth.connect();
+    assert.equal((await nativeAuth.snapshot(authRuntime, users.a)).privateQueryCount, 0);
+    authRuntime.close();
+    authRuntime = undefined;
+    await logout('auth-smoke-logout', users.b);
+    authRuntime = await nativeAuth.connect();
+    assert.equal((await nativeAuth.snapshot(authRuntime, users.b)).privateQueryCount, 0);
+    record('auth-smoke-login-logout-cache-zero', 'PASS');
+    return;
+  }
   stage = 'smoke';
   await login('smoke-a', users.a);
   tenant('smoke-tenant-a', users.a, users.b);
@@ -507,6 +595,7 @@ main()
   .finally(async () => {
     try {
       await cleanup([
+        ['inspector-close', () => authRuntime?.close()],
         [
           'app-clear',
           () => {
@@ -560,6 +649,28 @@ main()
           },
         ],
         [
+          'auth-config-restore',
+          () => {
+            if (process.argv[2] !== 'auth' || !release) return;
+            delete process.env.E2E_AUTH_PROFILE;
+            local.prepare();
+            if (!started) return;
+            try {
+              local.cli([
+                'start',
+                '--workdir',
+                workdir,
+                '--exclude',
+                'studio,imgproxy,logflare,vector,supavisor,edge-runtime,realtime',
+              ]);
+              authControl.observeContainer(local, 3600);
+              local.baseline();
+            } finally {
+              local.cli(['stop', '--workdir', workdir]);
+            }
+          },
+        ],
+        [
           'reverse-remove',
           () => {
             if (reversed) {
@@ -581,6 +692,8 @@ main()
       record('cleanup', 'PASS');
     } catch (error) {
       const allowed = [
+        'inspector-close',
+        'auth-config-restore',
         'app-clear',
         'maestro-driver-stop',
         'metro-stop',

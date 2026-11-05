@@ -102,7 +102,7 @@ function runtimeConfig() {
       '$1false',
     );
   }
-  return config;
+  return require('./auth-control.cjs').runtimeConfig(config);
 }
 
 function prepare() {

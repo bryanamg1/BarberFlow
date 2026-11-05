@@ -18,4 +18,10 @@ function webCommand() {
   };
 }
 
-module.exports = { webCommand };
+function webSpec(mode) {
+  const name = mode === 'auth' ? 'auth-session' : mode === 'smoke' ? 'smoke' : 'session';
+  // Playwright treats CLI file filters as regexes, not exact basenames.
+  return `(?:^|[\\\\/])${name}\\.spec\\.cjs$`;
+}
+
+module.exports = { webCommand, webSpec };
