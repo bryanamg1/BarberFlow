@@ -65,13 +65,15 @@
     "lint": "expo lint",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "test:unit": "node --test tests/*.test.cjs",
+    "test:unit": "node --test tests/*.test.cjs tests/e2e/native/guards.test.cjs",
     "test:ui": "jest --runInBand",
     "test": "npm run test:unit && npm run test:ui",
     "e2e:web:preflight": "node scripts/e2e/run.cjs preflight",
     "e2e:reset": "node scripts/e2e/run.cjs reset",
     "e2e:web:smoke": "node scripts/e2e/run.cjs smoke",
-    "e2e:web": "node scripts/e2e/run.cjs web"
+    "e2e:web": "node scripts/e2e/run.cjs web",
+    "e2e:android:prepare": "node scripts/e2e/android-prepare.cjs",
+    "e2e:android": "node scripts/e2e/android-run.cjs suite"
   },
   "private": true
 }

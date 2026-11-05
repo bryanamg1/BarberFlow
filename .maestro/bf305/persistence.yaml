@@ -1,6 +1,7 @@
-# Requires a successful login in the same test installation; no state clearing here.
-appId: ${E2E_NATIVE_APP_ID}
+appId: dev.barberflow.e2e.bf305
 ---
-- stopApp
 - launchApp
-- assertVisible: Inicio
+- extendedWaitUntil:
+    visible: Inicio
+    timeout: 30000
+- assertNotVisible: Iniciar sesión

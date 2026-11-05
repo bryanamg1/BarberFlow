@@ -1,0 +1,7 @@
+appId: dev.barberflow.e2e.bf305
+---
+- tapOn: Clientes
+- extendedWaitUntil:
+    visible: ${E2E_CLIENT_NAME}
+    timeout: 30000
+- assertNotVisible: ${E2E_FOREIGN_CLIENT_NAME}

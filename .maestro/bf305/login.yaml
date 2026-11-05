@@ -1,11 +1,9 @@
-# Skeleton: run only with an attested E2E build and runtime-injected synthetic credentials.
-appId: ${E2E_NATIVE_APP_ID}
+appId: dev.barberflow.e2e.bf305
+# Coordinator-only phase. Credentials use adb stdin.
 ---
 - launchApp:
     clearState: true
+- extendedWaitUntil:
+    visible: Iniciar sesión
+    timeout: 120000
 - tapOn: Correo electrónico
-- inputText: ${E2E_OWNER_EMAIL}
-- tapOn: Contraseña
-- inputText: ${E2E_OWNER_PASSWORD}
-- tapOn: Iniciar sesión
-- assertVisible: Inicio

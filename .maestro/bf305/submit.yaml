@@ -1,0 +1,8 @@
+appId: dev.barberflow.e2e.bf305
+---
+- hideKeyboard
+- tapOn: Iniciar sesión
+- extendedWaitUntil:
+    visible: Inicio
+    timeout: 30000
+- assertNotVisible: Iniciar sesión

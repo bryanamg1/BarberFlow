@@ -1,0 +1,8 @@
+appId: dev.barberflow.e2e.bf305
+---
+- extendedWaitUntil:
+    visible: Iniciar sesión
+    timeout: 30000
+- assertNotVisible: Inicio
+- assertNotVisible: BF305 Client A
+- assertNotVisible: BF305 Client B
