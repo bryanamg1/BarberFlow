@@ -1,5 +1,14 @@
 import type { Session, User } from '@supabase/supabase-js';
-import { createContext, useContext, useEffect, useState, type PropsWithChildren } from 'react';
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+  type PropsWithChildren,
+} from 'react';
+
+import { clearPrivateQueryState } from '@/lib/query/privateState';
 
 import { authService } from '../services/authService';
 import type { AuthServiceError } from '../types/auth.types';
@@ -25,6 +34,7 @@ function sessionSnapshot(session: Session | null): AuthSnapshot {
 }
 
 export function AuthProvider({ children }: PropsWithChildren) {
+  const identity = useRef<string | null | undefined>(undefined);
   const [snapshot, setSnapshot] = useState<AuthSnapshot>({
     status: 'initializing',
     session: null,
@@ -36,15 +46,24 @@ export function AuthProvider({ children }: PropsWithChildren) {
     let eventReceived = false;
     let subscription: ReturnType<typeof authService.onAuthStateChange> | undefined;
 
+    function commit(next: AuthSnapshot) {
+      const nextIdentity = next.status === 'authenticated' ? next.session.user.id : null;
+      // Resolve bootstrap too: a remounted provider must not trust an earlier cache owner.
+      // Same-user refresh keeps its cache. Recovery is not a normal authenticated identity.
+      if (identity.current !== nextIdentity) clearPrivateQueryState();
+      identity.current = nextIdentity;
+      setSnapshot(next);
+    }
+
     async function initialize() {
       try {
         subscription = authService.onAuthStateChange((_event, session) => {
           if (disposed) return;
           eventReceived = true;
           try {
-            setSnapshot(sessionSnapshot(session));
+            commit(sessionSnapshot(session));
           } catch {
-            setSnapshot({
+            commit({
               status: 'error',
               session: null,
               error: {
@@ -59,7 +78,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
         // An Auth event is newer evidence than the startup read, even if that read fails.
         if (disposed || eventReceived) return;
 
-        setSnapshot(
+        commit(
           result.error
             ? {
                 status: 'error',
@@ -70,7 +89,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
         );
       } catch {
         if (!disposed && !eventReceived) {
-          setSnapshot({
+          commit({
             status: 'error',
             session: null,
             error: {

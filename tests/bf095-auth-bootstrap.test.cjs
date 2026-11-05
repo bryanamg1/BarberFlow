@@ -95,6 +95,7 @@ function boundary() {
 // Exercise the actual provider effect and state transitions, controlling only React lifecycle
 // scheduling and authService. A real React context/SSR integration test follows below.
 function harness(mock = boundary()) {
+  const identityRef = { current: undefined };
   let state;
   let initialized = false;
   let writes = 0;
@@ -103,6 +104,7 @@ function harness(mock = boundary()) {
   let value;
   const hooks = {
     ...React,
+    useRef: () => identityRef,
     useState(start) {
       if (!initialized) {
         state = start;
@@ -124,6 +126,7 @@ function harness(mock = boundary()) {
   const exports = compile(providerFile, (name) => {
     if (name === 'react') return hooks;
     if (name === '../services/authService') return { authService: mock.service };
+    if (name === '@/lib/query/privateState') return { clearPrivateQueryState() {} };
     assert.equal(
       name,
       'react/jsx-runtime',
@@ -399,6 +402,8 @@ test('BF-098: marker storage failure blocks private Auth rather than losing reco
 test('BF-095: real React Context preserves children and exposes initializing during SSR without Auth reads', () => {
   const exports = compile(providerFile, (name) => {
     if (name === 'react') return React;
+    if (name === '@/lib/query/privateState')
+      return { clearPrivateQueryState: () => assert.fail('No cache operation during SSR') };
     if (name === '../services/authService')
       return {
         authService: new Proxy({}, { get: () => assert.fail('No Auth operation during SSR') }),
