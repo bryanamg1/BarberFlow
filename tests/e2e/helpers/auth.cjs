@@ -3,17 +3,21 @@ const { accountGuard, guard, manifest } = require('./environment.cjs');
 const path = require('node:path');
 const { redactTestError } = require('./diagnostics.cjs');
 
+async function restrictToLocal(context) {
+  await context.route('**/*', async (route) => {
+    const url = new URL(route.request().url());
+    if ([manifest.baseUrl, manifest.supabaseUrl].includes(url.origin)) await route.continue();
+    else await route.abort('blockedbyclient');
+  });
+}
+
 const test = base.extend({
   page: async ({ page }, runWithPage, testInfo) => {
     guard();
     if (!process.env.E2E_RUN_ID || !process.env.E2E_ACCOUNTS)
       throw new Error('Use the E2E coordinator');
     // A separate context is provided by Playwright for every test. Never serialize storageState.
-    await page.context().route('**/*', async (route) => {
-      const url = new URL(route.request().url());
-      if ([manifest.baseUrl, manifest.supabaseUrl].includes(url.origin)) await route.continue();
-      else await route.abort('blockedbyclient');
-    });
+    await restrictToLocal(page.context());
     try {
       await runWithPage(page);
     } finally {
@@ -30,7 +34,7 @@ const test = base.extend({
             .screenshot({
               path: path.join(
                 process.env.E2E_RUN_DIRECTORY,
-                `${testInfo.title.match(/^BF305-\d+/)?.[0].toLowerCase()}-failure.png`,
+                `${testInfo.title.match(/^BF30[56]-\d+/)?.[0].toLowerCase()}-failure.png`,
               ),
               mask: [page.locator('input, textarea')],
             })
@@ -74,4 +78,4 @@ async function clients(page, user, foreign) {
   await expect(page.getByText(foreign.clientName, { exact: true })).toHaveCount(0);
 }
 
-module.exports = { test, expect, accounts, login, logout, settings, clients };
+module.exports = { test, expect, accounts, login, logout, settings, clients, restrictToLocal };

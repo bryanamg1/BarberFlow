@@ -82,7 +82,17 @@ async function main() {
   guard();
   const mode = process.argv[2];
   assert.ok(
-    ['preflight', 'reset', 'server', 'failure', 'smoke', 'owner-b', 'web', 'auth'].includes(mode),
+    [
+      'preflight',
+      'reset',
+      'server',
+      'failure',
+      'smoke',
+      'owner-b',
+      'web',
+      'auth',
+      'checkout',
+    ].includes(mode),
     'Unknown E2E command',
   );
   const authControl = require('./auth-control.cjs');
@@ -129,6 +139,7 @@ async function main() {
     const users = local.accounts();
     local.seed(users);
     local.seed(users); // Re-preparation must reconcile without duplicate identities or memberships.
+    if (mode === 'checkout') require('./checkout.cjs').seed(users);
     event('fixtures', 'PASS');
     const key = local.publicKey();
     stage = 'backend-health';
@@ -208,7 +219,7 @@ async function main() {
     runner.process.stdout.removeAllListeners('data');
     runner.process.stdout.on('data', (chunk) => {
       for (const line of chunk.toString().split(/\r?\n/)) {
-        if (/^BF305-\d+: (passed|failed|timedOut|interrupted|skipped)$/.test(line))
+        if (/^BF30[56]-\d+: (passed|failed|timedOut|interrupted|skipped)$/.test(line))
           process.stdout.write(`${line}\n`);
       }
     });

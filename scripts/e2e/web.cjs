@@ -19,7 +19,14 @@ function webCommand() {
 }
 
 function webSpec(mode) {
-  const name = mode === 'auth' ? 'auth-session' : mode === 'smoke' ? 'smoke' : 'session';
+  const name =
+    mode === 'checkout'
+      ? 'checkout'
+      : mode === 'auth'
+        ? 'auth-session'
+        : mode === 'smoke'
+          ? 'smoke'
+          : 'session';
   // Playwright treats CLI file filters as regexes, not exact basenames.
   return `(?:^|[\\\\/])${name}\\.spec\\.cjs$`;
 }

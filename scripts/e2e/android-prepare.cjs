@@ -4,16 +4,13 @@ const path = require('node:path');
 const { randomUUID } = require('node:crypto');
 const { spawnSync } = require('node:child_process');
 const { guard, root, privateRoot, manifest } = require('../../tests/e2e/helpers/environment.cjs');
-const { target } = require('./android.cjs');
+const { target, verifyBranch } = require('./android.cjs');
 const local = require('./local.cjs');
 const { sanitize } = require('../../tests/e2e/helpers/diagnostics.cjs');
 
 function prepare() {
   guard();
-  assert.equal(
-    local.exec('git', ['branch', '--show-current']),
-    'bryan/test/bf305-login-session-e2e',
-  );
+  verifyBranch(local.exec('git', ['branch', '--show-current']), 'prepare');
   const sha = local.exec('git', ['rev-parse', 'HEAD']);
   const app = path.join(privateRoot, 'app');
   if (fs.existsSync(app)) {

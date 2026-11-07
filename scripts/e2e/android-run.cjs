@@ -341,15 +341,72 @@ async function logout(name, user) {
   await wait(() => sessionCount(user) === '0');
 }
 
+function checkoutResult(name, expected) {
+  const checkout = require('./checkout.cjs');
+  const actual = checkout.snapshot();
+  // Preserve synthetic domain evidence before any assertion and before final reset.
+  // This projection contains no Auth records, tokens, credentials or HTTP headers.
+  fs.writeFileSync(path.join(directory, `${name}-observed.json`), JSON.stringify(actual, null, 2));
+  const saleId = checkout.verify(actual, expected);
+  const clientLabel = expected.linked ? users.a.clientId : 'Sin cliente';
+  const saleLabel = `Venta: ${saleId}`;
+  const money = (label, value) => `^${label}: ARS ${value.replace('.', ',')}$`;
+  const scrollTo = (element, direction, centerElement = false) =>
+    `- scrollUntilVisible:\n    element: '${element}'\n    direction: ${direction}\n    centerElement: ${centerElement}\n    timeout: 20000`;
+  const total = money('Total', expected.net);
+  const noMoneyFallback = "- assertNotVisible: '.*Importe no disponible.*'";
+  maestro(
+    `${name}-record`,
+    yaml(
+      [
+        scrollTo(saleLabel, 'UP'),
+        `- assertVisible: '${saleLabel}'`,
+        '- assertVisible: Completada',
+        `- assertVisible: 'Cliente: ${clientLabel}'`,
+        `- assertVisible: '${total}'`,
+        `- assertVisible: '${money('Subtotal', expected.gross)}'`,
+        `- assertVisible: '${money('Descuento', expected.discount ?? '0.00')}'`,
+        noMoneyFallback,
+        ...actual.items.flatMap((item) => [
+          scrollTo(saleLabel, 'UP'),
+          scrollTo(item.item_name_snapshot, 'DOWN', true),
+          `- assertVisible:\n    text: '${money('Precio unitario histórico', item.unit_price_snapshot)}'\n    below: '${item.item_name_snapshot}'`,
+          `- assertVisible:\n    text: '${money('Importe registrado', item.line_total)}'\n    below: '${item.item_name_snapshot}'`,
+          noMoneyFallback,
+        ]),
+        scrollTo(money('Importe del pago', expected.net), 'DOWN'),
+        noMoneyFallback,
+      ].join('\n'),
+    ),
+  );
+  fs.writeFileSync(
+    path.join(directory, `${name}-persistence.json`),
+    JSON.stringify(
+      {
+        sourceSha: local.exec('git', ['rev-parse', 'HEAD']),
+        saleId,
+        expected,
+        sales: actual.sales.length,
+        items: actual.items.length,
+        payments: actual.payments.length,
+        stock: checkout.stock(),
+        appointmentStatus: actual.appointment.status,
+        result: 'PASS',
+      },
+      null,
+      2,
+    ),
+  );
+  record(`BF306-android-${name}-persisted-detail`, 'PASS');
+  return saleId;
+}
+
 async function main() {
   guard();
-  assert.ok(['suite', 'canary', 'auth'].includes(process.argv[2] || 'suite'));
+  assert.ok(['suite', 'canary', 'auth', 'checkout'].includes(process.argv[2] || 'suite'));
   assert.equal(process.env.E2E_AUTH_PROFILE, undefined);
   if (process.argv[2] === 'auth') process.env.E2E_AUTH_PROFILE = authControl.profile.name;
-  assert.equal(
-    local.exec('git', ['branch', '--show-current']),
-    'bryan/test/bf305-login-session-e2e',
-  );
+  native.verifyBranch(local.exec('git', ['branch', '--show-current']), process.argv[2] || 'suite');
   tool = readJson(path.join(privateRoot, 'native-toolchain.json'));
   native.verifyTools(tool);
   verifyDevice();
@@ -452,6 +509,81 @@ async function main() {
   assert.equal(sessionCount(users.b), '0');
   clearApp();
   record('native-pre-run-reset', 'PASS');
+  if (process.argv[2] === 'checkout') {
+    const checkout = require('./checkout.cjs');
+    stage = 'checkout-fixtures';
+    checkout.seed(users);
+    record('checkout-stock-and-session-baseline', 'PASS');
+    stage = 'checkout-login';
+    await login('checkout-owner', users.a);
+    stage = 'checkout-ui';
+    maestro(
+      'checkout',
+      fs.readFileSync(path.join(root, '.maestro/bf306/checkout.yaml'), 'utf8').replaceAll('\r', ''),
+    );
+    stage = 'checkout-persistence';
+    const expected = {
+      gross: '15.01',
+      net: '15.01',
+      items: [{ type: 'SERVICE', quantity: 1, price: '15.01' }],
+    };
+    const saleId = checkoutResult('checkout', expected);
+    stage = 'checkout-back';
+    maestro(
+      'checkout-back',
+      yaml('- back\n- assertNotVisible: Detalle de venta\n- assertNotVisible: Completar venta'),
+    );
+    assert.equal(checkout.verify(checkout.snapshot(), expected), saleId);
+    record('BF306-android-checkout-back-no-duplicate', 'PASS');
+    stage = 'checkout-logout';
+    await logout('checkout-logout', users.a);
+    stage = 'checkout-linked-reset';
+    clearApp();
+    checkout.reset(users, { servicePrice: '10.02' });
+    record('checkout-linked-stock-and-session-baseline', 'PASS');
+    stage = 'checkout-linked-login';
+    await login('checkout-linked-owner', users.a);
+    stage = 'checkout-linked-ui';
+    adb([
+      'shell',
+      'am',
+      'start',
+      '-a',
+      'android.intent.action.VIEW',
+      '-d',
+      `barberflow://appointments/${checkout.fixture().appointmentId}`,
+      '-p',
+      target.appId,
+    ]);
+    maestro(
+      'checkout-linked',
+      fs
+        .readFileSync(path.join(root, '.maestro/bf306/appointment-checkout.yaml'), 'utf8')
+        .replaceAll('\r', ''),
+    );
+    const discount = '0.01';
+    adb(['shell', 'input', 'keyevent', 'KEYCODE_MOVE_END']);
+    adb(['shell', 'input', 'keyevent', ...Array(4).fill('KEYCODE_DEL')]);
+    type(discount);
+    maestro(
+      'checkout-linked-submit',
+      fs
+        .readFileSync(path.join(root, '.maestro/bf306/appointment-checkout-submit.yaml'), 'utf8')
+        .replaceAll('\r', ''),
+    );
+    stage = 'checkout-linked-persistence';
+    checkoutResult('checkout-linked', {
+      gross: '20.04',
+      net: '20.03',
+      discount,
+      linked: true,
+      items: [
+        { type: 'SERVICE', quantity: 1, price: '10.02' },
+        { type: 'PRODUCT', quantity: 1, price: '10.02' },
+      ],
+    });
+    return;
+  }
   if (process.argv[2] === 'auth') {
     stage = 'auth-refresh-success';
     await login('auth-a', users.a);

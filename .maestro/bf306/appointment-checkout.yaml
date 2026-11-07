@@ -1,0 +1,34 @@
+appId: dev.barberflow.e2e.bf305
+# Protected appointment detail is opened by the coordinator for this synthetic OWNER.
+---
+- extendedWaitUntil:
+    visible: Detalle de cita
+    timeout: 30000
+- scrollUntilVisible:
+    element: Ir al checkout de esta cita
+    direction: DOWN
+    timeout: 20000
+- tapOn: Ir al checkout de esta cita
+- extendedWaitUntil:
+    visible: '^Cliente de la cita: .+Los servicios se seleccionan explícitamente\.$'
+    timeout: 30000
+- assertVisible: '^Venta de cita: [0-9a-f-]{36}$'
+- scrollUntilVisible:
+    element: Sin productos seleccionados
+    direction: DOWN
+    timeout: 20000
+- scrollUntilVisible:
+    element: Sin servicios seleccionados
+    direction: UP
+    timeout: 20000
+- tapOn: 'Agregar servicio: BF306 Service A'
+- scrollUntilVisible:
+    element: 'Agregar producto: BF306 Product A'
+    direction: DOWN
+    timeout: 20000
+- tapOn: 'Agregar producto: BF306 Product A'
+- scrollUntilVisible:
+    element: '^0\.00$'
+    direction: DOWN
+    timeout: 20000
+- tapOn: '^0\.00$'

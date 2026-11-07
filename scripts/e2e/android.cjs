@@ -1,4 +1,5 @@
 const assert = require('node:assert/strict');
+const { Buffer } = require('node:buffer');
 const fs = require('node:fs');
 const path = require('node:path');
 const { guard, manifest, privateRoot } = require('../../tests/e2e/helpers/environment.cjs');
@@ -15,6 +16,14 @@ const target = Object.freeze({
 });
 
 const normalizeAdb = (text) => text.replaceAll('\r', '').trim();
+
+function verifyBranch(branch, mode) {
+  const allowed = {
+    'bryan/test/bf305-login-session-e2e': ['prepare', 'suite', 'canary', 'auth'],
+    'bryan/test/bf306-checkout-e2e': ['prepare', 'checkout'],
+  };
+  assert.ok(allowed[branch]?.includes(mode), 'Unapproved native task/mode');
+}
 
 function verifyDevice(facts) {
   assert.deepEqual(
@@ -176,6 +185,7 @@ function assertNoSecrets(bytes, secrets) {
 
 module.exports = {
   target,
+  verifyBranch,
   normalizeAdb,
   verifyDevice,
   verifyConfiguration,

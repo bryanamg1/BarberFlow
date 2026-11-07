@@ -1,0 +1,35 @@
+appId: dev.barberflow.e2e.bf305
+# Coordinator-only: local synthetic OWNER already authenticated; no credential input.
+---
+- tapOn: Acciones rápidas
+- tapOn: Nueva venta
+- extendedWaitUntil:
+    visible: Sin servicios seleccionados
+    timeout: 30000
+- assertVisible: 'Cliente: Sin cliente'
+- tapOn: 'Agregar servicio: BF306 Service A'
+- scrollUntilVisible:
+    element: 'Método de pago: Efectivo'
+    direction: DOWN
+    timeout: 20000
+- tapOn: 'Método de pago: Efectivo'
+- scrollUntilVisible:
+    element: Completar venta
+    direction: DOWN
+    timeout: 20000
+- tapOn: Completar venta
+- extendedWaitUntil:
+    visible: Completada
+    timeout: 30000
+- assertVisible: Detalle de venta
+- assertVisible: 'Cliente: Sin cliente'
+- scrollUntilVisible:
+    element: BF306 Service A
+    direction: DOWN
+    timeout: 20000
+- assertVisible: 'Cantidad: 1'
+- scrollUntilVisible:
+    element: 'Método: Efectivo'
+    direction: DOWN
+    timeout: 20000
+- assertNotVisible: Completar venta

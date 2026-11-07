@@ -1,0 +1,19 @@
+appId: dev.barberflow.e2e.bf305
+# The coordinator enters the synthetic discount through the approved adb input path.
+---
+- hideKeyboard
+- scrollUntilVisible:
+    element: 'Método de pago: Efectivo'
+    direction: DOWN
+    timeout: 20000
+- tapOn: 'Método de pago: Efectivo'
+- scrollUntilVisible:
+    element: Completar venta
+    direction: DOWN
+    timeout: 20000
+- tapOn: Completar venta
+- extendedWaitUntil:
+    visible: Completada
+    timeout: 30000
+- assertVisible: Detalle de venta
+- assertNotVisible: Completar venta

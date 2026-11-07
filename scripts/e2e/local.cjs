@@ -182,6 +182,8 @@ function baseline() {
     'refreshTokens',(SELECT count(*) FROM auth.refresh_tokens),
     'sales',(SELECT count(*) FROM public.sales),
     'purchases',(SELECT count(*) FROM public.purchases),
+    'stockMovements',(SELECT count(*) FROM public.stock_movements),
+    'appointments',(SELECT count(*) FROM public.appointments),
     'connections',(SELECT count(*) FROM pg_stat_activity WHERE application_name='bf305-e2e' AND pid<>pg_backend_pid()))`),
   );
   assert.deepEqual(actual, {
@@ -193,6 +195,8 @@ function baseline() {
     refreshTokens: 0,
     sales: 0,
     purchases: 0,
+    stockMovements: 0,
+    appointments: 0,
     connections: 0,
   });
   return actual;
