@@ -1,20 +1,39 @@
-// Preserve decimal cents, including amounts beyond Number.MAX_SAFE_INTEGER.
+// Format canonical decimal text without converting the amount to a numeric type.
 export function formatMoney(value: string, currency: string): string {
-  const [integer, cents] = value.split('.');
+  const match = typeof value === 'string' ? /^(-?)(\d+)\.(\d{2})$/.exec(value) : null;
+  if (!match) return 'Importe no disponible';
+
+  const [, sign, whole, cents] = match;
+  let integer = whole.replace(/^0+(?=\d)/, '');
   try {
-    return (
-      new Intl.NumberFormat('es-AR', {
-        style: 'currency',
-        currency,
-        currencyDisplay: 'code',
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
+    const formatter = new Intl.NumberFormat('es-AR', {
+      style: 'currency',
+      currency,
+      currencyDisplay: 'code',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+    if (integer.length > 3) {
+      // es-AR uses groups of three. Probe the runtime for the separator and
+      // whether it groups four-digit numbers, using only safe template values.
+      const sample = integer.length === 4 ? 1000 : 10000;
+      const separator = formatter
+        .formatToParts(sample)
+        .find((part) => part.type === 'group')?.value;
+      if (separator) {
+        const first = integer.length % 3 || 3;
+        const groups = integer.slice(first).match(/\d{3}/g) ?? [];
+        integer = [integer.slice(0, first), ...groups].join(separator);
+      }
+    }
+    return formatter
+      .formatToParts(sign ? -0 : 0)
+      .map((part) => {
+        if (part.type === 'integer') return integer;
+        if (part.type === 'fraction') return cents;
+        return part.value;
       })
-        // BigInt('-0') loses the minus of a negative fractional amount.
-        .formatToParts(integer === '-0' ? -0 : BigInt(integer))
-        .map((part) => (part.type === 'fraction' ? cents : part.value))
-        .join('')
-    );
+      .join('');
   } catch {
     return 'Importe no disponible';
   }
