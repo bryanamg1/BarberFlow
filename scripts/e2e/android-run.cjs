@@ -403,7 +403,11 @@ function checkoutResult(name, expected) {
 
 async function main() {
   guard();
-  assert.ok(['suite', 'canary', 'auth', 'checkout'].includes(process.argv[2] || 'suite'));
+  assert.ok(
+    ['suite', 'canary', 'auth', 'checkout', 'insufficient-stock'].includes(
+      process.argv[2] || 'suite',
+    ),
+  );
   assert.equal(process.env.E2E_AUTH_PROFILE, undefined);
   if (process.argv[2] === 'auth') process.env.E2E_AUTH_PROFILE = authControl.profile.name;
   native.verifyBranch(local.exec('git', ['branch', '--show-current']), process.argv[2] || 'suite');
@@ -509,6 +513,54 @@ async function main() {
   assert.equal(sessionCount(users.b), '0');
   clearApp();
   record('native-pre-run-reset', 'PASS');
+  if (process.argv[2] === 'insufficient-stock') {
+    const checkout = require('./checkout.cjs');
+    const stock = require('./insufficient-stock.cjs');
+    const scenario = (name) =>
+      maestro(
+        `bf308-${name}`,
+        fs
+          .readFileSync(path.join(root, `.maestro/bf308/${name}.yaml`), 'utf8')
+          .replaceAll('\r', ''),
+      );
+    function replaceQuantity(value) {
+      adb(['shell', 'input', 'keyevent', 'KEYCODE_MOVE_END']);
+      adb(['shell', 'input', 'keyevent', 'KEYCODE_DEL']);
+      type(value);
+    }
+    stage = 'insufficient-stock-fixtures';
+    stock.seed(users);
+    stock.baseline();
+    const other = checkout.snapshot('b');
+    stock.adjustNative(1, 'prepare');
+    stage = 'insufficient-stock-login';
+    await login('bf308-owner', users.a);
+    stage = 'insufficient-stock-stale-cart';
+    scenario('prepare');
+    replaceQuantity('2');
+    scenario('review');
+    stock.adjustNative(-1, 'stale');
+    const before = checkout.snapshot();
+    stock.assertLedger(before.movements, 1);
+    stage = 'insufficient-stock-rejection';
+    scenario('reject');
+    stock.rejected(before, checkout.snapshot(), 1);
+    record('bf308-rejection-no-partial-writes', 'PASS');
+    stage = 'insufficient-stock-recovery';
+    scenario('edit');
+    replaceQuantity('1');
+    scenario('recover');
+    const saleId = stock.soldOne(before, checkout.snapshot());
+    maestro(
+      'bf308-recovered-record',
+      yaml(
+        `- assertVisible: 'Venta: ${saleId}'\n- assertVisible: 'Total: ARS 10,02'\n- scrollUntilVisible:\n    element: 'Importe del pago: ARS 10,02'\n    direction: DOWN\n    timeout: 20000\n- assertNotVisible: '.*Importe no disponible.*'`,
+      ),
+    );
+    stock.rejected(other, checkout.snapshot('b'), 1);
+    record('bf308-recovery-one-sale-one-payment-one-debit', 'PASS');
+    return;
+  }
   if (process.argv[2] === 'checkout') {
     const checkout = require('./checkout.cjs');
     stage = 'checkout-fixtures';

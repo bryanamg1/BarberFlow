@@ -21,6 +21,7 @@ function verifyBranch(branch, mode) {
   const allowed = {
     'bryan/test/bf305-login-session-e2e': ['prepare', 'suite', 'canary', 'auth'],
     'bryan/test/bf306-checkout-e2e': ['prepare', 'checkout'],
+    'bryan/test/bf308-insufficient-stock-e2e': ['prepare', 'insufficient-stock'],
   };
   assert.ok(allowed[branch]?.includes(mode), 'Unapproved native task/mode');
 }

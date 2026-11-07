@@ -1,0 +1,19 @@
+appId: dev.barberflow.e2e.bf305
+---
+- hideKeyboard
+- scrollUntilVisible:
+    element: 'Stock disponible: 2 · Demanda total del producto: 2'
+    direction: UP
+    timeout: 20000
+- scrollUntilVisible:
+    element: 'Método de pago: Efectivo'
+    direction: DOWN
+    timeout: 20000
+- tapOn: 'Método de pago: Efectivo'
+- scrollUntilVisible:
+    element: Completar venta
+    direction: DOWN
+    timeout: 20000
+- assertVisible:
+    text: Completar venta
+    enabled: true

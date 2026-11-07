@@ -1,0 +1,12 @@
+appId: dev.barberflow.e2e.bf305
+---
+- tapOn: Editar con una nueva intención
+- assertNotVisible: 'Ocurrió un error\. No hay stock suficiente para completar la venta\.'
+- scrollUntilVisible:
+    element: Cantidad de producto de línea 1
+    direction: UP
+    centerElement: true
+    timeout: 20000
+- tapOn:
+    text: '^2$'
+    below: Cantidad de producto de línea 1

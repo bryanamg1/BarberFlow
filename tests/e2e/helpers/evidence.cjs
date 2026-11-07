@@ -30,7 +30,7 @@ function record(directory, name, values) {
     runId: /^[0-9TZ-]+-[a-f0-9]{8}$/,
     sha: /^[a-f0-9]{40}$/,
     platform: /^web-chromium$/,
-    case: /^BF30[56]-\d+$/,
+    case: /^BF30[568]-\d+$/,
     result: /^(PASS|FAIL|passed|failed|timedOut|interrupted|skipped)$/,
     cleanup: /^(PASS|FAIL)$/,
     stage:
@@ -54,7 +54,7 @@ function record(directory, name, values) {
 
 class SafeReporter {
   onTestEnd(test, result) {
-    const name = test.title.match(/^BF30[56]-\d+/)?.[0];
+    const name = test.title.match(/^BF30[568]-\d+/)?.[0];
     if (!name || !process.env.E2E_RUN_DIRECTORY) throw new Error('Unidentified E2E case');
     record(process.env.E2E_RUN_DIRECTORY, name.toLowerCase(), {
       runId: process.env.E2E_RUN_ID,

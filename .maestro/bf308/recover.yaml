@@ -1,0 +1,13 @@
+appId: dev.barberflow.e2e.bf305
+---
+- hideKeyboard
+- scrollUntilVisible:
+    element: Completar venta
+    direction: DOWN
+    timeout: 20000
+- tapOn: Completar venta
+- extendedWaitUntil:
+    visible: Completada
+    timeout: 30000
+- assertVisible: Detalle de venta
+- assertNotVisible: Completar venta

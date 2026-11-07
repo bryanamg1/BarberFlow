@@ -1,7 +1,14 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { test: base, expect, accounts, login, restrictToLocal } = require('../helpers/auth.cjs');
+const {
+  test: base,
+  expect,
+  accounts,
+  login,
+  restrictToLocal,
+  caller,
+} = require('../helpers/auth.cjs');
 const { manifest } = require('../helpers/environment.cjs');
 const checkout = require('../../../scripts/e2e/checkout.cjs');
 const local = require('../../../scripts/e2e/local.cjs');
@@ -109,31 +116,6 @@ async function detail(page, expected) {
     );
   await expect(page.getByText(/Importe no disponible/)).toHaveCount(0);
   return { id, actual };
-}
-
-// Reuse only the real caller's browser request headers in memory. No privileged SDK/client.
-function caller(page) {
-  let headers;
-  page.on('request', (request) => {
-    if (request.url().startsWith(`${manifest.supabaseUrl}/rest/v1/`)) {
-      const h = request.headers();
-      if (h.authorization) headers = { authorization: h.authorization, apikey: h.apikey };
-    }
-  });
-  return async (resource, body) => {
-    assert.ok(headers, 'Real authenticated browser request required');
-    return page.evaluate(
-      async ({ url, headers, body }) => {
-        const response = await fetch(url, {
-          method: body ? 'POST' : 'GET',
-          headers: { ...headers, 'Content-Type': 'application/json' },
-          ...(body ? { body: JSON.stringify(body) } : {}),
-        });
-        return { status: response.status, data: await response.json() };
-      },
-      { url: `${manifest.supabaseUrl}/rest/v1/${resource}`, headers, body },
-    );
-  };
 }
 
 test('BF306-01 service checkout, persisted detail, replace and history', async ({ page }) => {

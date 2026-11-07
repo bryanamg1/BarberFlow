@@ -15,9 +15,10 @@ function fixture(key = 'a') {
   };
 }
 
-function seed(users, { servicePrice = '15.01' } = {}) {
+function seed(users, { servicePrice = '15.01', openingStock = 20 } = {}) {
   guard();
   assert.ok(['15.01', '10.02'].includes(servicePrice));
+  assert.ok([1, 20].includes(openingStock));
   for (const key of ['a', 'b']) {
     const user = users[key],
       f = fixture(key);
@@ -32,7 +33,7 @@ function seed(users, { servicePrice = '15.01' } = {}) {
       INSERT INTO public.products(id,business_id,name,sale_price,default_purchase_cost,minimum_stock)
         VALUES('${f.productId}','${user.businessId}','${f.productName}',10.02,4.03,1);
       INSERT INTO public.stock_movements(id,business_id,product_id,type,quantity_delta,created_by,occurred_at)
-        VALUES('${f.movementId}','${user.businessId}','${f.productId}','ADJUSTMENT',20,'${user.userId}','2026-01-01T00:00:00Z');
+        VALUES('${f.movementId}','${user.businessId}','${f.productId}','ADJUSTMENT',${openingStock},'${user.userId}','2026-01-01T00:00:00Z');
       INSERT INTO public.business_settings(business_id) VALUES('${user.businessId}');
       INSERT INTO public.appointments(id,business_id,client_id,barber_member_id,start_at,end_at,status,created_by)
         VALUES('${f.appointmentId}','${user.businessId}','${user.clientId}','${user.memberId}',
@@ -43,7 +44,7 @@ function seed(users, { servicePrice = '15.01' } = {}) {
   }
   assert.equal(local.sql('SELECT count(*) FROM public.sales'), '0');
   assert.equal(local.sql('SELECT count(*) FROM auth.sessions'), '0');
-  for (const key of ['a', 'b']) assert.equal(stock(key), '20');
+  for (const key of ['a', 'b']) assert.equal(stock(key), String(openingStock));
 }
 
 function reset(users, options) {
@@ -82,6 +83,7 @@ function cents(value) {
 
 function verify(actual, expected) {
   const { sales, items, payments, movements } = actual;
+  const openingStock = expected.openingStock ?? 20;
   assert.equal(sales.length, 1, 'Exactly one sale must persist');
   const sale = sales[0];
   assert.equal(sale.status, 'COMPLETED');
@@ -121,7 +123,7 @@ function verify(actual, expected) {
   const original = movements.find((m) => m.id === fixture().movementId);
   assert.ok(original);
   assert.equal(original.type, 'ADJUSTMENT');
-  assert.equal(original.quantity_delta, 20);
+  assert.equal(original.quantity_delta, openingStock);
   assert.equal(original.occurred_at, '2026-01-01T00:00:00+00:00');
   const product = expected.items.find((item) => item.type === 'PRODUCT');
   assert.equal(movements.length, product ? 2 : 1);
@@ -135,7 +137,7 @@ function verify(actual, expected) {
   }
   assert.equal(
     movements.reduce((sum, m) => sum + m.quantity_delta, 0),
-    20 - (product?.quantity || 0),
+    openingStock - (product?.quantity || 0),
   );
   assert.equal(actual.appointment.status, expected.linked ? 'COMPLETED' : 'CONFIRMED');
   assert.equal(actual.appointmentItems[0].service_name_snapshot, 'BF306 Historical service');

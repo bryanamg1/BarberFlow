@@ -2,6 +2,7 @@ const { test: base, expect } = require('@playwright/test');
 const { accountGuard, guard, manifest } = require('./environment.cjs');
 const path = require('node:path');
 const { redactTestError } = require('./diagnostics.cjs');
+const assert = require('node:assert/strict');
 
 async function restrictToLocal(context) {
   await context.route('**/*', async (route) => {
@@ -34,7 +35,7 @@ const test = base.extend({
             .screenshot({
               path: path.join(
                 process.env.E2E_RUN_DIRECTORY,
-                `${testInfo.title.match(/^BF30[56]-\d+/)?.[0].toLowerCase()}-failure.png`,
+                `${testInfo.title.match(/^BF30[568]-\d+/)?.[0].toLowerCase()}-failure.png`,
               ),
               mask: [page.locator('input, textarea')],
             })
@@ -78,4 +79,41 @@ async function clients(page, user, foreign) {
   await expect(page.getByText(foreign.clientName, { exact: true })).toHaveCount(0);
 }
 
-module.exports = { test, expect, accounts, login, logout, settings, clients, restrictToLocal };
+// Reuse only the real caller's browser request headers in memory.
+function caller(page) {
+  let headers;
+  page.on('request', (request) => {
+    if (request.url().startsWith(`${manifest.supabaseUrl}/rest/v1/`)) {
+      const requestHeaders = request.headers();
+      if (requestHeaders.authorization)
+        headers = { authorization: requestHeaders.authorization, apikey: requestHeaders.apikey };
+    }
+  });
+  return async (resource, body) => {
+    assert.ok(headers, 'Real authenticated browser request required');
+    return page.evaluate(
+      async ({ url, headers, body }) => {
+        const response = await fetch(url, {
+          method: body ? 'POST' : 'GET',
+          headers: { ...headers, 'Content-Type': 'application/json' },
+          ...(body ? { body: JSON.stringify(body) } : {}),
+          signal: AbortSignal.timeout(20000),
+        });
+        return { status: response.status, data: await response.json() };
+      },
+      { url: `${manifest.supabaseUrl}/rest/v1/${resource}`, headers, body },
+    );
+  };
+}
+
+module.exports = {
+  test,
+  expect,
+  accounts,
+  login,
+  logout,
+  settings,
+  clients,
+  restrictToLocal,
+  caller,
+};
