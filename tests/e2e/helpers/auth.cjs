@@ -35,7 +35,7 @@ const test = base.extend({
             .screenshot({
               path: path.join(
                 process.env.E2E_RUN_DIRECTORY,
-                `${testInfo.title.match(/^BF30[568]-\d+/)?.[0].toLowerCase()}-failure.png`,
+                `${testInfo.title.match(/^BF30(?:4A|[568])-\d+/)?.[0].toLowerCase()}-failure.png`,
               ),
               mask: [page.locator('input, textarea')],
             })

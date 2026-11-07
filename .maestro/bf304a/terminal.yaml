@@ -1,0 +1,7 @@
+appId: dev.barberflow.e2e.bf305
+---
+- extendedWaitUntil:
+    visible: '.*Esta cita no permite edición.*'
+    timeout: 30000
+- assertNotVisible: Guardar notas
+- assertNotVisible: Guardar reprogramación

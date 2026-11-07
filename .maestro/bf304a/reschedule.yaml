@@ -1,0 +1,21 @@
+appId: dev.barberflow.e2e.bf305
+---
+- scrollUntilVisible:
+    element: Editar cita
+    direction: DOWN
+    timeout: 20000
+- tapOn: Editar cita
+- tapOn: Reprogramar cita
+- scrollUntilVisible:
+    element: '^Horario: [^→]*10:00:00[^→]*→.* · Disponible$'
+    direction: DOWN
+    timeout: 20000
+- tapOn: '^Horario: [^→]*10:00:00[^→]*→.* · Disponible$'
+- scrollUntilVisible:
+    element: Guardar reprogramación
+    direction: DOWN
+    timeout: 20000
+- tapOn: Guardar reprogramación
+- extendedWaitUntil:
+    visible: 'Estado: Pendiente'
+    timeout: 30000

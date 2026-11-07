@@ -1,0 +1,18 @@
+appId: dev.barberflow.e2e.bf305
+---
+- hideKeyboard
+- scrollUntilVisible:
+    element: '^Horario: [^→]*09:00:00[^→]*→.* · Disponible$'
+    direction: DOWN
+    timeout: 20000
+- tapOn: '^Horario: [^→]*09:00:00[^→]*→.* · Disponible$'
+- scrollUntilVisible:
+    element: Crear cita
+    direction: DOWN
+    timeout: 20000
+- tapOn: Crear cita
+- extendedWaitUntil:
+    visible: 'Estado: Pendiente'
+    timeout: 30000
+- assertVisible: 'Cliente: BF304A Cliente'
+- assertVisible: 'Profesional: Barbero [0-9]+'

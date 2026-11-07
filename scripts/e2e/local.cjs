@@ -178,12 +178,14 @@ function baseline() {
     'businesses',(SELECT count(*) FROM public.businesses),
     'members',(SELECT count(*) FROM public.business_members),
     'clients',(SELECT count(*) FROM public.clients),
+    'services',(SELECT count(*) FROM public.services),
     'sessions',(SELECT count(*) FROM auth.sessions),
     'refreshTokens',(SELECT count(*) FROM auth.refresh_tokens),
     'sales',(SELECT count(*) FROM public.sales),
     'purchases',(SELECT count(*) FROM public.purchases),
     'stockMovements',(SELECT count(*) FROM public.stock_movements),
     'appointments',(SELECT count(*) FROM public.appointments),
+    'appointmentServices',(SELECT count(*) FROM public.appointment_services),
     'connections',(SELECT count(*) FROM pg_stat_activity WHERE application_name='bf305-e2e' AND pid<>pg_backend_pid()))`),
   );
   assert.deepEqual(actual, {
@@ -191,12 +193,14 @@ function baseline() {
     businesses: 1,
     members: 1,
     clients: 4,
+    services: 3,
     sessions: 0,
     refreshTokens: 0,
     sales: 0,
     purchases: 0,
     stockMovements: 0,
     appointments: 0,
+    appointmentServices: 0,
     connections: 0,
   });
   return actual;
@@ -215,8 +219,8 @@ function id(label) {
 }
 const literal = (value) => `'${value.replaceAll("'", "''")}'`;
 
-function accounts() {
-  return Object.fromEntries(
+function accounts({ withBarber = false } = {}) {
+  const users = Object.fromEntries(
     ['a', 'b'].map((key) => [
       key,
       {
@@ -230,11 +234,25 @@ function accounts() {
       },
     ]),
   );
+  if (withBarber) {
+    users.barber = {
+      ...users.a,
+      userId: id('bf304a-barber-a'),
+      memberId: id('bf304a-barber-membership-a'),
+      email: 'bf304a.barber-a@example.test',
+      password: randomBytes(24).toString('base64url'),
+    };
+  }
+  return users;
 }
 
 function seed(users) {
   for (const [key, user] of Object.entries(users)) {
+    assert.ok(['a', 'b', 'barber'].includes(key));
     accountGuard(user.email);
+    const tenant = key === 'b' ? 'B' : 'A';
+    const role = key === 'barber' ? 'BARBER' : 'OWNER';
+    assert.equal(user.businessId, id(`tenant-${tenant.toLowerCase()}`));
     const password = literal(user.password);
     sql(`BEGIN;
       INSERT INTO auth.users(instance_id,id,aud,role,email,encrypted_password,email_confirmed_at,confirmation_token,recovery_token,email_change_token_new,email_change,raw_app_meta_data,raw_user_meta_data,is_super_admin,is_sso_user,is_anonymous,created_at,updated_at)
@@ -242,8 +260,8 @@ function seed(users) {
       INSERT INTO auth.identities(id,provider_id,user_id,identity_data,provider,created_at,updated_at)
       VALUES('${id(`identity-${key}`)}','${user.userId}','${user.userId}','{"sub":"${user.userId}","email":"${user.email}","email_verified":true}','email',now(),now()) ON CONFLICT(id) DO NOTHING;
       INSERT INTO public.profiles(id,first_name,last_name) VALUES('${user.userId}','E2E ${key.toUpperCase()}','Synthetic') ON CONFLICT(id) DO NOTHING;
-      INSERT INTO public.businesses(id,name,currency_code,timezone) VALUES('${user.businessId}','BF305 Tenant ${key.toUpperCase()}','ARS','UTC') ON CONFLICT(id) DO NOTHING;
-      INSERT INTO public.business_members(id,business_id,user_id,role,is_active) VALUES('${user.memberId}','${user.businessId}','${user.userId}','OWNER',true) ON CONFLICT(id) DO NOTHING;
+      INSERT INTO public.businesses(id,name,currency_code,timezone) VALUES('${user.businessId}','BF305 Tenant ${tenant}','ARS','UTC') ON CONFLICT(id) DO NOTHING;
+      INSERT INTO public.business_members(id,business_id,user_id,role,is_active) VALUES('${user.memberId}','${user.businessId}','${user.userId}','${role}',true) ON CONFLICT(id) DO NOTHING;
       INSERT INTO public.clients(id,business_id,first_name) VALUES('${user.clientId}','${user.businessId}','${user.clientName}') ON CONFLICT(id) DO NOTHING;
       COMMIT;`);
     // Idempotent preparation accepts only equivalent rows, including the runtime password.
@@ -253,8 +271,8 @@ function seed(users) {
       JOIN public.businesses b ON b.id=m.business_id JOIN public.clients c ON c.business_id=b.id
       WHERE u.id='${user.userId}' AND u.email='${user.email}' AND u.encrypted_password=extensions.crypt(${password},u.encrypted_password)
       AND i.provider='email' AND i.provider_id=u.id::text AND i.identity_data->>'email'='${user.email}'
-      AND b.id='${user.businessId}' AND b.name='BF305 Tenant ${key.toUpperCase()}' AND b.is_active
-      AND m.id='${user.memberId}' AND m.role='OWNER' AND m.is_active AND c.id='${user.clientId}' AND c.first_name='${user.clientName}'
+      AND b.id='${user.businessId}' AND b.name='BF305 Tenant ${tenant}' AND b.is_active
+      AND m.id='${user.memberId}' AND m.role='${role}' AND m.is_active AND c.id='${user.clientId}' AND c.first_name='${user.clientName}'
       AND (SELECT count(*) FROM public.business_members WHERE user_id=u.id AND is_active)=1`),
       '1',
       'E2E fixture mismatch',

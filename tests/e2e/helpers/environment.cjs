@@ -24,7 +24,11 @@ function guard(candidate = manifest, env = process.env) {
 }
 
 function accountGuard(email) {
-  assert.match(email, /^bf305\.owner-[ab]@example\.test$/, 'Non-synthetic account refused');
+  assert.match(
+    email,
+    /^(?:bf305\.owner-[ab]|bf304a\.barber-a)@example\.test$/,
+    'Non-synthetic account refused',
+  );
 }
 
 function resetArguments(extra = []) {

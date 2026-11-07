@@ -1,0 +1,13 @@
+appId: dev.barberflow.e2e.bf305
+---
+- scrollUntilVisible:
+    element: Cancelar cita
+    direction: DOWN
+    timeout: 20000
+- tapOn: Cancelar cita
+- tapOn: Confirmar cambio de estado
+- scrollUntilVisible:
+    element: 'Estado: Cancelada'
+    direction: UP
+    timeout: 30000
+- assertNotVisible: Editar cita

@@ -1,0 +1,25 @@
+appId: dev.barberflow.e2e.bf305
+---
+- tapOn: Acciones rápidas
+- tapOn: Nuevo turno
+- scrollUntilVisible:
+    element: 'Seleccionar cliente: BF304A Cliente'
+    direction: DOWN
+    timeout: 20000
+- tapOn: 'Seleccionar cliente: BF304A Cliente'
+- scrollUntilVisible:
+    element: 'Seleccionar profesional: Barbero [0-9]+'
+    direction: DOWN
+    timeout: 20000
+- tapOn: 'Seleccionar profesional: Barbero [0-9]+'
+- scrollUntilVisible:
+    element: 'Agregar servicio: BF304A Servicio'
+    direction: DOWN
+    timeout: 20000
+- tapOn: 'Agregar servicio: BF304A Servicio'
+- scrollUntilVisible:
+    element: AAAA-MM-DD
+    direction: DOWN
+    centerElement: true
+    timeout: 20000
+- tapOn: AAAA-MM-DD

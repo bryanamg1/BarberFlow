@@ -404,7 +404,7 @@ function checkoutResult(name, expected) {
 async function main() {
   guard();
   assert.ok(
-    ['suite', 'canary', 'auth', 'checkout', 'insufficient-stock'].includes(
+    ['suite', 'canary', 'auth', 'checkout', 'insufficient-stock', 'appointment-lifecycle'].includes(
       process.argv[2] || 'suite',
     ),
   );
@@ -507,12 +507,80 @@ async function main() {
     return;
   }
   stage = 'fixtures';
-  users = local.accounts();
+  users = local.accounts({ withBarber: process.argv[2] === 'appointment-lifecycle' });
   local.seed(users);
   assert.equal(sessionCount(users.a), '0');
   assert.equal(sessionCount(users.b), '0');
   clearApp();
   record('native-pre-run-reset', 'PASS');
+  if (process.argv[2] === 'appointment-lifecycle') {
+    const lifecycle = require('./appointment-lifecycle.cjs');
+    const scenario = (name) =>
+      maestro(
+        `bf304a-${name}`,
+        fs
+          .readFileSync(path.join(root, `.maestro/bf304a/${name}.yaml`), 'utf8')
+          .replaceAll('\r', ''),
+      );
+    stage = 'appointment-lifecycle-fixtures';
+    lifecycle.seed(users);
+    const day = lifecycle.today();
+    assert.match(day, /^\d{4}-\d{2}-\d{2}$/);
+    stage = 'appointment-lifecycle-login';
+    await login('bf304a-owner', users.a);
+    stage = 'appointment-lifecycle-create';
+    scenario('select');
+    type(day);
+    scenario('create');
+    const created = lifecycle.createdAppointment();
+    const expected = {
+      client_id: users.a.clientId,
+      barber_member_id: users.barber.memberId,
+      start_at: `${day}T12:00:00+00:00`,
+      end_at: `${day}T12:30:00+00:00`,
+      status: 'PENDING',
+      service: lifecycle.fixtures.service,
+      name: lifecycle.names.service,
+      price: '12.50',
+    };
+    lifecycle.assertAppointment(created, expected);
+    record('bf304a-create-persistence', 'PASS');
+    stage = 'appointment-lifecycle-reschedule';
+    scenario('reschedule');
+    const updated = lifecycle.createdAppointment();
+    lifecycle.assertAppointment(updated, {
+      ...expected,
+      start_at: `${day}T13:00:00+00:00`,
+      end_at: `${day}T13:30:00+00:00`,
+    });
+    assert.equal(updated.id, created.id);
+    assert.deepEqual(updated.items, created.items);
+    record('bf304a-reschedule-persistence', 'PASS');
+    stage = 'appointment-lifecycle-terminal';
+    scenario('cancel');
+    const terminal = lifecycle.createdAppointment();
+    assert.deepEqual(terminal, {
+      ...updated,
+      status: 'CANCELLED',
+      updated_at: terminal.updated_at,
+    });
+    adb([
+      'shell',
+      'am',
+      'start',
+      '-a',
+      'android.intent.action.VIEW',
+      '-d',
+      `barberflow://appointments/${terminal.id}/edit`,
+      '-p',
+      target.appId,
+    ]);
+    scenario('terminal');
+    assert.deepEqual(lifecycle.createdAppointment(), terminal);
+    assert.deepEqual(lifecycle.counts(), { clients: 1, services: 1, appointments: 3, sales: 0 });
+    record('bf304a-terminal-persistence', 'PASS');
+    return;
+  }
   if (process.argv[2] === 'insufficient-stock') {
     const checkout = require('./checkout.cjs');
     const stock = require('./insufficient-stock.cjs');
