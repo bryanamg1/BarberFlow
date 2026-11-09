@@ -1,5 +1,5 @@
 import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
-import { defaultScheduler, notifyManager } from '@tanstack/react-query';
+import { defaultScheduler, notifyManager, QueryObserver } from '@tanstack/react-query';
 import { uuid } from 'expo-modules-core';
 import { useIsFocused } from 'expo-router';
 import { useAuth } from '@/features/auth/context/AuthContext';
@@ -9,6 +9,7 @@ import { expenseCategoriesService } from '@/features/expenses/services/expenseCa
 import { PurchaseDraftLifecycle } from '@/features/purchases/store/PurchaseDraftLifecycle';
 import { purchaseDraftStore } from '@/features/purchases/store/purchaseDraftStore';
 import { completePurchaseError } from '@/features/purchases/services/completePurchaseErrors';
+import { purchasesKeys } from '@/features/purchases/constants/purchasesKeys';
 import NewRoute from '@/app/(app)/purchases/new';
 import { renderWithProviders } from '@/test/renderWithProviders';
 import { routerMock } from '@/test/routerTestUtils';
@@ -152,6 +153,50 @@ test('BF212 exact create, canonical purchase only, persisted detail replace and 
   await waitFor(() => expect(invalidate).toHaveBeenCalledTimes(4));
   for (const prefix of ['inventory', 'purchases', 'products', 'expenses'])
     expect(invalidate).toHaveBeenCalledWith({ queryKey: [prefix, businessId] });
+});
+test('BF307 refreshes the mounted history before replacement can unmount the purchase form', async () => {
+  const ui = await renderWithProviders(<Tree />);
+  const params = { page: 1, pageSize: 25 };
+  const scope = { businessId, userId: 'u', membershipId: 'm' };
+  const historyKey = purchasesKeys.list(scope, params);
+  const otherBusinessKey = purchasesKeys.list({ ...scope, businessId: id(999) }, params);
+  const unrelatedKey = ['appointments', businessId];
+  const original = { items: [], ...params, hasNextPage: false };
+  const refreshed = { ...original, items: [saved().purchase] };
+  const queryFn = jest.fn(async () => refreshed);
+  ui.queryClient.setQueryData(historyKey, original);
+  ui.queryClient.setQueryData(otherBusinessKey, original);
+  ui.queryClient.setQueryData(unrelatedKey, original);
+  const history = new QueryObserver(ui.queryClient, {
+    queryKey: historyKey,
+    queryFn,
+    staleTime: 60_000,
+  });
+  const unsubscribe = history.subscribe(() => undefined);
+  let invalidatedAtNavigation: boolean | undefined;
+  let unmount: ReturnType<typeof ui.rerender> | undefined;
+  routerMock.replace.mockImplementationOnce(() => {
+    invalidatedAtNavigation = ui.queryClient.getQueryState(historyKey)?.isInvalidated;
+    unmount = ui.rerender(<Tree show={false} />);
+  });
+  try {
+    expect(queryFn).not.toHaveBeenCalled();
+    await fill();
+    await fireEvent.press(screen.getByRole('button', { name: 'Registrar compra' }));
+    await waitFor(() => expect(routerMock.replace).toHaveBeenCalledTimes(1));
+    await unmount;
+    expect(screen.queryByLabelText('Proveedor (obligatorio)')).toBeNull();
+    expect(invalidatedAtNavigation).toBe(true);
+    await waitFor(() => expect(ui.queryClient.getQueryData(historyKey)).toEqual(refreshed));
+    expect(queryFn).toHaveBeenCalledTimes(1);
+    for (const key of [otherBusinessKey, unrelatedKey]) {
+      expect(ui.queryClient.getQueryData(key)).toEqual(original);
+      expect(ui.queryClient.getQueryState(key)?.isInvalidated).toBe(false);
+    }
+    expect(service.completePurchase).toHaveBeenCalledTimes(1);
+  } finally {
+    unsubscribe();
+  }
 });
 test('BF212 duplicate product lines stay distinct; different costs reject and do not average', async () => {
   const ui = await renderWithProviders(<Tree />);

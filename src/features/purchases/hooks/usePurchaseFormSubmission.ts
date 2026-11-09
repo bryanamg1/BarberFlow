@@ -57,18 +57,14 @@ export function usePurchaseFormSubmission(
       if (!live.current) return;
       a.phase = 'success';
       setVisible({ ...a });
-      // BF216 already refreshes inventory. Only the additional existing affected
-      // prefixes are refreshed here; maintenance never becomes a financial retry.
+      // Start these invalidations before navigation can unmount the form.
+      // Refetches settle independently of the confirmed write and navigation.
       void Promise.allSettled(
         [
           purchasesKeys.byBusiness(scope.businessId),
           productsKeys.byBusiness(scope.businessId),
           expensesKeys.byBusiness(scope.businessId),
-        ].map((queryKey) =>
-          Promise.resolve().then(() => {
-            if (live.current) return client.invalidateQueries({ queryKey });
-          }),
-        ),
+        ].map(async (queryKey) => client.invalidateQueries({ queryKey })),
       );
       onSaved(data);
     } catch (reason) {
