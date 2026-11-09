@@ -1,0 +1,11 @@
+appId: dev.barberflow.e2e.bf305
+---
+- hideKeyboard
+- scrollUntilVisible:
+    element: Registrar compra
+    direction: DOWN
+    timeout: 20000
+- tapOn: Registrar compra
+- extendedWaitUntil:
+    visible: Completada
+    timeout: 30000

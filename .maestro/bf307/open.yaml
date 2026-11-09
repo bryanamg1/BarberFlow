@@ -1,0 +1,7 @@
+appId: dev.barberflow.e2e.bf305
+---
+- extendedWaitUntil:
+    visible: Nueva compra
+    timeout: 30000
+- tapOn: Nueva compra
+- tapOn: 'Proveedor \(obligatorio\)'

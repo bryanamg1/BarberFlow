@@ -19,7 +19,13 @@ function webCommand() {
 }
 
 function webSpec(mode) {
-  const dedicated = ['appointment-lifecycle', 'insufficient-stock', 'checkout', 'smoke'];
+  const dedicated = [
+    'appointment-lifecycle',
+    'insufficient-stock',
+    'checkout',
+    'purchase',
+    'smoke',
+  ];
   const name = dedicated.includes(mode) ? mode : mode === 'auth' ? 'auth-session' : 'session';
   // Playwright treats CLI file filters as regexes, not exact basenames.
   return `(?:^|[\\\\/])${name}\\.spec\\.cjs$`;

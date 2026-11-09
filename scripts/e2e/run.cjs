@@ -94,6 +94,7 @@ async function main() {
       'checkout',
       'insufficient-stock',
       'appointment-lifecycle',
+      'purchase',
     ].includes(mode),
     'Unknown E2E command',
   );
@@ -138,12 +139,15 @@ async function main() {
     event('baseline', 'PASS');
     if (mode === 'reset') return;
     stage = 'fixtures';
-    const users = local.accounts({ withBarber: mode === 'appointment-lifecycle' });
+    const users = local.accounts({
+      withBarber: ['appointment-lifecycle', 'purchase'].includes(mode),
+    });
     local.seed(users);
     local.seed(users); // Re-preparation must reconcile without duplicate identities or memberships.
     if (mode === 'checkout') require('./checkout.cjs').seed(users);
     if (mode === 'insufficient-stock') require('./insufficient-stock.cjs').seed(users);
     if (mode === 'appointment-lifecycle') require('./appointment-lifecycle.cjs').seed(users);
+    if (mode === 'purchase') require('./purchase.cjs').seed(users);
     event('fixtures', 'PASS');
     const key = local.publicKey();
     stage = 'backend-health';
@@ -223,7 +227,7 @@ async function main() {
     runner.process.stdout.removeAllListeners('data');
     runner.process.stdout.on('data', (chunk) => {
       for (const line of chunk.toString().split(/\r?\n/)) {
-        if (/^BF30(?:4A|[568])-\d+: (passed|failed|timedOut|interrupted|skipped)$/.test(line))
+        if (/^BF30(?:4A|[5678])-\d+: (passed|failed|timedOut|interrupted|skipped)$/.test(line))
           process.stdout.write(`${line}\n`);
       }
     });
@@ -262,7 +266,9 @@ async function main() {
         [
           'full-reset',
           () => {
-            if (resetReady) local.fullReset();
+            if (!resetReady) return;
+            local.fullReset();
+            if (mode === 'purchase') require('./purchase.cjs').verifyReset();
           },
         ],
         [

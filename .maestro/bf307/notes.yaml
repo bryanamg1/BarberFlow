@@ -1,0 +1,9 @@
+appId: dev.barberflow.e2e.bf305
+---
+- hideKeyboard
+- scrollUntilVisible:
+    element: Notas
+    direction: DOWN
+    centerElement: true
+    timeout: 20000
+- tapOn: '^Notas$'

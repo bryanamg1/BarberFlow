@@ -35,7 +35,7 @@ const test = base.extend({
             .screenshot({
               path: path.join(
                 process.env.E2E_RUN_DIRECTORY,
-                `${testInfo.title.match(/^BF30(?:4A|[568])-\d+/)?.[0].toLowerCase()}-failure.png`,
+                `${testInfo.title.match(/^BF30(?:4A|[5678])-\d+/)?.[0].toLowerCase()}-failure.png`,
               ),
               mask: [page.locator('input, textarea')],
             })
@@ -89,19 +89,22 @@ function caller(page) {
         headers = { authorization: requestHeaders.authorization, apikey: requestHeaders.apikey };
     }
   });
-  return async (resource, body) => {
+  return async (resource, body, method = body ? 'POST' : 'GET') => {
     assert.ok(headers, 'Real authenticated browser request required');
     return page.evaluate(
-      async ({ url, headers, body }) => {
+      async ({ url, headers, body, method }) => {
         const response = await fetch(url, {
-          method: body ? 'POST' : 'GET',
+          method,
           headers: { ...headers, 'Content-Type': 'application/json' },
           ...(body ? { body: JSON.stringify(body) } : {}),
           signal: AbortSignal.timeout(20000),
         });
-        return { status: response.status, data: await response.json() };
+        return {
+          status: response.status,
+          data: response.status === 204 ? null : await response.json(),
+        };
       },
-      { url: `${manifest.supabaseUrl}/rest/v1/${resource}`, headers, body },
+      { url: `${manifest.supabaseUrl}/rest/v1/${resource}`, headers, body, method },
     );
   };
 }

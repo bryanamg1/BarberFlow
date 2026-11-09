@@ -404,9 +404,15 @@ function checkoutResult(name, expected) {
 async function main() {
   guard();
   assert.ok(
-    ['suite', 'canary', 'auth', 'checkout', 'insufficient-stock', 'appointment-lifecycle'].includes(
-      process.argv[2] || 'suite',
-    ),
+    [
+      'suite',
+      'canary',
+      'auth',
+      'checkout',
+      'insufficient-stock',
+      'appointment-lifecycle',
+      'purchase',
+    ].includes(process.argv[2] || 'suite'),
   );
   assert.equal(process.env.E2E_AUTH_PROFILE, undefined);
   if (process.argv[2] === 'auth') process.env.E2E_AUTH_PROFILE = authControl.profile.name;
@@ -513,6 +519,79 @@ async function main() {
   assert.equal(sessionCount(users.b), '0');
   clearApp();
   record('native-pre-run-reset', 'PASS');
+  if (process.argv[2] === 'purchase') {
+    const purchase = require('./purchase.cjs');
+    const flow = (name, suffix = '') =>
+      maestro(
+        'bf307-' + name + suffix,
+        fs
+          .readFileSync(path.join(root, '.maestro/bf307', name + '.yaml'), 'utf8')
+          .replaceAll('\r', ''),
+      );
+    stage = 'purchase-fixtures';
+    purchase.seed(users);
+    const before = purchase.snapshot();
+    const other = purchase.snapshot('b');
+    stage = 'purchase-login';
+    await login('bf307-owner', users.a);
+    adb([
+      'shell',
+      'am',
+      'start',
+      '-W',
+      '-a',
+      'android.intent.action.VIEW',
+      '-d',
+      'barberflow://purchases',
+      launcherComponent,
+    ]);
+    stage = 'purchase-form';
+    flow('open');
+    adb(['shell', 'input', 'text', purchase.supplier.replaceAll(' ', '%s')]);
+    flow('date');
+    adb(['shell', 'input', 'text', purchase.purchasedAt]);
+    flow('notes');
+    adb(['shell', 'input', 'text', purchase.notes.replaceAll(' ', '%s')]);
+    flow('product');
+    adb(['shell', 'input', 'keyevent', 'KEYCODE_MOVE_END', 'KEYCODE_DEL']);
+    type('5');
+    flow('cost');
+    type('6.00');
+    stage = 'purchase-submit';
+    flow('register');
+    const completed = purchase.snapshot();
+    const persisted = purchase.verify(before, completed);
+    record('BF307-android-purchase-stock-cost-expense', 'PASS');
+    stage = 'purchase-history';
+    flow('detail');
+    authRuntime = await nativeAuth.connect();
+    const showingPersistedDetail = () =>
+      authRuntime.evaluate(`(() => {
+        for (const module of globalThis.__r.getModules().values()) {
+          if (!module.isInitialized) continue;
+          const client = module.publicModule.exports?.queryClient;
+          if (!client?.getQueryCache) continue;
+          return client.getQueryCache().findAll({
+            queryKey: ${JSON.stringify(['purchases', users.a.businessId, 'detail'])},
+            type: 'active',
+          }).some(query => query.queryKey[4] === ${JSON.stringify(persisted.id)}
+            && query.state.data?.purchase.id === ${JSON.stringify(persisted.id)});
+        }
+        return false;
+      })()`);
+    assert.equal(await showingPersistedDetail(), true);
+    for (const cycle of [1, 2]) {
+      const suffix = '-' + cycle;
+      maestro('bf307-back' + suffix, yaml('- back\n- assertNotVisible: Registrar compra'));
+      flow('history', suffix);
+      flow('detail', suffix);
+      assert.equal(await showingPersistedDetail(), true);
+      assert.deepEqual(purchase.snapshot(), completed);
+    }
+    assert.deepEqual(purchase.snapshot('b'), other);
+    record('BF307-android-history-back-no-duplicate', 'PASS');
+    return;
+  }
   if (process.argv[2] === 'appointment-lifecycle') {
     const lifecycle = require('./appointment-lifecycle.cjs');
     const scenario = (name) =>
@@ -891,7 +970,9 @@ main()
         [
           'backend-reset',
           () => {
-            if (resetReady) local.fullReset();
+            if (!resetReady) return;
+            local.fullReset();
+            if (process.argv[2] === 'purchase') require('./purchase.cjs').verifyReset();
           },
         ],
         [

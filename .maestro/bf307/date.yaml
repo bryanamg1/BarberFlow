@@ -1,0 +1,4 @@
+appId: dev.barberflow.e2e.bf305
+---
+- hideKeyboard
+- tapOn: 'Fecha y hora de compra \(ISO con zona\)'

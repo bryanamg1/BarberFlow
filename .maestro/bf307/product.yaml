@@ -1,0 +1,25 @@
+appId: dev.barberflow.e2e.bf305
+---
+- hideKeyboard
+- scrollUntilVisible:
+    element: 'Método: Efectivo'
+    direction: DOWN
+    timeout: 20000
+- tapOn: 'Método: Efectivo'
+- scrollUntilVisible:
+    element: 'Categoría de gasto: BF307 Mercaderia'
+    direction: DOWN
+    timeout: 20000
+- tapOn: 'Categoría de gasto: BF307 Mercaderia'
+- scrollUntilVisible:
+    element: 'Agregar producto: BF307 Producto A1'
+    direction: DOWN
+    centerElement: true
+    timeout: 20000
+- tapOn: 'Agregar producto: BF307 Producto A1'
+- scrollUntilVisible:
+    element: 'Cantidad de línea 1'
+    direction: UP
+    centerElement: true
+    timeout: 20000
+- tapOn: '^Cantidad de línea 1$'

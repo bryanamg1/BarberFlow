@@ -1,0 +1,19 @@
+appId: dev.barberflow.e2e.bf305
+---
+- extendedWaitUntil:
+    visible: BF307 Proveedor
+    timeout: 30000
+- assertVisible: Completada
+- assertVisible: "Total: ARS\u00A030,00"
+- scrollUntilVisible:
+    element: BF307 Producto A1
+    direction: DOWN
+    timeout: 20000
+- assertVisible: 'Cantidad: 5'
+- assertVisible: "Costo unitario histórico: ARS\u00A06,00"
+- scrollUntilVisible:
+    element: "Importe registrado: ARS\u00A030,00"
+    direction: DOWN
+    timeout: 20000
+- assertVisible: 'Fecha del gasto: 2026-11-01'
+- assertNotVisible: Registrar compra

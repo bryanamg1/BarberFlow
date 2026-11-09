@@ -1,0 +1,9 @@
+appId: dev.barberflow.e2e.bf305
+---
+- hideKeyboard
+- scrollUntilVisible:
+    element: 'Costo unitario de línea 1'
+    direction: DOWN
+    centerElement: true
+    timeout: 20000
+- tapOn: '^Costo unitario de línea 1$'

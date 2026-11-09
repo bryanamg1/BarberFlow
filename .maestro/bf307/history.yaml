@@ -1,0 +1,7 @@
+appId: dev.barberflow.e2e.bf305
+---
+- extendedWaitUntil:
+    visible: '^Ver compra: BF307 Proveedor, Completada,.*'
+    timeout: 30000
+- assertNotVisible: No hay compras registradas
+- tapOn: '^Ver compra: BF307 Proveedor, Completada,.*'
